@@ -31,7 +31,8 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        window.decorView.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         showLogin()
     }
 
@@ -168,7 +169,10 @@ class MainActivity : Activity() {
             0xFFFFFFFF.toInt(),
             true
         )
-        bar.addView(heading, LinearLayout.LayoutParams(0, dp(52), 1f))
+        bar.addView(
+            heading,
+            LinearLayout.LayoutParams(0, dp(52), 1f)
+        )
 
         val refresh = button("重新整理") {
             webView?.reload()
@@ -213,6 +217,17 @@ class MainActivity : Activity() {
                 progress.visibility =
                     if (newProgress in 1..99) View.VISIBLE else View.GONE
             }
+
+            override fun onConsoleMessage(
+                consoleMessage: android.webkit.ConsoleMessage
+            ): Boolean {
+                android.util.Log.e(
+                    "MarketWeb",
+                    "${consoleMessage.message()} " +
+                        "line=${consoleMessage.lineNumber()}"
+                )
+                return true
+            }
         }
 
         web.webViewClient = object : WebViewClient() {
@@ -228,6 +243,21 @@ class MainActivity : Activity() {
                     false
                 } else {
                     true
+                }
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: android.webkit.WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request?.isForMainFrame == true) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "市場頁面載入失敗，請檢查網路連線。",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
@@ -291,8 +321,10 @@ class MainActivity : Activity() {
 
         setContentView(root)
 
-        // 開啟專案內的 MEGA 市場介面
-        web.loadUrl("file:///android_asset/mega/index.html")
+        // 使用 HTTPS 載入 GitHub 上的市場介面
+        web.loadUrl(
+            "https://raw.githubusercontent.com/dylan0728-web/Market/main/app/src/main/assets/mega/index.html"
+        )
         web.requestFocus()
     }
 
@@ -309,6 +341,7 @@ class MainActivity : Activity() {
         bottomMargin = bottom
     }
 
+    @Suppress("DEPRECATION")
     override fun onBackPressed() {
         val web = webView
 
