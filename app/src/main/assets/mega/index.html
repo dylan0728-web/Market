@@ -1,0 +1,167 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Market APK 市場</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: sans-serif;
+      background: #f4f7fb;
+      color: #14243a;
+    }
+    h2 { margin-top: 0; }
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      background: #1976d2;
+      color: white;
+      font-size: 15px;
+    }
+    .item {
+      background: white;
+      border-radius: 10px;
+      padding: 14px;
+      margin: 10px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      overflow-wrap: anywhere;
+    }
+    .name { flex: 1; }
+    .status { color: #52657a; white-space: pre-wrap; }
+    .back { background: #52657a; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <h2>Market</h2>
+    <button class="back" onclick="goBack()">返回</button>
+  </div>
+
+  <p id="status" class="status">正在連線至 MEGA…</p>
+  <div id="list"></div>
+
+  <script type="module">
+    import { File } from
+      "https://unpkg.com/megajs@0.17/dist/main.browser-es.mjs";
+
+    const folderUrl =
+      "https://mega.nz/folder/R5cSWBSB#Sdi5JrEnsWi4KunYwnJ5GQ";
+
+    const status = document.getElementById("status");
+    const list = document.getElementById("list");
+    const history = [];
+    let currentFolder = null;
+
+    function showStatus(message) {
+      status.textContent = message;
+    }
+
+    function addItem(name, label, action) {
+      const row = document.createElement("div");
+      row.className = "item";
+
+      const title = document.createElement("span");
+      title.className = "name";
+      title.textContent = label + "  " + name;
+
+      const button = document.createElement("button");
+      button.textContent = label === "📁" ? "開啟" : "下載";
+      button.onclick = action;
+
+      row.append(title, button);
+      list.appendChild(row);
+    }
+
+    async function openFolder(folder, saveHistory = true) {
+      try {
+        showStatus("正在讀取資料夾…");
+        list.replaceChildren();
+
+        await folder.loadAttributes();
+
+        if (saveHistory && currentFolder) {
+          history.push(currentFolder);
+        }
+        currentFolder = folder;
+
+        const children = folder.children || [];
+
+        if (children.length === 0) {
+          showStatus("這個資料夾沒有檔案，或無法讀取內容。");
+          return;
+        }
+
+        showStatus("找到 " + children.length + " 個項目");
+
+        for (const item of children) {
+          const isFolder = item.directory === true;
+
+          if (!isFolder && !/\.apk$/i.test(item.name || "")) {
+            continue;
+          }
+
+          addItem(
+            item.name || "未命名",
+            isFolder ? "📁" : "📦",
+            async () => {
+              if (isFolder) {
+                await openFolder(item);
+              } else {
+                await downloadFile(item);
+              }
+            }
+          );
+        }
+      } catch (error) {
+        showStatus("讀取失敗：" + error.message);
+      }
+    }
+
+    async function downloadFile(file) {
+      try {
+        showStatus("正在下載及解密：" + file.name);
+        const data = await file.downloadBuffer();
+        const blob = new Blob([data], {
+          type: "application/vnd.android.package-archive"
+        });
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = file.name || "download.apk";
+        link.click();
+
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        showStatus("已完成檔案下載處理：" + file.name);
+      } catch (error) {
+        showStatus("下載失敗：" + error.message);
+      }
+    }
+
+    window.goBack = async function () {
+      const previous = history.pop();
+      if (previous) {
+        currentFolder = null;
+        await openFolder(previous, false);
+      } else {
+        showStatus("目前已在最上層資料夾。");
+      }
+    };
+
+    openFolder(File.fromURL(folderUrl), false);
+  </script>
+</body>
+</html>
