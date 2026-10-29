@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <application
         android:allowBackup="false"
-        android:label="皇奕科技 APK 市場"
+        android:label="Market"
         android:usesCleartextTraffic="false"
         android:theme="@style/AppTheme">
         <activity
