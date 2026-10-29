@@ -24,12 +24,8 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 
-/**
- * Test MVP only. This demo login is local and is NOT a secure authentication system.
- * Temporary test credentials: demo / 123456. No serial/date license check is included.
- */
 class MainActivity : Activity() {
-    private val megaFolderUrl = "https://mega.nz/folder/R5cSWBSB#Sdi5JrEnsWi4KunYwnJ5GQ"
+
     private lateinit var root: LinearLayout
     private var webView: WebView? = null
 
@@ -39,40 +35,59 @@ class MainActivity : Activity() {
         showLogin()
     }
 
-    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+    private fun dp(v: Int): Int =
+        (v * resources.displayMetrics.density).toInt()
 
-    private fun baseLayout(): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(24), dp(18), dp(24), dp(18))
-        setBackgroundColor(0xFFF4F7FB.toInt())
-        layoutParams = ViewGroup.LayoutParams(-1, -1)
-    }
+    private fun baseLayout(): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(18), dp(24), dp(18))
+            setBackgroundColor(0xFFF4F7FB.toInt())
+            layoutParams = ViewGroup.LayoutParams(-1, -1)
+        }
 
-    private fun text(value: String, size: Float, color: Int, bold: Boolean = false): TextView =
+    private fun text(
+        value: String,
+        size: Float,
+        color: Int,
+        bold: Boolean = false
+    ): TextView =
         TextView(this).apply {
             text = value
             textSize = size
             setTextColor(color)
-            if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
+            if (bold) {
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+            }
             gravity = Gravity.CENTER_VERTICAL
         }
 
-    private fun button(label: String, action: () -> Unit): Button = Button(this).apply {
-        text = label
-        isAllCaps = false
-        textSize = 17f
-        setOnClickListener { action() }
-        isFocusable = true
-        isFocusableInTouchMode = true
-    }
+    private fun button(
+        label: String,
+        action: () -> Unit
+    ): Button =
+        Button(this).apply {
+            text = label
+            isAllCaps = false
+            textSize = 17f
+            setOnClickListener { action() }
+            isFocusable = true
+            isFocusableInTouchMode = true
+        }
 
     private fun showLogin() {
         webView?.destroy()
         webView = null
+
         root = baseLayout()
         root.gravity = Gravity.CENTER
 
-        val title = text("Market", 30f, 0xFF14243A.toInt(), true).apply {
+        val title = text(
+            "Market",
+            30f,
+            0xFF14243A.toInt(),
+            true
+        ).apply {
             gravity = Gravity.CENTER
         }
 
@@ -95,10 +110,17 @@ class MainActivity : Activity() {
         }
 
         val login = button("登入並進入市場") {
-            if (user.text.toString() == "demo" && pass.text.toString() == "123456") {
+            if (
+                user.text.toString() == "demo" &&
+                pass.text.toString() == "123456"
+            ) {
                 showMarket()
             } else {
-                Toast.makeText(this, "測試帳號或密碼錯誤", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this,
+                    "測試帳號或密碼錯誤",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
 
@@ -109,10 +131,20 @@ class MainActivity : Activity() {
         )
 
         root.addView(title, matchWrap())
-        root.addView(user, marginParams(-1, dp(58), top = dp(20), bottom = dp(10)))
-        root.addView(pass, marginParams(-1, dp(58), bottom = dp(14)))
-        root.addView(login, marginParams(-1, dp(60), bottom = dp(14)))
+        root.addView(
+            user,
+            marginParams(-1, dp(58), top = dp(20), bottom = dp(10))
+        )
+        root.addView(
+            pass,
+            marginParams(-1, dp(58), bottom = dp(14))
+        )
+        root.addView(
+            login,
+            marginParams(-1, dp(60), bottom = dp(14))
+        )
         root.addView(note, marginParams(-1, dp(52)))
+
         setContentView(root)
         login.requestFocus()
     }
@@ -130,22 +162,23 @@ class MainActivity : Activity() {
             setBackgroundColor(0xFF14243A.toInt())
         }
 
-        val heading = text("Market", 18f, 0xFFFFFFFF.toInt(), true)
+        val heading = text(
+            "Market",
+            18f,
+            0xFFFFFFFF.toInt(),
+            true
+        )
         bar.addView(heading, LinearLayout.LayoutParams(0, dp(52), 1f))
 
-        val refresh = button("重新整理") { webView?.reload() }
+        val refresh = button("重新整理") {
+            webView?.reload()
+        }
         bar.addView(refresh, LinearLayout.LayoutParams(-2, dp(48)))
 
-        val logout = button("登出") { showLogin() }
-        bar.addView(logout, LinearLayout.LayoutParams(-2, dp(48)))
-
-        val hint = text(
-            "選取資料夾內的 APK 檔案，使用頁面提供的下載功能。",
-            14f,
-            0xFF43566B.toInt()
-        ).apply {
-            setPadding(dp(12), dp(8), dp(12), dp(8))
+        val logout = button("登出") {
+            showLogin()
         }
+        bar.addView(logout, LinearLayout.LayoutParams(-2, dp(48)))
 
         val progress = ProgressBar(
             this,
@@ -158,6 +191,7 @@ class MainActivity : Activity() {
 
         val web = WebView(this)
         webView = web
+
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.settings.loadsImagesAutomatically = true
@@ -172,7 +206,10 @@ class MainActivity : Activity() {
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
 
         web.webChromeClient = object : WebChromeClient() {
-            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+            override fun onProgressChanged(
+                view: WebView?,
+                newProgress: Int
+            ) {
                 progress.visibility =
                     if (newProgress in 1..99) View.VISIBLE else View.GONE
             }
@@ -184,7 +221,10 @@ class MainActivity : Activity() {
                 request: WebResourceRequest?
             ): Boolean {
                 val url = request?.url?.toString() ?: return false
-                return if (url.startsWith("https://") || url.startsWith("http://")) {
+                return if (
+                    url.startsWith("https://") ||
+                    url.startsWith("http://")
+                ) {
                     false
                 } else {
                     true
@@ -199,7 +239,8 @@ class MainActivity : Activity() {
                         .setTitle("Market APK Download")
                         .setDescription("正在下載檔案")
                         .setNotificationVisibility(
-                            DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                            DownloadManager.Request
+                                .VISIBILITY_VISIBLE_NOTIFY_COMPLETED
                         )
                         .setAllowedOverMetered(true)
                         .setAllowedOverRoaming(true)
@@ -211,22 +252,27 @@ class MainActivity : Activity() {
                     if (!userAgent.isNullOrBlank()) {
                         request.addRequestHeader("User-Agent", userAgent)
                     }
+
                     if (!mimeType.isNullOrBlank()) {
                         request.setMimeType(mimeType)
                     }
 
-                    val cookies = CookieManager.getInstance().getCookie(url)
+                    val cookies =
+                        CookieManager.getInstance().getCookie(url)
+
                     if (!cookies.isNullOrBlank()) {
                         request.addRequestHeader("Cookie", cookies)
                     }
 
                     val manager =
-                        getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                        getSystemService(Context.DOWNLOAD_SERVICE)
+                            as DownloadManager
+
                     manager.enqueue(request)
 
                     Toast.makeText(
                         this,
-                        "已交由系統下載管理器處理；若是 MEGA 加密下載，請使用頁面內的下載按鈕。",
+                        "已交由系統下載管理器處理",
                         Toast.LENGTH_LONG
                     ).show()
                 } catch (e: Exception) {
@@ -240,15 +286,18 @@ class MainActivity : Activity() {
         )
 
         root.addView(bar, LinearLayout.LayoutParams(-1, dp(56)))
-        root.addView(hint, LinearLayout.LayoutParams(-1, -2))
         root.addView(progress, LinearLayout.LayoutParams(-1, dp(3)))
         root.addView(web, LinearLayout.LayoutParams(-1, 0, 1f))
+
         setContentView(root)
-        web.loadUrl(megaFolderUrl)
+
+        // 開啟專案內的 MEGA 市場介面
+        web.loadUrl("file:///android_asset/mega/index.html")
         web.requestFocus()
     }
 
-    private fun matchWrap() = LinearLayout.LayoutParams(-1, -2)
+    private fun matchWrap() =
+        LinearLayout.LayoutParams(-1, -2)
 
     private fun marginParams(
         width: Int,
@@ -262,6 +311,7 @@ class MainActivity : Activity() {
 
     override fun onBackPressed() {
         val web = webView
+
         if (web != null && web.canGoBack()) {
             web.goBack()
         } else {
