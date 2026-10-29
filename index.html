@@ -6,14 +6,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>皇奕科技 APK 市場</title>
 <style>
+*{box-sizing:border-box}
 body{margin:0;padding:18px;font-family:Arial,sans-serif;background:#f4f7fb;color:#14243a}
-header{display:flex;justify-content:space-between;align-items:center}
-h2{font-size:23px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+h2{font-size:23px;margin:8px 0 16px}
 button{border:0;border-radius:8px;padding:11px 14px;background:#1976d2;color:white;font-size:15px;cursor:pointer}
-.item{display:flex;align-items:center;gap:10px;background:white;border-radius:10px;padding:13px;margin:10px 0;overflow-wrap:anywhere}
-.name{flex:1;min-width:0}
+button:disabled{opacity:.5;cursor:wait}
+.item{display:flex;align-items:center;gap:10px;background:white;border-radius:10px;padding:13px;margin:10px 0;overflow-wrap:anywhere;box-shadow:0 1px 3px #0000000c}
+.name{flex:1;min-width:0;overflow-wrap:anywhere}
 .status{white-space:pre-wrap;color:#52657a;line-height:1.5}
 .back{background:#52657a}
+#downloadOverlay{position:fixed;inset:0;background:#14243af2;color:white;z-index:99999;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding:24px;text-align:center}
+.spinner{width:48px;height:48px;border:5px solid #ffffff55;border-top-color:white;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.progressTrack{width:min(320px,85vw);height:8px;background:#ffffff40;border-radius:8px;overflow:hidden}
+.progressBar{width:0%;height:100%;background:#55c5ff;transition:width .25s}
+#downloadMessage{font-size:18px;overflow-wrap:anywhere}
+#downloadDetail{font-size:14px;color:#e1eaf5;white-space:pre-wrap}
+#closeDownload{display:none;background:#1976d2;margin-top:6px}
 </style>
 </head>
 <body>
@@ -21,16 +31,58 @@ button{border:0;border-radius:8px;padding:11px 14px;background:#1976d2;color:whi
 <h2>皇奕科技 APK 市場</h2>
 <button class="back" onclick="goBack()">返回</button>
 </header>
+
 <p id="status" class="status">正在連線 MEGA，請稍候…</p>
 <div id="list"></div>
+
+<div id="downloadOverlay" role="status" aria-live="polite">
+  <div id="spinner" class="spinner"></div>
+  <div id="downloadMessage">準備下載…</div>
+  <div class="progressTrack"><div id="progressBar" class="progressBar"></div></div>
+  <div id="downloadDetail">請保持畫面開啟。</div>
+  <button id="closeDownload" onclick="hideDownload()">返回市場</button>
+</div>
+
 <script type="module">
 const FOLDER_URL="https://mega.nz/folder/R5cSWBSB#Sdi5JrEnsWi4KunYwnJ5GQ";
 const statusEl=document.getElementById("status");
 const listEl=document.getElementById("list");
+const overlay=document.getElementById("downloadOverlay");
+const messageEl=document.getElementById("downloadMessage");
+const detailEl=document.getElementById("downloadDetail");
+const progressBar=document.getElementById("progressBar");
+const spinner=document.getElementById("spinner");
+const closeButton=document.getElementById("closeDownload");
+
 const historyStack=[];
 let currentFolder=null;
+let busy=false;
 
-function status(text){statusEl.textContent=text}
+function setStatus(message){statusEl.textContent=message}
+
+function showDownload(message,detail="請保持畫面開啟，下載可能需要一些時間。"){
+ overlay.style.display="flex";
+ messageEl.textContent=message;
+ detailEl.textContent=detail;
+ progressBar.style.width="0%";
+ spinner.style.display="block";
+ closeButton.style.display="none";
+}
+
+function hideDownload(){
+ overlay.style.display="none";
+ busy=false;
+ document.querySelectorAll(".item button").forEach(b=>b.disabled=false);
+}
+
+function finishDownload(message,detail,success=false){
+ messageEl.textContent=message;
+ detailEl.textContent=detail;
+ spinner.style.display="none";
+ progressBar.style.width=success?"100%":"0%";
+ closeButton.style.display="inline-block";
+}
+
 function addRow(name,icon,buttonText,action){
  const row=document.createElement("div");
  row.className="item";
@@ -46,7 +98,7 @@ function addRow(name,icon,buttonText,action){
 
 async function loadLibrary(){
  try{
-  status("正在載入 MEGA 元件…");
+  setStatus("正在載入 MEGA 元件…");
   const mod=await import("https://unpkg.com/megajs@1.3.7/dist/main.browser-es.mjs");
   const File=mod.File;
   if(!File)throw new Error("MEGA 元件沒有提供 File");
@@ -54,59 +106,95 @@ async function loadLibrary(){
   await openFolder(folder,false);
  }catch(e){
   console.error(e);
-  status("無法讀取 MEGA："+(e?.message||e)+"\n請確認網路連線及公開資料夾權限。");
+  setStatus("無法讀取 MEGA："+(e?.message||e)+"\n請確認網路連線、公開資料夾權限及 MEGA 元件是否載入。");
  }
 }
 
 async function openFolder(folder,save=true){
  try{
-  status("正在讀取資料夾…");
+  setStatus("正在讀取資料夾…");
   listEl.replaceChildren();
   await folder.loadAttributes();
   if(save&&currentFolder)historyStack.push(currentFolder);
   currentFolder=folder;
   const children=folder.children||[];
   let count=0;
+
   for(const item of children){
    const isFolder=item.directory===true;
    if(!isFolder&&!/\.apk$/i.test(item.name||""))continue;
    count++;
    addRow(item.name||"未命名",isFolder?"📁":"📦",isFolder?"開啟":"下載",async()=>{
-    if(isFolder){await openFolder(item)}
-    else{await downloadApk(item)}
+    if(isFolder)await openFolder(item);
+    else await downloadApk(item);
    });
   }
-  status(count?"找到 "+count+" 個項目":"此資料夾沒有 APK 或子資料夾。");
+
+  setStatus(count?"找到 "+count+" 個項目":"此資料夾沒有 APK 或子資料夾。");
  }catch(e){
   console.error(e);
-  status("讀取失敗："+(e?.message||e));
+  setStatus("讀取失敗："+(e?.message||e));
  }
 }
 
 async function downloadApk(file){
+ if(busy)return;
+ busy=true;
+ document.querySelectorAll(".item button").forEach(b=>b.disabled=true);
+
+ showDownload("正在下載及解密："+file.name);
+ setStatus("下載中："+file.name);
+
  try{
-  status("正在下載及解密："+file.name);
+  // 先讓瀏覽器有機會顯示下載提示畫面。
+  await new Promise(resolve=>setTimeout(resolve,100));
+
+  // mega.js 會在這裡下載並解密完整檔案。
   const data=await file.downloadBuffer();
+
+  messageEl.textContent="檔案已下載完成，正在準備儲存…";
+  detailEl.textContent="檔案："+file.name+"\n大小："+formatBytes(data.byteLength||data.length||0);
+  progressBar.style.width="100%";
+
   const blob=new Blob([data],{type:"application/vnd.android.package-archive"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
   a.href=url;
   a.download=file.name||"download.apk";
+  a.style.display="none";
   document.body.appendChild(a);
   a.click();
   a.remove();
+
+  setStatus("已送出瀏覽器下載："+file.name);
+  finishDownload(
+   "已送出下載",
+   "檔案："+file.name+"\n請檢查瀏覽器下載清單或下載資料夾。\n若沒有出現檔案，代表裝置可能不支援此下載方式。",
+   true
+  );
+
   setTimeout(()=>URL.revokeObjectURL(url),120000);
-  status("已送出下載："+file.name+"\n請確認裝置的下載通知或下載資料夾。");
  }catch(e){
   console.error(e);
-  status("下載失敗："+(e?.message||e));
+  const errorText=e?.message||String(e);
+  setStatus("下載失敗："+errorText);
+  finishDownload("下載失敗",errorText+"\n請確認網路連線及 MEGA 檔案是否可存取。");
  }
 }
 
+function formatBytes(bytes){
+ if(!Number.isFinite(bytes)||bytes<=0)return "大小未知";
+ const units=["B","KB","MB","GB"];
+ let n=bytes,i=0;
+ while(n>=1024&&i<units.length-1){n/=1024;i++}
+ return n.toFixed(i===0?0:2)+" "+units[i];
+}
+
 window.goBack=async()=>{
+ if(busy)return;
  const previous=historyStack.pop();
  if(previous)await openFolder(previous,false);
- else status("目前已在最上層資料夾。");
+ else setStatus("目前已在最上層資料夾。");
 };
 
 loadLibrary();
