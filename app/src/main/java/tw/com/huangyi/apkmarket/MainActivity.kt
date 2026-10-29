@@ -29,6 +29,11 @@ class MainActivity : Activity() {
     private lateinit var root: LinearLayout
     private var webView: WebView? = null
 
+    companion object {
+        private const val MARKET_URL =
+            "https://dylan0728-web.github.io/Market/"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.decorView.systemUiVisibility =
@@ -169,20 +174,21 @@ class MainActivity : Activity() {
             0xFFFFFFFF.toInt(),
             true
         )
+
         bar.addView(
             heading,
             LinearLayout.LayoutParams(0, dp(52), 1f)
         )
 
-        val refresh = button("重新整理") {
-            webView?.reload()
-        }
-        bar.addView(refresh, LinearLayout.LayoutParams(-2, dp(48)))
+        bar.addView(
+            button("重新整理") { webView?.reload() },
+            LinearLayout.LayoutParams(-2, dp(48))
+        )
 
-        val logout = button("登出") {
-            showLogin()
-        }
-        bar.addView(logout, LinearLayout.LayoutParams(-2, dp(48)))
+        bar.addView(
+            button("登出") { showLogin() },
+            LinearLayout.LayoutParams(-2, dp(48))
+        )
 
         val progress = ProgressBar(
             this,
@@ -193,14 +199,20 @@ class MainActivity : Activity() {
             visibility = View.GONE
         }
 
+        val status = text(
+            "正在開啟市場網頁…",
+            14f,
+            0xFF52657A.toInt()
+        ).apply {
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+        }
+
         val web = WebView(this)
         webView = web
 
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.settings.loadsImagesAutomatically = true
-        web.settings.javaScriptCanOpenWindowsAutomatically = true
-        web.settings.setSupportMultipleWindows(false)
         web.settings.useWideViewPort = true
         web.settings.loadWithOverviewMode = true
         web.settings.builtInZoomControls = true
@@ -219,31 +231,39 @@ class MainActivity : Activity() {
             }
 
             override fun onConsoleMessage(
-                consoleMessage: android.webkit.ConsoleMessage
+                message: android.webkit.ConsoleMessage
             ): Boolean {
                 android.util.Log.e(
                     "MarketWeb",
-                    "${consoleMessage.message()} " +
-                        "line=${consoleMessage.lineNumber()}"
+                    "${message.message()} line=${message.lineNumber()}"
                 )
                 return true
             }
         }
 
         web.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(
+                view: WebView?,
+                url: String?,
+                favicon: android.graphics.Bitmap?
+            ) {
+                status.text = "正在載入市場網頁…"
+            }
+
+            override fun onPageFinished(
+                view: WebView?,
+                url: String?
+            ) {
+                status.text = "網頁已載入；若清單未顯示，請檢查 MEGA 讀取狀態。"
+            }
+
             override fun shouldOverrideUrlLoading(
                 view: WebView?,
                 request: WebResourceRequest?
             ): Boolean {
                 val url = request?.url?.toString() ?: return false
-                return if (
-                    url.startsWith("https://") ||
-                    url.startsWith("http://")
-                ) {
-                    false
-                } else {
-                    true
-                }
+                return !(url.startsWith("https://") ||
+                    url.startsWith("http://"))
             }
 
             override fun onReceivedError(
@@ -253,11 +273,8 @@ class MainActivity : Activity() {
             ) {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "市場頁面載入失敗，請檢查網路連線。",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    status.text =
+                        "網頁載入失敗：${error?.description ?: "未知錯誤"}"
                 }
             }
         }
@@ -317,14 +334,12 @@ class MainActivity : Activity() {
 
         root.addView(bar, LinearLayout.LayoutParams(-1, dp(56)))
         root.addView(progress, LinearLayout.LayoutParams(-1, dp(3)))
+        root.addView(status, LinearLayout.LayoutParams(-1, -2))
         root.addView(web, LinearLayout.LayoutParams(-1, 0, 1f))
 
         setContentView(root)
 
-        // 使用 HTTPS 載入 GitHub 上的市場介面
-        web.loadUrl(
-            "https://raw.githubusercontent.com/dylan0728-web/Market/main/app/src/main/assets/mega/index.html"
-        )
+        web.loadUrl(MARKET_URL)
         web.requestFocus()
     }
 
