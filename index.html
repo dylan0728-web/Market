@@ -1,0 +1,115 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>皇奕科技 APK 市場</title>
+<style>
+body{margin:0;padding:18px;font-family:Arial,sans-serif;background:#f4f7fb;color:#14243a}
+header{display:flex;justify-content:space-between;align-items:center}
+h2{font-size:23px}
+button{border:0;border-radius:8px;padding:11px 14px;background:#1976d2;color:white;font-size:15px;cursor:pointer}
+.item{display:flex;align-items:center;gap:10px;background:white;border-radius:10px;padding:13px;margin:10px 0;overflow-wrap:anywhere}
+.name{flex:1;min-width:0}
+.status{white-space:pre-wrap;color:#52657a;line-height:1.5}
+.back{background:#52657a}
+</style>
+</head>
+<body>
+<header>
+<h2>皇奕科技 APK 市場</h2>
+<button class="back" onclick="goBack()">返回</button>
+</header>
+<p id="status" class="status">正在連線 MEGA，請稍候…</p>
+<div id="list"></div>
+<script type="module">
+const FOLDER_URL="https://mega.nz/folder/R5cSWBSB#Sdi5JrEnsWi4KunYwnJ5GQ";
+const statusEl=document.getElementById("status");
+const listEl=document.getElementById("list");
+const historyStack=[];
+let currentFolder=null;
+
+function status(text){statusEl.textContent=text}
+function addRow(name,icon,buttonText,action){
+ const row=document.createElement("div");
+ row.className="item";
+ const title=document.createElement("span");
+ title.className="name";
+ title.textContent=icon+" "+name;
+ const btn=document.createElement("button");
+ btn.textContent=buttonText;
+ btn.onclick=action;
+ row.append(title,btn);
+ listEl.appendChild(row);
+}
+
+async function loadLibrary(){
+ try{
+  status("正在載入 MEGA 元件…");
+  const mod=await import("https://unpkg.com/megajs@1.3.7/dist/main.browser-es.mjs");
+  const File=mod.File;
+  if(!File)throw new Error("MEGA 元件沒有提供 File");
+  const folder=File.fromURL(FOLDER_URL);
+  await openFolder(folder,false);
+ }catch(e){
+  console.error(e);
+  status("無法讀取 MEGA："+(e?.message||e)+"\n請確認網路連線及公開資料夾權限。");
+ }
+}
+
+async function openFolder(folder,save=true){
+ try{
+  status("正在讀取資料夾…");
+  listEl.replaceChildren();
+  await folder.loadAttributes();
+  if(save&&currentFolder)historyStack.push(currentFolder);
+  currentFolder=folder;
+  const children=folder.children||[];
+  let count=0;
+  for(const item of children){
+   const isFolder=item.directory===true;
+   if(!isFolder&&!/\.apk$/i.test(item.name||""))continue;
+   count++;
+   addRow(item.name||"未命名",isFolder?"📁":"📦",isFolder?"開啟":"下載",async()=>{
+    if(isFolder){await openFolder(item)}
+    else{await downloadApk(item)}
+   });
+  }
+  status(count?"找到 "+count+" 個項目":"此資料夾沒有 APK 或子資料夾。");
+ }catch(e){
+  console.error(e);
+  status("讀取失敗："+(e?.message||e));
+ }
+}
+
+async function downloadApk(file){
+ try{
+  status("正在下載及解密："+file.name);
+  const data=await file.downloadBuffer();
+  const blob=new Blob([data],{type:"application/vnd.android.package-archive"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=file.name||"download.apk";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),120000);
+  status("已送出下載："+file.name+"\n請確認裝置的下載通知或下載資料夾。");
+ }catch(e){
+  console.error(e);
+  status("下載失敗："+(e?.message||e));
+ }
+}
+
+window.goBack=async()=>{
+ const previous=historyStack.pop();
+ if(previous)await openFolder(previous,false);
+ else status("目前已在最上層資料夾。");
+};
+
+loadLibrary();
+</script>
+</body>
+</html>
