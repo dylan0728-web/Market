@@ -1,3 +1,4 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -71,12 +72,10 @@ class MainActivity : Activity() {
         root = baseLayout()
         root.gravity = Gravity.CENTER
 
-        val title = text("皇奕科技", 30f, 0xFF14243A.toInt(), true).apply {
+        val title = text("Market", 30f, 0xFF14243A.toInt(), true).apply {
             gravity = Gravity.CENTER
         }
-        val subtitle = text("APK 應用程式下載市場", 18f, 0xFF52657A.toInt()).apply {
-            gravity = Gravity.CENTER
-        }
+
         val user = EditText(this).apply {
             hint = "測試帳號"
             setSingleLine(true)
@@ -84,14 +83,17 @@ class MainActivity : Activity() {
             setText("demo")
             imeOptions = EditorInfo.IME_ACTION_NEXT
         }
+
         val pass = EditText(this).apply {
             hint = "測試密碼"
             setSingleLine(true)
             textSize = 18f
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             setText("123456")
             imeOptions = EditorInfo.IME_ACTION_DONE
         }
+
         val login = button("登入並進入市場") {
             if (user.text.toString() == "demo" && pass.text.toString() == "123456") {
                 showMarket()
@@ -99,10 +101,15 @@ class MainActivity : Activity() {
                 Toast.makeText(this, "測試帳號或密碼錯誤", Toast.LENGTH_LONG).show()
             }
         }
-        val note = text("測試版本：暫不啟用機身序號及日期授權。\n測試帳號 demo／密碼 123456", 13f, 0xFF68788A.toInt())
+
+        val note = text(
+            "測試版本：暫不啟用機身序號及日期授權。\n測試帳號 demo／密碼 123456",
+            13f,
+            0xFF68788A.toInt()
+        )
+
         root.addView(title, matchWrap())
-        root.addView(subtitle, marginParams(-1, dp(42), top = dp(4), bottom = dp(20)))
-        root.addView(user, marginParams(-1, dp(58), bottom = dp(10)))
+        root.addView(user, marginParams(-1, dp(58), top = dp(20), bottom = dp(10)))
         root.addView(pass, marginParams(-1, dp(58), bottom = dp(14)))
         root.addView(login, marginParams(-1, dp(60), bottom = dp(14)))
         root.addView(note, marginParams(-1, dp(52)))
@@ -115,26 +122,40 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(0xFFF4F7FB.toInt())
         }
+
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(4), dp(8), dp(4))
             setBackgroundColor(0xFF14243A.toInt())
         }
-        val heading = text("皇奕科技 APK 市場", 18f, 0xFFFFFFFF.toInt(), true)
+
+        val heading = text("Market", 18f, 0xFFFFFFFF.toInt(), true)
         bar.addView(heading, LinearLayout.LayoutParams(0, dp(52), 1f))
+
         val refresh = button("重新整理") { webView?.reload() }
         bar.addView(refresh, LinearLayout.LayoutParams(-2, dp(48)))
+
         val logout = button("登出") { showLogin() }
         bar.addView(logout, LinearLayout.LayoutParams(-2, dp(48)))
 
-        val hint = text("選取資料夾內的 APK 檔案，使用 MEGA 頁面提供的下載功能。", 14f, 0xFF43566B.toInt()).apply {
+        val hint = text(
+            "選取資料夾內的 APK 檔案，使用頁面提供的下載功能。",
+            14f,
+            0xFF43566B.toInt()
+        ).apply {
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
-        val progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+
+        val progress = ProgressBar(
+            this,
+            null,
+            android.R.attr.progressBarStyleHorizontal
+        ).apply {
             isIndeterminate = true
             visibility = View.GONE
         }
+
         val web = WebView(this)
         webView = web
         web.settings.javaScriptEnabled = true
@@ -146,41 +167,77 @@ class MainActivity : Activity() {
         web.settings.loadWithOverviewMode = true
         web.settings.builtInZoomControls = true
         web.settings.displayZoomControls = false
+
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
+
         web.webChromeClient = object : WebChromeClient() {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                progress.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
+                progress.visibility =
+                    if (newProgress in 1..99) View.VISIBLE else View.GONE
             }
         }
+
         web.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): Boolean {
                 val url = request?.url?.toString() ?: return false
                 return if (url.startsWith("https://") || url.startsWith("http://")) {
                     false
-                } else true
+                } else {
+                    true
+                }
             }
         }
-        web.setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-            try {
-                val request = DownloadManager.Request(Uri.parse(url))
-                    .setTitle("皇奕科技 APK 下載")
-                    .setDescription("正在下載檔案")
-                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    .setAllowedOverMetered(true)
-                    .setAllowedOverRoaming(true)
-                    .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "huangyi_download.apk")
-                if (!userAgent.isNullOrBlank()) request.addRequestHeader("User-Agent", userAgent)
-                if (!mimeType.isNullOrBlank()) request.setMimeType(mimeType)
-                val cookies = CookieManager.getInstance().getCookie(url)
-                if (!cookies.isNullOrBlank()) request.addRequestHeader("Cookie", cookies)
-                val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                manager.enqueue(request)
-                Toast.makeText(this, "已交由系統下載管理器處理；若是 MEGA 加密下載，請使用頁面內的下載按鈕。", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "無法啟動下載：${e.message}", Toast.LENGTH_LONG).show()
+
+        web.setDownloadListener(
+            DownloadListener { url, userAgent, _, mimeType, _ ->
+                try {
+                    val request = DownloadManager.Request(Uri.parse(url))
+                        .setTitle("Market APK Download")
+                        .setDescription("正在下載檔案")
+                        .setNotificationVisibility(
+                            DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                        )
+                        .setAllowedOverMetered(true)
+                        .setAllowedOverRoaming(true)
+                        .setDestinationInExternalPublicDir(
+                            Environment.DIRECTORY_DOWNLOADS,
+                            "market_download.apk"
+                        )
+
+                    if (!userAgent.isNullOrBlank()) {
+                        request.addRequestHeader("User-Agent", userAgent)
+                    }
+                    if (!mimeType.isNullOrBlank()) {
+                        request.setMimeType(mimeType)
+                    }
+
+                    val cookies = CookieManager.getInstance().getCookie(url)
+                    if (!cookies.isNullOrBlank()) {
+                        request.addRequestHeader("Cookie", cookies)
+                    }
+
+                    val manager =
+                        getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                    manager.enqueue(request)
+
+                    Toast.makeText(
+                        this,
+                        "已交由系統下載管理器處理；若是 MEGA 加密下載，請使用頁面內的下載按鈕。",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this,
+                        "無法啟動下載：${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
-        })
+        )
 
         root.addView(bar, LinearLayout.LayoutParams(-1, dp(56)))
         root.addView(hint, LinearLayout.LayoutParams(-1, -2))
@@ -192,14 +249,23 @@ class MainActivity : Activity() {
     }
 
     private fun matchWrap() = LinearLayout.LayoutParams(-1, -2)
-    private fun marginParams(width: Int, height: Int, top: Int = 0, bottom: Int = 0) =
-        LinearLayout.LayoutParams(width, height).apply {
-            topMargin = top
-            bottomMargin = bottom
-        }
+
+    private fun marginParams(
+        width: Int,
+        height: Int,
+        top: Int = 0,
+        bottom: Int = 0
+    ) = LinearLayout.LayoutParams(width, height).apply {
+        topMargin = top
+        bottomMargin = bottom
+    }
 
     override fun onBackPressed() {
         val web = webView
-        if (web != null && web.canGoBack()) web.goBack() else showLogin()
+        if (web != null && web.canGoBack()) {
+            web.goBack()
+        } else {
+            showLogin()
+        }
     }
 }
