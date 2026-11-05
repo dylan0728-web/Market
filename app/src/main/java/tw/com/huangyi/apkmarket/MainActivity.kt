@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -8,110 +7,87 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.KeyEvent
+import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.view.KeyEvent
-import android.view.Gravity
-import android.view.View
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import android.graphics.Color
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : Activity() {
 
-    private lateinit var root: LinearLayout
     private lateinit var webView: WebView
-    private lateinit var statusText: TextView
-    private lateinit var progressBar: ProgressBar
+    private lateinit var loadingText: TextView
 
     private val handler = Handler(Looper.getMainLooper())
-    private val scanExecutor = Executors.newSingleThreadExecutor()
+    private val executor = Executors.newSingleThreadExecutor()
 
-    private var currentDownloadId: Long = -1
-    private var currentDownloadUrl = ""
-    private var pendingInstallUri: Uri? = null
-    private var checkingDownload = false
     private var marketVisible = false
     private var pageLoaded = false
+    private var pendingInstallUri: Uri? = null
 
-    private val downloadManager by lazy {
-        getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-    }
-
-    private val apkMime = "application/vnd.android.package-archive"
+    private val downloadIds = mutableMapOf<Long, String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         showMarket()
     }
 
-    private fun makeRoot() {
-        root = LinearLayout(this)
-        root.orientation = LinearLayout.VERTICAL
-        root.setBackgroundColor(Color.rgb(18, 28, 38))
-        root.gravity = Gravity.CENTER
-        root.setPadding(12, 8, 12, 8)
-        setContentView(root)
-    }
-
     private fun showMarket() {
         marketVisible = true
-        pageLoaded = false
-        makeRoot()
-        root.gravity = Gravity.TOP
 
-        statusText = TextView(this)
-        statusText.text = "正在開啟 APK 市場..."
-        statusText.textSize = 15f
-        statusText.setTextColor(Color.WHITE)
-        root.addView(statusText)
+        val layout = LinearLayout(this)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.setBackgroundColor(0xFF101820.toInt())
 
-        progressBar = ProgressBar(
-            this, null,
-            android.R.attr.progressBarStyleHorizontal
-        )
-        progressBar.max = 100
-        progressBar.visibility = View.GONE
-
-        root.addView(progressBar, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 8
-        ))
+        loadingText = TextView(this)
+        loadingText.text = "正在開啟 APK 市場..."
+        loadingText.textSize = 18f
+        loadingText.setTextColor(0xFFFFFFFF.toInt())
+        loadingText.setPadding(24, 20, 24, 20)
 
         webView = WebView(this)
-        webView.setBackgroundColor(Color.TRANSPARENT)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = false
+        webView.settings.javaScriptCanOpenWindowsAutomatically = true
 
-        webView.addJavascriptInterface(
-            AndroidMarketBridge(), "AndroidMarket"
-        )
+        webView.addJavascriptInterface(AndroidMarketBridge(), "AndroidMarket")
+
+        webView.webChromeClient = WebChromeClient()
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 pageLoaded = true
-                statusText.text = "APK 市場已載入，準備掃描"
+                loadingText.visibility = View.GONE
             }
         }
 
-        webView.webChromeClient = WebChromeClient()
+        layout.addView(loadingText)
+        layout.addView(
+            webView,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        )
 
-        root.addView(webView, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
-        ))
+        setContentView(layout)
 
         webView.loadUrl("https://dylan0728-web.github.io/Market/")
     }
@@ -119,16 +95,34 @@ class MainActivity : Activity() {
     inner class AndroidMarketBridge {
 
         @JavascriptInterface
-        fun startDownload(url: String, fileName: String) {
-            runOnUiThread {
-                beginDownload(url, fileName)
+        fun scanApks(json: String) {
+            executor.execute {
+                try {
+                    val list = JSONArray(json)
+
+                    for (i in 0 until list.length()) {
+                        val item = list.getJSONObject(i)
+                        val url = item.optString("url")
+                        val name = item.optString("name")
+
+                        scanOneApk(url, name)
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "APK 清單讀取失敗",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
             }
         }
 
         @JavascriptInterface
-        fun scanApks(json: String) {
-            scanExecutor.execute {
-                scanApkList(json)
+        fun startDownload(url: String, fileName: String) {
+            runOnUiThread {
+                downloadApk(url, fileName)
             }
         }
 
@@ -140,367 +134,253 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun scanApkList(json: String) {
-        try {
-            val list = JSONArray(json)
-            val total = list.length()
-
-            for (i in 0 until total) {
-                val item = list.getJSONObject(i)
-                val url = item.optString("url")
-                val fileName = item.optString("name")
-
-                if (!url.startsWith("https://github.com/") ||
-                    !fileName.lowercase().endsWith(".apk")) {
-                    sendScanResult(url, "", false, "無法辨識")
-                    continue
-                }
-
-                runOnUiThread {
-                    statusText.text = "正在掃描 APK：${i + 1}/$total"
-                }
-
-                var packageName = ""
-                var appLabel = fileName
-                var installed = false
-
-                val tempFile = File(
-                    cacheDir,
-                    "scan_${System.currentTimeMillis()}_$i.apk"
-                )
-
-                try {
-                    downloadForScan(url, tempFile)
-
-                    val packageInfo = packageManager.getPackageArchiveInfo(
-                        tempFile.absolutePath,
-                        PackageManager.GET_ACTIVITIES
-                    )
-
-                    if (packageInfo != null) {
-                        packageName = packageInfo.packageName
-
-                        val appInfo = packageInfo.applicationInfo
-                        if (appInfo != null) {
-                            appInfo.sourceDir = tempFile.absolutePath
-                            appInfo.publicSourceDir = tempFile.absolutePath
-                            appLabel = packageManager
-                                .getApplicationLabel(appInfo).toString()
-                        }
-
-                        installed = isAppInstalled(packageName)
-                    }
-                } catch (_: Exception) {
-                    // 單一 APK 掃描失敗，不影響其他 APK
-                } finally {
-                    tempFile.delete()
-                }
-
-                sendScanResult(
-                    url,
-                    packageName,
-                    installed,
-                    appLabel
-                )
-            }
-
-            runOnUiThread {
-                statusText.text = "APK 掃描完成，共 $total 個"
-            }
-
-        } catch (e: Exception) {
-            runOnUiThread {
-                statusText.text = "APK 掃描失敗：" + (e.message ?: "")
-            }
-        }
-    }
-
-    private fun downloadForScan(url: String, file: File) {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        connection.connectTimeout = 20000
-        connection.readTimeout = 60000
-        connection.instanceFollowRedirects = true
-        connection.setRequestProperty("User-Agent", "HuangYi-ApkMarket")
+    private fun scanOneApk(url: String, fileName: String) {
+        var packageName = ""
+        var appLabel = fileName
+        var installed = false
 
         try {
+            if (!url.startsWith("https://github.com/")) {
+                throw Exception("不允許的下載網址")
+            }
+
+            val connection = URL(url).openConnection() as HttpURLConnection
+            connection.connectTimeout = 20000
+            connection.readTimeout = 30000
+            connection.instanceFollowRedirects = true
             connection.connect()
 
             if (connection.responseCode !in 200..299) {
-                throw Exception("HTTP ${connection.responseCode}")
+                throw Exception("下載失敗")
             }
 
+            val tempFile = File(cacheDir, "scan_${System.currentTimeMillis()}.apk")
+
             connection.inputStream.use { input ->
-                file.outputStream().use { output ->
+                tempFile.outputStream().use { output ->
                     input.copyTo(output)
                 }
             }
-        } finally {
+
             connection.disconnect()
+
+            val packageInfo = packageManager.getPackageArchiveInfo(
+                tempFile.absolutePath,
+                PackageManager.GET_META_DATA
+            )
+
+            if (packageInfo != null) {
+                packageName = packageInfo.packageName
+
+                val appInfo = packageInfo.applicationInfo
+                if (appInfo != null) {
+                    appInfo.sourceDir = tempFile.absolutePath
+                    appInfo.publicSourceDir = tempFile.absolutePath
+
+                    appLabel = packageManager.getApplicationLabel(appInfo).toString()
+                }
+
+                installed = isPackageInstalled(packageName)
+            }
+
+            tempFile.delete()
+
+        } catch (e: Exception) {
+            android.util.Log.e("APK_SCAN", "掃描失敗：$fileName", e)
+        }
+
+        val resultUrl = JSONObject.quote(url)
+        val resultPackage = JSONObject.quote(packageName)
+        val resultLabel = JSONObject.quote(appLabel)
+
+        val javascript = """
+            window.onApkScanResult(
+                $resultUrl,
+                $resultPackage,
+                $installed,
+                $resultLabel
+            );
+        """.trimIndent()
+
+        runOnUiThread {
+            if (::webView.isInitialized) {
+                webView.evaluateJavascript(javascript, null)
+            }
         }
     }
 
-    private fun isAppInstalled(packageName: String): Boolean {
+    private fun isPackageInstalled(packageName: String): Boolean {
         if (packageName.isBlank()) return false
 
         return try {
-            val launchIntent =
-                packageManager.getLaunchIntentForPackage(packageName)
-                    ?: packageManager.getLeanbackLaunchIntentForPackage(packageName)
-
-            launchIntent != null
-        } catch (_: Exception) {
+            packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (e: Exception) {
             false
-        }
-    }
-
-    private fun sendScanResult(
-        url: String,
-        packageName: String,
-        installed: Boolean,
-        appLabel: String
-    ) {
-        val safeUrl = JSONObject.quote(url)
-        val safePackage = JSONObject.quote(packageName)
-        val safeLabel = JSONObject.quote(appLabel)
-
-        runOnUiThread {
-            if (!::webView.isInitialized) return@runOnUiThread
-
-            webView.evaluateJavascript(
-                "window.onApkScanResult && " +
-                    "window.onApkScanResult(" +
-                    "$safeUrl,$safePackage,$installed,$safeLabel);",
-                null
-            )
         }
     }
 
     private fun launchInstalledApp(packageName: String) {
         try {
-            val intent =
-                packageManager.getLaunchIntentForPackage(packageName)
-                    ?: packageManager.getLeanbackLaunchIntentForPackage(packageName)
+            val intent = packageManager.getLaunchIntentForPackage(packageName)
 
-            if (intent == null) {
-                Toast.makeText(
-                    this, "找不到此軟體的啟動畫面",
-                    Toast.LENGTH_LONG
-                ).show()
-                return
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "此軟體沒有可啟動的畫面", Toast.LENGTH_SHORT).show()
             }
-
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-
         } catch (e: Exception) {
-            Toast.makeText(
-                this,
-                "無法開啟軟體：" + (e.message ?: ""),
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "無法開啟此軟體", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun beginDownload(url: String, fileName: String) {
+    private fun downloadApk(url: String, fileName: String) {
         try {
             if (!url.startsWith("https://github.com/")) {
-                Toast.makeText(
-                    this, "下載網址不安全", Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(this, "下載網址不正確", Toast.LENGTH_LONG).show()
                 return
             }
-
-            if (currentDownloadId != -1L) {
-                Toast.makeText(
-                    this, "目前已有下載正在進行", Toast.LENGTH_SHORT
-                ).show()
-                return
-            }
-
-            currentDownloadUrl = url
 
             val request = DownloadManager.Request(Uri.parse(url))
             request.setTitle(fileName)
             request.setDescription("正在下載 APK")
-            request.setMimeType(apkMime)
             request.setNotificationVisibility(
-                DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                DownloadManager.Request.VISIBILITY_VISIBLE
             )
             request.setDestinationInExternalFilesDir(
-                this, null, fileName.replace("/", "_")
+                this,
+                Environment.DIRECTORY_DOWNLOADS,
+                fileName
             )
 
-            currentDownloadId = downloadManager.enqueue(request)
+            val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val id = manager.enqueue(request)
 
-            progressBar.visibility = View.VISIBLE
-            progressBar.progress = 0
-            statusText.text = "正在下載：0%"
+            downloadIds[id] = url
 
-            Toast.makeText(
-                this, "開始下載 $fileName", Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(this, "開始下載：$fileName", Toast.LENGTH_SHORT).show()
 
-            checkDownloadProgress()
+            checkDownloadProgress(id, url, fileName)
 
         } catch (e: Exception) {
-            Toast.makeText(
-                this, "下載失敗：" + (e.message ?: ""),
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "下載啟動失敗：${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
-    private fun checkDownloadProgress() {
-        if (checkingDownload || currentDownloadId == -1L) return
-        checkingDownload = true
+    private fun checkDownloadProgress(id: Long, url: String, fileName: String) {
+        val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
-        handler.postDelayed(object : Runnable {
+        val task = object : Runnable {
             override fun run() {
-                val id = currentDownloadId
+                val query = DownloadManager.Query().setFilterById(id)
+                val cursor = manager.query(query)
 
-                if (id == -1L) {
-                    checkingDownload = false
-                    return
-                }
+                if (cursor != null && cursor.moveToFirst()) {
+                    val status = cursor.getInt(
+                        cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
+                    )
 
-                try {
-                    val query = DownloadManager.Query().setFilterById(id)
+                    val total = cursor.getLong(
+                        cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                    )
 
-                    downloadManager.query(query)?.use { cursor ->
-                        if (cursor.moveToFirst()) {
-                            val statusIndex = cursor.getColumnIndex(
-                                DownloadManager.COLUMN_STATUS
-                            )
-                            val downloadedIndex = cursor.getColumnIndex(
-                                DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR
-                            )
-                            val totalIndex = cursor.getColumnIndex(
-                                DownloadManager.COLUMN_TOTAL_SIZE_BYTES
-                            )
+                    val downloaded = cursor.getLong(
+                        cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                    )
 
-                            val status = cursor.getInt(statusIndex)
-                            val downloaded = cursor.getLong(downloadedIndex)
-                            val total = cursor.getLong(totalIndex)
-
-                            if (total > 0) {
-                                val percent = ((downloaded * 100) / total)
-                                    .toInt().coerceIn(0, 100)
-
-                                progressBar.progress = percent
-                                statusText.text = "下載中：$percent%"
-
-                                sendProgress(
-                                    currentDownloadUrl,
-                                    percent,
-                                    "downloading"
-                                )
+                    when (status) {
+                        DownloadManager.STATUS_RUNNING,
+                        DownloadManager.STATUS_PENDING -> {
+                            val percent = if (total > 0) {
+                                (downloaded * 100 / total).toInt()
+                            } else {
+                                0
                             }
 
-                            if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                                progressBar.progress = 100
-                                sendProgress(currentDownloadUrl, 100, "complete")
+                            sendProgress(url, percent, "downloading")
+                            handler.postDelayed(this, 1000)
+                        }
 
-                                val uri =
-                                    downloadManager.getUriForDownloadedFile(id)
+                        DownloadManager.STATUS_SUCCESSFUL -> {
+                            cursor.close()
+                            sendProgress(url, 100, "complete")
 
-                                currentDownloadId = -1L
-                                checkingDownload = false
-
-                                if (uri != null) {
-                                    openApkInstaller(uri)
-                                } else {
-                                    statusText.text = "下載完成，但無法取得檔案"
-                                }
-                                return
-                            }
-
-                            if (status == DownloadManager.STATUS_FAILED) {
-                                currentDownloadId = -1L
-                                checkingDownload = false
-
-                                sendProgress(currentDownloadUrl, 0, "failed")
-                                statusText.text = "下載失敗"
-
+                            val uri = manager.getUriForDownloadedFile(id)
+                            if (uri != null) {
+                                openApkInstaller(uri)
+                            } else {
                                 Toast.makeText(
                                     this@MainActivity,
-                                    "APK 下載失敗",
+                                    "找不到下載完成的 APK",
                                     Toast.LENGTH_LONG
                                 ).show()
-                                return
                             }
+                            return
+                        }
+
+                        DownloadManager.STATUS_FAILED -> {
+                            cursor.close()
+                            sendProgress(url, 0, "failed")
+                            Toast.makeText(
+                                this@MainActivity,
+                                "下載失敗：$fileName",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            return
                         }
                     }
-                } catch (_: Exception) {
-                    currentDownloadId = -1L
-                    checkingDownload = false
-                    statusText.text = "讀取下載進度失敗"
-                    return
                 }
 
-                handler.postDelayed(this, 1000)
+                cursor?.close()
             }
-        }, 500)
+        }
+
+        handler.post(task)
     }
 
-    private fun sendProgress(
-        url: String,
-        percent: Int,
-        state: String
-    ) {
-        if (!::webView.isInitialized) return
-
+    private fun sendProgress(url: String, percent: Int, state: String) {
         val safeUrl = JSONObject.quote(url)
         val safeState = JSONObject.quote(state)
 
-        webView.post {
-            webView.evaluateJavascript(
-                "window.onApkDownloadProgress && " +
-                    "window.onApkDownloadProgress(" +
-                    "$safeUrl,$percent,$safeState);",
-                null
-            )
+        runOnUiThread {
+            if (::webView.isInitialized) {
+                webView.evaluateJavascript(
+                    "window.onApkDownloadProgress($safeUrl,$percent,$safeState);",
+                    null
+                )
+            }
         }
     }
 
     private fun openApkInstaller(uri: Uri) {
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= 26 &&
-                !packageManager.canRequestPackageInstalls()) {
+        if (!packageManager.canRequestPackageInstalls()) {
+            pendingInstallUri = uri
 
-                pendingInstallUri = uri
-
-                Toast.makeText(
-                    this,
-                    "請允許此應用程式安裝未知應用程式",
-                    Toast.LENGTH_LONG
-                ).show()
-
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:$packageName")
-                )
-                startActivity(intent)
-                return
-            }
-
-            pendingInstallUri = null
-
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, apkMime)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
+            val intent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:$packageName")
+            )
 
             startActivity(intent)
-            statusText.text = "請在系統畫面確認安裝"
+            return
+        }
 
+        installApk(uri)
+    }
+
+    private fun installApk(uri: Uri) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW)
+            intent.setDataAndType(
+                uri,
+                "application/vnd.android.package-archive"
+            )
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
         } catch (e: Exception) {
-            pendingInstallUri = null
-            Toast.makeText(
-                this,
-                "無法開啟安裝畫面：" + (e.message ?: ""),
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "無法開啟安裝畫面：${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -508,58 +388,30 @@ class MainActivity : Activity() {
         super.onResume()
 
         val uri = pendingInstallUri
-        if (uri != null) {
-            if (android.os.Build.VERSION.SDK_INT >= 26 &&
-                !packageManager.canRequestPackageInstalls()) {
-                return
-            }
-
+        if (uri != null && packageManager.canRequestPackageInstalls()) {
             pendingInstallUri = null
-            handler.postDelayed({
-                openApkInstaller(uri)
-            }, 500)
-            return
-        }
-
-        // 從安裝畫面返回市場時，重新掃描已安裝狀態
-        if (marketVisible && pageLoaded && ::webView.isInitialized) {
-            handler.postDelayed({
-                if (marketVisible && ::webView.isInitialized) {
-                    webView.evaluateJavascript(
-                        "if(window.loadApps){loadApps();}", null
-                    )
-                }
-            }, 1200)
+            installApk(uri)
         }
     }
 
-    override fun onBackPressed() {
-        // 市場首頁按返回直接退出，不再回到登入畫面
-        if (::webView.isInitialized && webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            finish()
-        }
-    }
-
-    override fun onKeyDown(
-        keyCode: Int,
-        event: KeyEvent?
-    ): Boolean {
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            onBackPressed()
+            if (::webView.isInitialized && webView.canGoBack()) {
+                webView.goBack()
+            } else {
+                finish()
+            }
             return true
         }
+
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onDestroy() {
-        marketVisible = false
         handler.removeCallbacksAndMessages(null)
-        scanExecutor.shutdownNow()
+        executor.shutdownNow()
 
         if (::webView.isInitialized) {
-            webView.removeJavascriptInterface("AndroidMarket")
             webView.destroy()
         }
 
