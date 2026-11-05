@@ -36,10 +36,12 @@ class MainActivity : Activity() {
     private lateinit var progressBar: ProgressBar
 
     private val handler = Handler(Looper.getMainLooper())
+
     private var currentDownloadId: Long = -1
     private var currentDownloadUrl = ""
     private var pendingInstallUri: Uri? = null
     private var checkingDownload = false
+    private var marketVisible = false
 
     private val downloadManager by lazy {
         getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -62,6 +64,7 @@ class MainActivity : Activity() {
     }
 
     private fun showLogin() {
+        marketVisible = false
         makeRoot()
 
         val title = TextView(this)
@@ -120,6 +123,7 @@ class MainActivity : Activity() {
         }
 
         loginButton.setOnClickListener { login() }
+
         passInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 login()
@@ -131,6 +135,7 @@ class MainActivity : Activity() {
     }
 
     private fun showMarket() {
+        marketVisible = true
         makeRoot()
         root.gravity = Gravity.TOP
 
@@ -140,10 +145,13 @@ class MainActivity : Activity() {
         statusText.setTextColor(Color.WHITE)
         root.addView(statusText)
 
-        progressBar = ProgressBar(this, null,
-            android.R.attr.progressBarStyleHorizontal)
+        progressBar = ProgressBar(
+            this, null,
+            android.R.attr.progressBarStyleHorizontal
+        )
         progressBar.max = 100
         progressBar.visibility = View.GONE
+
         root.addView(progressBar, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 8
         ))
@@ -155,7 +163,9 @@ class MainActivity : Activity() {
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = false
 
-        webView.addJavascriptInterface(AndroidMarketBridge(), "AndroidMarket")
+        webView.addJavascriptInterface(
+            AndroidMarketBridge(), "AndroidMarket"
+        )
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -185,12 +195,16 @@ class MainActivity : Activity() {
     private fun beginDownload(url: String, fileName: String) {
         try {
             if (!url.startsWith("https://")) {
-                Toast.makeText(this, "下載網址不安全", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this, "下載網址不安全", Toast.LENGTH_LONG
+                ).show()
                 return
             }
 
             if (currentDownloadId != -1L) {
-                Toast.makeText(this, "目前已有下載正在進行", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this, "目前已有下載正在進行", Toast.LENGTH_SHORT
+                ).show()
                 return
             }
 
@@ -213,21 +227,28 @@ class MainActivity : Activity() {
             progressBar.progress = 0
             statusText.text = "正在下載：0%"
 
-            Toast.makeText(this, "開始下載 $fileName", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this, "開始下載 $fileName", Toast.LENGTH_SHORT
+            ).show()
 
             checkDownloadProgress()
+
         } catch (e: Exception) {
-            Toast.makeText(this, "下載失敗："+e.message, Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                this, "下載失敗："+e.message, Toast.LENGTH_LONG
+            ).show()
         }
     }
 
     private fun checkDownloadProgress() {
         if (checkingDownload || currentDownloadId == -1L) return
+
         checkingDownload = true
 
         handler.postDelayed(object : Runnable {
             override fun run() {
                 val id = currentDownloadId
+
                 if (id == -1L) {
                     checkingDownload = false
                     return
@@ -235,14 +256,19 @@ class MainActivity : Activity() {
 
                 try {
                     val query = DownloadManager.Query().setFilterById(id)
+
                     downloadManager.query(query)?.use { cursor ->
+
                         if (cursor.moveToFirst()) {
+
                             val statusIndex = cursor.getColumnIndex(
                                 DownloadManager.COLUMN_STATUS
                             )
+
                             val downloadedIndex = cursor.getColumnIndex(
                                 DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR
                             )
+
                             val totalIndex = cursor.getColumnIndex(
                                 DownloadManager.COLUMN_TOTAL_SIZE_BYTES
                             )
@@ -254,41 +280,67 @@ class MainActivity : Activity() {
                             if (total > 0) {
                                 val percent = ((downloaded * 100) / total)
                                     .toInt().coerceIn(0, 100)
+
                                 progressBar.progress = percent
                                 statusText.text = "下載中：$percent%"
-                                sendProgress(currentDownloadUrl, percent, "downloading")
+
+                                sendProgress(
+                                    currentDownloadUrl,
+                                    percent,
+                                    "downloading"
+                                )
                             }
 
                             if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                                progressBar.progress = 100
-                                sendProgress(currentDownloadUrl, 100, "complete")
 
-                                val uri = downloadManager.getUriForDownloadedFile(id)
+                                progressBar.progress = 100
+
+                                sendProgress(
+                                    currentDownloadUrl,
+                                    100,
+                                    "complete"
+                                )
+
+                                val uri =
+                                    downloadManager.getUriForDownloadedFile(id)
+
                                 currentDownloadId = -1L
                                 checkingDownload = false
 
                                 if (uri != null) {
-                                    pendingInstallUri = uri
                                     openApkInstaller(uri)
                                 } else {
-                                    statusText.text = "下載完成，但無法取得檔案"
+                                    statusText.text =
+                                        "下載完成，但無法取得檔案"
                                 }
+
                                 return
                             }
 
                             if (status == DownloadManager.STATUS_FAILED) {
+
                                 currentDownloadId = -1L
                                 checkingDownload = false
-                                sendProgress(currentDownloadUrl, 0, "failed")
+
+                                sendProgress(
+                                    currentDownloadUrl,
+                                    0,
+                                    "failed"
+                                )
+
                                 statusText.text = "下載失敗"
+
                                 Toast.makeText(
-                                    this@MainActivity, "APK 下載失敗",
+                                    this@MainActivity,
+                                    "APK 下載失敗",
                                     Toast.LENGTH_LONG
                                 ).show()
+
                                 return
                             }
                         }
                     }
+
                 } catch (_: Exception) {
                     currentDownloadId = -1L
                     checkingDownload = false
@@ -301,14 +353,22 @@ class MainActivity : Activity() {
         }, 500)
     }
 
-    private fun sendProgress(url: String, percent: Int, state: String) {
+    private fun sendProgress(
+        url: String,
+        percent: Int,
+        state: String
+    ) {
         if (!::webView.isInitialized) return
 
-        val safeUrl = url.replace("\\", "\\\\").replace("'", "\\'")
+        val safeUrl = url
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+
         webView.post {
             webView.evaluateJavascript(
                 "window.onApkDownloadProgress && " +
-                    "window.onApkDownloadProgress('$safeUrl',$percent,'$state');",
+                    "window.onApkDownloadProgress(" +
+                    "'$safeUrl',$percent,'$state');",
                 null
             )
         }
@@ -316,10 +376,16 @@ class MainActivity : Activity() {
 
     private fun openApkInstaller(uri: Uri) {
         try {
+
+            // 尚未允許安裝未知應用程式時，先開啟權限設定
             if (android.os.Build.VERSION.SDK_INT >= 26 &&
                 !packageManager.canRequestPackageInstalls()) {
+
+                pendingInstallUri = uri
+
                 Toast.makeText(
-                    this, "請允許此應用程式安裝未知應用程式",
+                    this,
+                    "請允許此應用程式安裝未知應用程式",
                     Toast.LENGTH_LONG
                 ).show()
 
@@ -327,21 +393,31 @@ class MainActivity : Activity() {
                     Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:$packageName")
                 )
+
                 startActivity(intent)
                 return
             }
+
+            // 關鍵修正：啟動安裝畫面前，先清除待安裝路徑
+            // 避免安裝完成返回時 onResume 再次開啟同一個 APK
+            pendingInstallUri = null
 
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, apkMime)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
+
             startActivity(intent)
 
             statusText.text = "請在系統畫面確認安裝"
+
         } catch (e: Exception) {
+            pendingInstallUri = null
+
             Toast.makeText(
-                this, "無法開啟安裝畫面："+e.message,
+                this,
+                "無法開啟安裝畫面："+e.message,
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -350,45 +426,55 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
 
+        // 只有從未知應用程式權限設定返回時，才會有待安裝檔案
         val uri = pendingInstallUri ?: return
 
-        if (android.os.Build.VERSION.SDK_INT < 26 ||
-            packageManager.canRequestPackageInstalls()) {
-            pendingInstallUri = null
-            handler.postDelayed({
-                openApkInstaller(uri)
-            }, 500)
+        if (android.os.Build.VERSION.SDK_INT >= 26 &&
+            !packageManager.canRequestPackageInstalls()) {
+            return
         }
+
+        // 先清除，確保只觸發一次
+        pendingInstallUri = null
+
+        handler.postDelayed({
+            openApkInstaller(uri)
+        }, 500)
     }
 
     override fun onBackPressed() {
-        if (::webView.isInitialized && webView.visibility == View.VISIBLE) {
-            if (webView.canGoBack()) {
-                webView.goBack()
-            } else {
-                showLogin()
-            }
-        } else {
+        if (!marketVisible) {
             finish()
+            return
+        }
+
+        if (::webView.isInitialized && webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            showLogin()
         }
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            if (!::webView.isInitialized || webView.visibility != View.VISIBLE) {
-                finish()
-                return true
-            }
+    override fun onKeyDown(
+        keyCode: Int,
+        event: KeyEvent?
+    ): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK && !marketVisible) {
+            finish()
+            return true
         }
+
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+
         if (::webView.isInitialized) {
             webView.removeJavascriptInterface("AndroidMarket")
             webView.destroy()
         }
+
         super.onDestroy()
     }
 }
