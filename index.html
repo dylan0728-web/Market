@@ -8,8 +8,7 @@
 <style>
 *{box-sizing:border-box}
 body{
-  margin:0;
-  color:#fff;
+  margin:0;color:#fff;
   font-family:Arial,"Microsoft JhengHei",sans-serif;
   background:linear-gradient(135deg,#101820,#202d38);
 }
@@ -38,9 +37,19 @@ main{padding:25px}
   background:#3b5363;transform:scale(1.02);
 }
 .appIcon{
-  width:54px;height:54px;border-radius:12px;
+  width:64px;height:64px;border-radius:12px;
   display:flex;align-items:center;justify-content:center;
-  background:#526b7b;font-size:25px;flex-shrink:0;
+  background:#526b7b;font-size:16px;font-weight:bold;
+  flex-shrink:0;position:relative;overflow:hidden;
+}
+.appIcon img{
+  width:100%;height:100%;object-fit:contain;
+}
+.downloadPercent{
+  position:absolute;inset:0;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.78);
+  color:#fff;font-size:19px;font-weight:bold;
 }
 .appName{font-size:17px;font-weight:bold;word-break:break-word}
 .appInfo{font-size:13px;color:#b8c6cf;margin-top:8px}
@@ -68,10 +77,12 @@ button{
   <div id="message">正在讀取 APK 清單...</div>
   <div id="apps"></div>
 </main>
+
 <script>
 var appsElement=document.getElementById("apps");
 var messageElement=document.getElementById("message");
 var statusElement=document.getElementById("status");
+var appCards={};
 
 function formatSize(bytes){
   if(!bytes)return "大小未知";
@@ -80,6 +91,7 @@ function formatSize(bytes){
 
 function loadApps(){
   appsElement.innerHTML="";
+  appCards={};
   messageElement.textContent="正在讀取 APK 清單...";
   statusElement.textContent="讀取中";
 
@@ -90,6 +102,7 @@ function loadApps(){
   })
   .then(function(releases){
     var count=0;
+
     releases.forEach(function(release){
       (release.assets||[]).forEach(function(asset){
         if(!asset.name.toLowerCase().endsWith(".apk"))return;
@@ -102,6 +115,11 @@ function loadApps(){
         var icon=document.createElement("div");
         icon.className="appIcon";
         icon.textContent="APK";
+
+        var percent=document.createElement("div");
+        percent.className="downloadPercent";
+        percent.textContent="0%";
+        icon.appendChild(percent);
 
         var info=document.createElement("div");
         var name=document.createElement("div");
@@ -116,6 +134,12 @@ function loadApps(){
         info.appendChild(detail);
         card.appendChild(icon);
         card.appendChild(info);
+
+        card.dataset.url=asset.browser_download_url;
+        appCards[asset.browser_download_url]={
+          percent:percent,
+          detail:detail
+        };
 
         card.addEventListener("click",function(){
           if(window.AndroidMarket &&
@@ -142,6 +166,25 @@ function loadApps(){
     statusElement.textContent="讀取失敗";
   });
 }
+
+/* Android 傳回個別 APK 的下載進度 */
+window.onApkDownloadProgress=function(url,percent,state){
+  var item=appCards[url];
+  if(!item)return;
+
+  item.percent.style.display="flex";
+  item.percent.textContent=percent+"%";
+
+  if(state==="complete"){
+    item.percent.textContent="100%";
+    item.detail.textContent="下載完成，準備安裝";
+  }else if(state==="failed"){
+    item.percent.style.display="none";
+    item.detail.textContent="下載失敗，請重新下載";
+  }else{
+    item.detail.textContent="下載中 "+percent+"%";
+  }
+};
 
 document.addEventListener("keydown",function(event){
   var cards=Array.prototype.slice.call(
