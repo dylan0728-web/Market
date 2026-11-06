@@ -76,8 +76,8 @@ header{
 }
 
 .progressArea{
+  display:none;
   margin-top:10px;
-  min-height:29px;
 }
 
 .progressTrack{
@@ -132,26 +132,19 @@ const list = document.getElementById("appList");
 let appsConfig = [];
 const appCards = new Map();
 
-function escapeHtml(value){
-  return String(value).replace(/[&<>"']/g, char => ({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#39;"
-  })[char]);
+function getConfig(fileName){
+  return appsConfig.find(app =>
+    String(app.file || "").toLowerCase() === fileName.toLowerCase()
+  ) || {};
 }
 
 function getChineseName(fileName){
-  const item = appsConfig.find(app =>
-    String(app.file || "").toLowerCase() === fileName.toLowerCase()
-  );
-
-  return item ? item.name : fileName.replace(/\.apk$/i,"");
+  const item = getConfig(fileName);
+  return item.name || fileName.replace(/\.apk$/i,"");
 }
 
 function createCard(fileName,url){
-  const name = getChineseName(fileName);
+  const config = getConfig(fileName);
 
   const card = document.createElement("div");
   card.className = "card";
@@ -160,9 +153,20 @@ function createCard(fileName,url){
   icon.className = "appIcon";
   icon.textContent = "APK";
 
+  if(config.icon){
+    const img = document.createElement("img");
+    img.alt = config.name || fileName;
+    img.loading = "lazy";
+    img.src = config.icon;
+    img.onerror = () => {
+      icon.textContent = "APK";
+    };
+    icon.replaceChildren(img);
+  }
+
   const appName = document.createElement("div");
   appName.className = "appName";
-  appName.textContent = name;
+  appName.textContent = getChineseName(fileName);
 
   const progressArea = document.createElement("div");
   progressArea.className = "progressArea";
@@ -190,10 +194,17 @@ function createCard(fileName,url){
       return;
     }
 
-    if(typeof AndroidMarket.checkInstalled === "function"){
-      AndroidMarket.checkInstalled("",url);
-    }else{
+    progressArea.style.display = "none";
+
+    const packageName = config.packageName || "";
+
+    if(packageName &&
+       typeof AndroidMarket.checkInstalled === "function"){
+      AndroidMarket.checkInstalled(packageName,url);
+    }else if(typeof AndroidMarket.startDownload === "function"){
       AndroidMarket.startDownload(url,fileName);
+    }else{
+      alert("目前無法啟動下載，請重新開啟市場");
     }
   });
 
@@ -205,13 +216,9 @@ function createCard(fileName,url){
     icon,
     bar,
     text:progressText,
-    packageName:""
+    progressArea,
+    packageName:config.packageName || ""
   });
-
-  if(window.AndroidMarket &&
-     typeof AndroidMarket.loadApkIcon === "function"){
-    AndroidMarket.loadApkIcon(url,fileName);
-  }
 }
 
 function loadApps(){
@@ -262,16 +269,6 @@ function loadApps(){
     });
 }
 
-window.onApkIconResult = function(url,iconData){
-  const item = appCards.get(url);
-  if(!item || !iconData) return;
-
-  const img = document.createElement("img");
-  img.alt = item.fileName;
-  img.src = "data:image/png;base64," + iconData;
-  item.icon.replaceChildren(img);
-};
-
 window.onAppCheckResult = function(
   url,
   installed,
@@ -282,7 +279,7 @@ window.onAppCheckResult = function(
   const item = appCards.get(url);
   if(!item) return;
 
-  item.packageName = packageName || "";
+  item.packageName = packageName || item.packageName;
 
   if(iconData){
     const img = document.createElement("img");
@@ -311,19 +308,29 @@ window.onAppCheckResult = function(
   }
 };
 
+window.onApkIconResult = function(url,iconData){
+  const item = appCards.get(url);
+  if(!item || !iconData) return;
+
+  const img = document.createElement("img");
+  img.alt = item.fileName;
+  img.src = "data:image/png;base64," + iconData;
+  item.icon.replaceChildren(img);
+};
+
 window.onApkDownloadProgress = function(url,percent,state){
   const item = appCards.get(url);
   if(!item) return;
 
-  item.bar.style.width =
-    Math.max(0,Math.min(100,percent)) + "%";
-
   if(state === "downloading"){
+    item.progressArea.style.display = "block";
+    item.bar.style.width =
+      Math.max(0,Math.min(100,percent)) + "%";
     item.text.textContent = "下載中… " + percent + "%";
-  }else if(state === "complete"){
-    item.text.textContent = "下載完成";
-  }else if(state === "failed"){
-    item.text.textContent = "下載失敗";
+  }else{
+    item.progressArea.style.display = "none";
+    item.bar.style.width = "0%";
+    item.text.textContent = "";
   }
 };
 
