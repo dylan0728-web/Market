@@ -130,7 +130,7 @@ header{
 const list = document.getElementById("appList");
 
 let appsConfig = [];
-let appCards = new Map();
+const appCards = new Map();
 
 function escapeHtml(value){
   return String(value).replace(/[&<>"']/g, char => ({
@@ -156,16 +156,33 @@ function createCard(fileName,url){
   const card = document.createElement("div");
   card.className = "card";
 
-  card.innerHTML = `
-    <div class="appIcon" id="icon-${CSS.escape(fileName)}">APK</div>
-    <div class="appName">${escapeHtml(name)}</div>
-    <div class="progressArea">
-      <div class="progressTrack">
-        <div class="progressFill" id="bar-${CSS.escape(fileName)}"></div>
-      </div>
-      <div class="progressText" id="text-${CSS.escape(fileName)}"></div>
-    </div>
-  `;
+  const icon = document.createElement("div");
+  icon.className = "appIcon";
+  icon.textContent = "APK";
+
+  const appName = document.createElement("div");
+  appName.className = "appName";
+  appName.textContent = name;
+
+  const progressArea = document.createElement("div");
+  progressArea.className = "progressArea";
+
+  const track = document.createElement("div");
+  track.className = "progressTrack";
+
+  const bar = document.createElement("div");
+  bar.className = "progressFill";
+  track.appendChild(bar);
+
+  const progressText = document.createElement("div");
+  progressText.className = "progressText";
+
+  progressArea.appendChild(track);
+  progressArea.appendChild(progressText);
+
+  card.appendChild(icon);
+  card.appendChild(appName);
+  card.appendChild(progressArea);
 
   card.addEventListener("click", () => {
     if(!window.AndroidMarket){
@@ -173,10 +190,8 @@ function createCard(fileName,url){
       return;
     }
 
-    const packageName = card.dataset.package || "";
-
     if(typeof AndroidMarket.checkInstalled === "function"){
-      AndroidMarket.checkInstalled(packageName,url);
+      AndroidMarket.checkInstalled("",url);
     }else{
       AndroidMarket.startDownload(url,fileName);
     }
@@ -187,9 +202,10 @@ function createCard(fileName,url){
   appCards.set(url,{
     fileName,
     card,
-    icon:card.querySelector(".appIcon"),
-    bar:card.querySelector(".progressFill"),
-    text:card.querySelector(".progressText")
+    icon,
+    bar,
+    text:progressText,
+    packageName:""
   });
 
   if(window.AndroidMarket &&
@@ -206,6 +222,7 @@ function loadApps(){
     })
     .then(data => {
       appsConfig = Array.isArray(data.apps) ? data.apps : [];
+
       return fetch(
         "https://api.github.com/repos/dylan0728-web/Market/releases"
       );
@@ -252,13 +269,20 @@ window.onApkIconResult = function(url,iconData){
   const img = document.createElement("img");
   img.alt = item.fileName;
   img.src = "data:image/png;base64," + iconData;
-
   item.icon.replaceChildren(img);
 };
 
-window.onAppCheckResult = function(url,installed,appLabel,iconData){
+window.onAppCheckResult = function(
+  url,
+  installed,
+  appLabel,
+  iconData,
+  packageName
+){
   const item = appCards.get(url);
   if(!item) return;
+
+  item.packageName = packageName || "";
 
   if(iconData){
     const img = document.createElement("img");
@@ -268,18 +292,18 @@ window.onAppCheckResult = function(url,installed,appLabel,iconData){
   }
 
   if(installed){
-    const packageName = item.card.dataset.package || "";
-
     const choice = confirm(
       (appLabel || item.fileName) +
       "\n\n此軟體已經安裝。\n\n按「確定」開啟軟體；按「取消」選擇卸載。"
     );
 
     if(choice){
-      if(packageName) AndroidMarket.launchApp(packageName);
+      if(item.packageName){
+        AndroidMarket.launchApp(item.packageName);
+      }
     }else{
-      if(packageName && confirm("確定要卸載／刪除此軟體嗎？")){
-        AndroidMarket.uninstallApp(packageName);
+      if(item.packageName && confirm("確定要卸載／刪除此軟體嗎？")){
+        AndroidMarket.uninstallApp(item.packageName);
       }
     }
   }else{
@@ -291,7 +315,8 @@ window.onApkDownloadProgress = function(url,percent,state){
   const item = appCards.get(url);
   if(!item) return;
 
-  item.bar.style.width = Math.max(0,Math.min(100,percent)) + "%";
+  item.bar.style.width =
+    Math.max(0,Math.min(100,percent)) + "%";
 
   if(state === "downloading"){
     item.text.textContent = "下載中… " + percent + "%";
