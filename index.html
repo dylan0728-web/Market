@@ -25,10 +25,7 @@ header{
   border-bottom:1px solid #40505d;
 }
 
-header h2{
-  margin:0;
-  font-size:25px;
-}
+header h2{margin:0;font-size:25px}
 
 #status{
   color:#aebdca;
@@ -68,7 +65,6 @@ main{padding:25px}
   transform:scale(1.02);
 }
 
-/* 圖示及進度條專用區域 */
 .appVisual{
   width:76px;
   flex-shrink:0;
@@ -86,11 +82,17 @@ main{padding:25px}
   align-items:center;
   justify-content:center;
   background:#526b7b;
-  font-size:16px;
+  font-size:15px;
   font-weight:bold;
+  overflow:hidden;
 }
 
-/* 每個軟體自己的下載進度 */
+.appIcon img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+
 .downloadArea{
   width:76px;
   display:none;
@@ -99,9 +101,7 @@ main{padding:25px}
   gap:4px;
 }
 
-.downloadArea.show{
-  display:flex;
-}
+.downloadArea.show{display:flex}
 
 .downloadTrack{
   width:100%;
@@ -148,16 +148,63 @@ main{padding:25px}
 .appState{
   display:inline-block;
   margin-top:7px;
-  padding:4px 9px;
-  border-radius:6px;
-  background:#526b7b;
-  color:#fff;
+  padding:4px 0;
+  color:#b8c6cf;
   font-size:13px;
 }
 
-.appState.installed{background:#16784a}
-.appState.download{background:#315f9b}
-.appState.downloading{background:#176d9e}
+.appState.installed{color:#56d99a}
+.appState.downloading{color:#69c5ff}
+
+/* 已安裝軟體操作視窗 */
+.modal{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  background:rgba(0,0,0,.75);
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+
+.modal.show{display:flex}
+
+.modalBox{
+  width:100%;
+  max-width:360px;
+  padding:24px;
+  border-radius:15px;
+  background:#263945;
+  border:1px solid #607786;
+  text-align:center;
+}
+
+.modalTitle{
+  font-size:20px;
+  font-weight:bold;
+  margin-bottom:10px;
+}
+
+.modalDesc{
+  color:#bdcbd4;
+  font-size:14px;
+  margin-bottom:22px;
+}
+
+.modalButton{
+  width:100%;
+  padding:13px;
+  margin-top:10px;
+  border:0;
+  border-radius:8px;
+  color:#fff;
+  font-size:16px;
+  cursor:pointer;
+}
+
+.openButton{background:#168653}
+.uninstallButton{background:#a83b3b}
 
 button{
   color:white;
@@ -183,7 +230,7 @@ button{
 <header>
   <h2>Market</h2>
   <div>
-    <button onclick="loadApps()">重新掃描</button>
+    <button onclick="loadApps()">重新整理</button>
     <span id="status">APK 市場</span>
   </div>
 </header>
@@ -193,37 +240,80 @@ button{
   <div id="apps"></div>
 </main>
 
+<!-- 已安裝軟體操作選單 -->
+<div class="modal" id="appModal">
+  <div class="modalBox">
+    <div class="modalTitle" id="modalTitle">此軟體已安裝</div>
+    <div class="modalDesc" id="modalDesc">請選擇操作</div>
+
+    <button class="modalButton openButton" onclick="openSelectedApp()">
+      開啟軟體
+    </button>
+
+    <button class="modalButton uninstallButton" onclick="uninstallSelectedApp()">
+      卸載／刪除軟體
+    </button>
+  </div>
+</div>
+
 <script>
 var appsElement=document.getElementById("apps");
 var messageElement=document.getElementById("message");
 var statusElement=document.getElementById("status");
 
 var appCards={};
-var scanList=[];
+var selectedApp=null;
 
 function formatSize(bytes){
   if(!bytes)return "大小未知";
   return (bytes/1024/1024).toFixed(1)+" MB";
 }
 
+/* 讀取中文名稱及套件資料 */
+function loadNames(){
+  return fetch("apps.json?time="+Date.now())
+    .then(function(response){
+      if(!response.ok)throw new Error("apps.json 尚未建立");
+      return response.json();
+    })
+    .catch(function(){
+      return [];
+    });
+}
+
+function findAppInfo(list,fileName){
+  for(var i=0;i<list.length;i++){
+    if(list[i].fileName===fileName){
+      return list[i];
+    }
+  }
+  return {};
+}
+
 function loadApps(){
 
   appsElement.innerHTML="";
   appCards={};
-  scanList=[];
+  selectedApp=null;
 
-  messageElement.textContent="正在讀取 GitHub APK 清單...";
+  document.getElementById("appModal").classList.remove("show");
+
+  messageElement.textContent="正在讀取 APK 清單...";
   statusElement.textContent="讀取中";
 
-  fetch("https://api.github.com/repos/dylan0728-web/Market/releases")
+  Promise.all([
+    fetch("https://api.github.com/repos/dylan0728-web/Market/releases")
+      .then(function(response){
+        if(!response.ok)throw new Error("GitHub API "+response.status);
+        return response.json();
+      }),
+    loadNames()
+  ])
 
-  .then(function(response){
-    if(!response.ok)throw new Error("GitHub API "+response.status);
-    return response.json();
-  })
+  .then(function(results){
 
-  .then(function(releases){
-
+    var releases=results[0];
+    var names=results[1];
     var count=0;
 
     releases.forEach(function(release){
@@ -234,11 +324,15 @@ function loadApps(){
 
         count++;
 
+        var appInfo=findAppInfo(names,asset.name);
+
+        var displayName=appInfo.name||asset.name;
+        var packageName=appInfo.packageName||"";
+
         var card=document.createElement("div");
         card.className="app";
         card.tabIndex=0;
 
-        /* 圖示與下載進度區 */
         var visual=document.createElement("div");
         visual.className="appVisual";
 
@@ -246,7 +340,6 @@ function loadApps(){
         icon.className="appIcon";
         icon.textContent="APK";
 
-        /* 獨立進度條 */
         var downloadArea=document.createElement("div");
         downloadArea.className="downloadArea";
 
@@ -260,7 +353,7 @@ function loadApps(){
 
         var percentText=document.createElement("div");
         percentText.className="downloadText";
-        percentText.textContent="0%";
+        percentText.textContent="";
 
         downloadArea.appendChild(track);
         downloadArea.appendChild(percentText);
@@ -268,13 +361,12 @@ function loadApps(){
         visual.appendChild(icon);
         visual.appendChild(downloadArea);
 
-        /* 軟體資訊 */
         var info=document.createElement("div");
         info.className="appInfo";
 
         var name=document.createElement("div");
         name.className="appName";
-        name.textContent=asset.name;
+        name.textContent=displayName;
 
         var detail=document.createElement("div");
         detail.className="appInfoText";
@@ -283,7 +375,7 @@ function loadApps(){
 
         var state=document.createElement("div");
         state.className="appState";
-        state.textContent="正在辨識...";
+        state.textContent="點擊使用";
 
         info.appendChild(name);
         info.appendChild(detail);
@@ -294,50 +386,22 @@ function loadApps(){
 
         var app={
           url:asset.browser_download_url,
-          name:asset.name,
-          packageName:"",
-          installed:false,
+          fileName:asset.name,
+          name:displayName,
+          packageName:packageName,
+          icon:icon,
           bar:bar,
           downloadArea:downloadArea,
           percentText:percentText,
           detail:detail,
           state:state,
-          ready:false
+          ready:true
         };
 
-        appCards[asset.browser_download_url]=app;
-
-        scanList.push({
-          url:asset.browser_download_url,
-          name:asset.name
-        });
+        appCards[app.url]=app;
 
         card.addEventListener("click",function(){
-
-          if(!app.ready){
-            messageElement.textContent="正在辨識軟體，請稍候...";
-            return;
-          }
-
-          if(app.installed && app.packageName){
-
-            if(window.AndroidMarket &&
-               typeof window.AndroidMarket.launchApp==="function"){
-              window.AndroidMarket.launchApp(app.packageName);
-            }
-
-            return;
-          }
-
-          if(window.AndroidMarket &&
-             typeof window.AndroidMarket.startDownload==="function"){
-
-            window.AndroidMarket.startDownload(app.url,app.name);
-
-          }else{
-            window.open(app.url,"_blank");
-          }
-
+          handleAppClick(app);
         });
 
         appsElement.appendChild(card);
@@ -347,32 +411,13 @@ function loadApps(){
     });
 
     if(count===0){
-      messageElement.textContent="目前沒有 APK，請先在 GitHub Releases 上傳 APK 檔案。";
+      messageElement.textContent="目前沒有 APK，請先上傳 APK 到 GitHub Releases。";
       statusElement.textContent="沒有 APK";
       return;
     }
 
-    messageElement.textContent="找到 "+count+" 個 APK，正在逐一掃描辨識...";
-    statusElement.textContent="掃描中";
-
-    if(window.AndroidMarket &&
-       typeof window.AndroidMarket.scanApks==="function"){
-
-      window.AndroidMarket.scanApks(JSON.stringify(scanList));
-
-    }else{
-
-      messageElement.textContent="目前不是 Android 市場環境，無法辨識已安裝狀態。";
-
-      scanList.forEach(function(item){
-        var app=appCards[item.url];
-        app.ready=true;
-        app.state.textContent="下載";
-        app.state.className="appState download";
-      });
-
-      statusElement.textContent="網頁預覽模式";
-    }
+    messageElement.textContent="共找到 "+count+" 個軟體";
+    statusElement.textContent="市場已就緒";
 
   })
 
@@ -382,48 +427,116 @@ function loadApps(){
   });
 }
 
+/* 點擊時才檢查這一個軟體 */
+function handleAppClick(app){
 
-/* APK 掃描結果 */
-window.onApkScanResult=function(url,packageName,installed,appLabel){
+  if(window.AndroidMarket &&
+     typeof window.AndroidMarket.checkInstalled==="function"){
+
+    selectedApp=app;
+    messageElement.textContent="正在確認 "+app.name+"...";
+
+    window.AndroidMarket.checkInstalled(
+      app.packageName,
+      app.url
+    );
+
+  }else{
+    startAppDownload(app);
+  }
+}
+
+/* Android 回傳單一軟體的安裝狀態 */
+window.onAppCheckResult=function(url,installed,appLabel,iconBase64){
 
   var app=appCards[url];
   if(!app)return;
 
-  app.packageName=packageName||"";
-  app.installed=installed===true;
-  app.ready=true;
+  if(iconBase64){
+    app.icon.innerHTML="";
 
-  if(app.installed){
+    var img=document.createElement("img");
+    img.src="data:image/png;base64,"+iconBase64;
+    app.icon.appendChild(img);
+  }
 
-    app.state.textContent="已安裝 · 點擊開啟";
+  if(installed){
+
+    selectedApp=app;
+
+    document.getElementById("modalTitle").textContent=
+      (appLabel||app.name)+" 已安裝";
+
+    document.getElementById("modalDesc").textContent=
+      "請選擇要開啟或卸載此軟體";
+
+    document.getElementById("appModal").classList.add("show");
+
+    app.state.textContent="已安裝";
     app.state.className="appState installed";
 
   }else{
 
-    app.state.textContent="下載";
-    app.state.className="appState download";
+    startAppDownload(app);
 
-  }
-
-  app.detail.textContent=appLabel||app.name;
-
-  var finished=0;
-
-  Object.keys(appCards).forEach(function(key){
-    if(appCards[key].ready)finished++;
-  });
-
-  messageElement.textContent="掃描進度："+finished+"/"+scanList.length;
-
-  if(finished===scanList.length){
-    messageElement.textContent="掃描完成，共 "+scanList.length+" 個 APK";
-    statusElement.textContent="辨識完成";
   }
 
 };
 
+/* 開啟已安裝軟體 */
+function openSelectedApp(){
 
-/* 每個軟體獨立顯示下載進度 */
+  if(!selectedApp)return;
+
+  document.getElementById("appModal").classList.remove("show");
+
+  if(window.AndroidMarket){
+    window.AndroidMarket.launchApp(selectedApp.packageName);
+  }
+
+}
+
+/* 卸載已安裝軟體 */
+function uninstallSelectedApp(){
+
+  if(!selectedApp)return;
+
+  document.getElementById("appModal").classList.remove("show");
+
+  if(window.AndroidMarket){
+    window.AndroidMarket.uninstallApp(selectedApp.packageName);
+  }
+
+}
+
+/* 尚未安裝才開始下載 */
+function startAppDownload(app){
+
+  if(!app)return;
+
+  selectedApp=null;
+
+  app.state.textContent="下載中";
+  app.state.className="appState downloading";
+
+  app.downloadArea.classList.add("show");
+  app.percentText.textContent="0%";
+  app.bar.style.width="0%";
+
+  if(window.AndroidMarket &&
+     typeof window.AndroidMarket.startDownload==="function"){
+
+    window.AndroidMarket.startDownload(app.url,app.fileName);
+
+  }else{
+
+    window.open(app.url,"_blank");
+
+  }
+
+}
+
+/* 每個軟體獨立下載進度 */
 window.onApkDownloadProgress=function(url,percent,state){
 
   var app=appCards[url];
@@ -433,40 +546,56 @@ window.onApkDownloadProgress=function(url,percent,state){
 
   app.downloadArea.classList.add("show");
   app.bar.style.width=percent+"%";
-  app.percentText.textContent=percent+"%";
 
   if(state==="complete"){
 
-    app.bar.style.width="100%";
-    app.percentText.textContent="100%";
     app.percentText.textContent="下載完成";
-
     app.state.textContent="準備安裝";
-    app.state.className="appState installed";
     app.detail.textContent="下載完成，準備安裝";
 
   }else if(state==="failed"){
 
     app.downloadArea.classList.remove("show");
+    app.percentText.textContent="";
     app.bar.style.width="0%";
 
-    app.state.textContent="下載失敗，點擊重試";
-    app.state.className="appState download";
-    app.detail.textContent="下載失敗，請重新下載";
+    app.state.textContent="下載失敗";
+    app.state.className="appState";
 
   }else{
 
+    app.percentText.textContent="下載中 "+percent+"%";
     app.state.textContent="下載中";
     app.state.className="appState downloading";
-    app.detail.textContent="正在下載 "+percent+"%";
 
   }
 
 };
 
+/* 安裝完成後的狀態更新 */
+window.onApkInstallResult=function(url,success){
 
-/* 電視盒方向鍵操作 */
+  var app=appCards[url];
+  if(!app)return;
+
+  if(success){
+    app.state.textContent="安裝完成";
+    app.state.className="appState installed";
+    app.detail.textContent="已完成安裝";
+  }
+
+};
+
+/* 電視盒方向鍵 */
 document.addEventListener("keydown",function(event){
+
+  if(document.getElementById("appModal").classList.contains("show")){
+    if(event.key==="Escape" || event.key==="Backspace"){
+      document.getElementById("appModal").classList.remove("show");
+      selectedApp=null;
+    }
+    return;
+  }
 
   var cards=Array.prototype.slice.call(
     document.querySelectorAll(".app")
@@ -496,10 +625,8 @@ document.addEventListener("keydown",function(event){
 
 });
 
-
 loadApps();
 
 </script>
-
 </body>
 </html>
