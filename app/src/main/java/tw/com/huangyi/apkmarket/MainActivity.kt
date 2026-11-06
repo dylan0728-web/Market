@@ -5,15 +5,12 @@ import android.app.Activity
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.os.Build
 import android.provider.Settings
 import android.view.KeyEvent
 import android.view.View
@@ -24,13 +21,8 @@ import android.webkit.WebViewClient
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import android.util.Base64
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
-import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
 
@@ -38,7 +30,6 @@ class MainActivity : Activity() {
     private lateinit var loadingText: TextView
 
     private val handler = Handler(Looper.getMainLooper())
-    private val executor = Executors.newSingleThreadExecutor()
     private var pendingInstallUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,7 +53,12 @@ class MainActivity : Activity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = false
-        webView.addJavascriptInterface(AndroidMarketBridge(), "AndroidMarket")
+
+        webView.addJavascriptInterface(
+            AndroidMarketBridge(),
+            "AndroidMarket"
+        )
+
         webView.webChromeClient = WebChromeClient()
 
         webView.webViewClient = object : WebViewClient() {
@@ -72,6 +68,7 @@ class MainActivity : Activity() {
         }
 
         layout.addView(loadingText)
+
         layout.addView(
             webView,
             LinearLayout.LayoutParams(
@@ -82,6 +79,7 @@ class MainActivity : Activity() {
         )
 
         setContentView(layout)
+
         webView.loadUrl("https://dylan0728-web.github.io/Market/")
     }
 
@@ -89,50 +87,18 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun checkInstalled(packageName: String, url: String) {
-            executor.execute {
-                val metadata = inspectApk(url)
-                val apkPackage = metadata.first
-                val appLabel = metadata.second
-                val icon = metadata.third
-
-                val targetPackage = if (apkPackage.isNotBlank()) {
-                    apkPackage
-                } else {
-                    packageName
-                }
-
-                val installed = isPackageInstalled(targetPackage)
+            runOnUiThread {
+                val installed = isPackageInstalled(packageName)
 
                 val safeUrl = JSONObject.quote(url)
-                val safeLabel = JSONObject.quote(appLabel)
-                val safeIcon = JSONObject.quote(icon)
-                val safePackage = JSONObject.quote(targetPackage)
+                val safePackage = JSONObject.quote(packageName)
+                val safeLabel = JSONObject.quote(packageName)
 
-                runOnUiThread {
-                    webView.evaluateJavascript(
-                        "window.onAppCheckResult(" +
-                            "$safeUrl,$installed,$safeLabel,$safeIcon,$safePackage);",
-                        null
-                    )
-                }
-            }
-        }
-
-        @JavascriptInterface
-        fun loadApkIcon(url: String, fileName: String) {
-            executor.execute {
-                val metadata = inspectApk(url)
-                val icon = metadata.third
-
-                val safeUrl = JSONObject.quote(url)
-                val safeIcon = JSONObject.quote(icon)
-
-                runOnUiThread {
-                    webView.evaluateJavascript(
-                        "window.onApkIconResult($safeUrl,$safeIcon);",
-                        null
-                    )
-                }
+                webView.evaluateJavascript(
+                    "window.onAppCheckResult(" +
+                        "$safeUrl,$installed,$safeLabel,\"\",$safePackage);",
+                    null
+                )
             }
         }
 
@@ -156,107 +122,6 @@ class MainActivity : Activity() {
                 uninstallInstalledApp(packageName)
             }
         }
-    }
-
-    private fun inspectApk(url: String): Triple<String, String, String> {
-        return try {
-            val apkFile = getCachedApk(url)
-
-            val info = packageManager.getPackageArchiveInfo(
-                apkFile.absolutePath,
-                PackageManager.GET_META_DATA
-            )
-
-            if (info == null) {
-                Triple("", "APK", "")
-            } else {
-                val appInfo = info.applicationInfo
-                var label = info.packageName
-                var icon = ""
-
-                if (appInfo != null) {
-                    appInfo.sourceDir = apkFile.absolutePath
-                    appInfo.publicSourceDir = apkFile.absolutePath
-
-                    label = packageManager.getApplicationLabel(appInfo).toString()
-                    icon = drawableToBase64(
-                        packageManager.getApplicationIcon(appInfo)
-                    )
-                }
-
-                Triple(info.packageName, label, icon)
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("APK_MARKET", "APK 讀取失敗", e)
-            Triple("", "APK", "")
-        }
-    }
-
-    private fun getCachedApk(url: String): File {
-        val folder = File(cacheDir, "apk_metadata")
-        if (!folder.exists()) folder.mkdirs()
-
-        val cacheFile = File(folder, "apk_${url.hashCode()}.apk")
-
-        if (cacheFile.exists() && cacheFile.length() > 0) {
-            return cacheFile
-        }
-
-        if (!url.startsWith(
-                "https://github.com/dylan0728-web/Market/releases/download/"
-            )) {
-            throw Exception("不允許的 APK 網址")
-        }
-
-        val connection = URL(url).openConnection() as HttpURLConnection
-        connection.connectTimeout = 20000
-        connection.readTimeout = 60000
-        connection.instanceFollowRedirects = true
-
-        try {
-            connection.connect()
-
-            if (connection.responseCode !in 200..299) {
-                throw Exception("APK 下載失敗")
-            }
-
-            val tempFile = File(folder, cacheFile.name + ".tmp")
-
-            connection.inputStream.use { input ->
-                tempFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            if (!tempFile.renameTo(cacheFile)) {
-                tempFile.copyTo(cacheFile, overwrite = true)
-                tempFile.delete()
-            }
-        } finally {
-            connection.disconnect()
-        }
-
-        return cacheFile
-    }
-
-    private fun drawableToBase64(drawable: Drawable): String {
-        val width = drawable.intrinsicWidth.coerceIn(1, 512)
-        val height = drawable.intrinsicHeight.coerceIn(1, 512)
-
-        val bitmap = Bitmap.createBitmap(
-            width,
-            height,
-            Bitmap.Config.ARGB_8888
-        )
-
-        val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.width, canvas.height)
-        drawable.draw(canvas)
-
-        val output = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-
-        return Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
     }
 
     private fun isPackageInstalled(packageName: String): Boolean {
@@ -296,12 +161,11 @@ class MainActivity : Activity() {
         if (packageName.isBlank()) return
 
         try {
-            startActivity(
-                Intent(
-                    Intent.ACTION_DELETE,
-                    Uri.parse("package:$packageName")
-                )
+            val intent = Intent(
+                Intent.ACTION_DELETE,
+                Uri.parse("package:$packageName")
             )
+            startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(
                 this,
@@ -315,14 +179,19 @@ class MainActivity : Activity() {
         try {
             if (!url.startsWith(
                     "https://github.com/dylan0728-web/Market/releases/download/"
-                )) {
-                Toast.makeText(this, "下載網址不正確", Toast.LENGTH_LONG).show()
+                )
+            ) {
+                Toast.makeText(
+                    this,
+                    "下載網址不正確",
+                    Toast.LENGTH_LONG
+                ).show()
                 return
             }
 
             val safeName = File(fileName).name
-            val request = DownloadManager.Request(Uri.parse(url))
 
+            val request = DownloadManager.Request(Uri.parse(url))
             request.setTitle(safeName)
             request.setDescription("正在下載 APK")
             request.setNotificationVisibility(
@@ -340,6 +209,13 @@ class MainActivity : Activity() {
             ) as DownloadManager
 
             val id = manager.enqueue(request)
+
+            Toast.makeText(
+                this,
+                "開始下載：$safeName",
+                Toast.LENGTH_SHORT
+            ).show()
+
             checkDownloadProgress(id, url, safeName)
 
         } catch (e: Exception) {
@@ -388,8 +264,8 @@ class MainActivity : Activity() {
                     )
 
                     when (status) {
-                        DownloadManager.STATUS_RUNNING,
-                        DownloadManager.STATUS_PENDING -> {
+                        DownloadManager.STATUS_PENDING,
+                        DownloadManager.STATUS_RUNNING -> {
                             val percent = if (total > 0) {
                                 (downloaded * 100 / total).toInt()
                             } else {
@@ -404,11 +280,15 @@ class MainActivity : Activity() {
                             sendProgress(url, 100, "complete")
 
                             val uri = manager.getUriForDownloadedFile(id)
-                            if (uri != null) openApkInstaller(uri)
+
+                            if (uri != null) {
+                                openApkInstaller(uri)
+                            }
                         }
 
                         DownloadManager.STATUS_FAILED -> {
                             sendProgress(url, 0, "failed")
+
                             Toast.makeText(
                                 this@MainActivity,
                                 "下載失敗：$fileName",
@@ -423,7 +303,11 @@ class MainActivity : Activity() {
         handler.post(task)
     }
 
-    private fun sendProgress(url: String, percent: Int, state: String) {
+    private fun sendProgress(
+        url: String,
+        percent: Int,
+        state: String
+    ) {
         val safeUrl = JSONObject.quote(url)
         val safeState = JSONObject.quote(state)
 
@@ -437,7 +321,10 @@ class MainActivity : Activity() {
     }
 
     private fun openApkInstaller(uri: Uri) {
-        if (!packageManager.canRequestPackageInstalls()) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !packageManager.canRequestPackageInstalls()
+        ) {
             pendingInstallUri = uri
 
             startActivity(
@@ -455,13 +342,17 @@ class MainActivity : Activity() {
     private fun installApk(uri: Uri) {
         try {
             val intent = Intent(Intent.ACTION_VIEW)
+
             intent.setDataAndType(
                 uri,
                 "application/vnd.android.package-archive"
             )
+
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
             startActivity(intent)
+
         } catch (e: Exception) {
             Toast.makeText(
                 this,
@@ -475,13 +366,21 @@ class MainActivity : Activity() {
         super.onResume()
 
         val uri = pendingInstallUri
-        if (uri != null && packageManager.canRequestPackageInstalls()) {
+
+        if (
+            uri != null &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            packageManager.canRequestPackageInstalls()
+        ) {
             pendingInstallUri = null
             installApk(uri)
         }
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+    override fun onKeyDown(
+        keyCode: Int,
+        event: KeyEvent?
+    ): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (::webView.isInitialized && webView.canGoBack()) {
                 webView.goBack()
@@ -496,7 +395,6 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
-        executor.shutdownNow()
 
         if (::webView.isInitialized) {
             webView.destroy()
