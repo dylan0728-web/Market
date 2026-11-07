@@ -5,150 +5,55 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Market</title>
-
 <style>
 *{box-sizing:border-box}
-body{
- margin:0;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;
- background:linear-gradient(135deg,#101820,#202d38);min-height:100vh;
-}
-header{padding:22px 16px;text-align:center;font-size:25px;font-weight:bold}
-#macInfo{
- position:fixed;top:10px;right:10px;z-index:20;padding:8px 11px;
- border-radius:9px;background:#263b4a;border:1px solid #506778;
- font-size:11px;color:#c9e8ff;max-width:65%;word-break:break-all;
-}
-#loginPage{
- min-height:100vh;display:flex;align-items:center;justify-content:center;
- padding:65px 20px 30px;
-}
-.loginBox{
- width:100%;max-width:380px;padding:30px 24px;border-radius:18px;
- background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);
- text-align:center;
-}
-.loginTitle{font-size:26px;font-weight:bold;margin-bottom:12px}
-.loginDesc{color:#b9c8d2;font-size:14px;margin-bottom:25px}
-.macBox{
- padding:14px;margin-bottom:20px;background:rgba(0,0,0,.25);
- border-radius:10px;text-align:left;font-size:13px;line-height:1.8;word-break:break-all;
-}
-#macValue{color:#61d6ff;font-weight:bold}
-.loginButton{
- width:100%;padding:14px;border:0;border-radius:10px;background:#1688d4;
- color:white;font-size:17px;font-weight:bold;cursor:pointer;
-}
-.loginButton:active{background:#0869aa}
-.testNotice{margin-top:17px;color:#ffcf70;font-size:12px;line-height:1.7}
-#marketPage{display:none}
-#appList{
- display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
- gap:12px;padding:12px;
-}
-.card{
- min-width:0;padding:14px 8px;border-radius:15px;
- background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.10);
- text-align:center;cursor:pointer;overflow:hidden;
-}
-.card:active{background:rgba(255,255,255,.16)}
-.appIcon{
- width:66px;height:66px;margin:0 auto 10px;display:flex;
- align-items:center;justify-content:center;border-radius:15px;
- background:rgba(255,255,255,.12);overflow:hidden;font-size:23px;font-weight:bold;
-}
-.appIcon img{width:100%;height:100%;object-fit:contain}
-.appName{
- min-height:38px;display:flex;align-items:center;justify-content:center;
- font-size:14px;line-height:1.4;word-break:break-word;
-}
-.progressArea{display:none;margin-top:10px}
-.progressTrack{
- width:100%;height:5px;border-radius:10px;overflow:hidden;
- background:rgba(255,255,255,.20);
-}
-.progressFill{
- height:100%;width:0%;border-radius:10px;background:#35d07f;
- transition:width .25s;
-}
-.progressText{margin-top:5px;font-size:11px;color:#b9f5d1}
-.empty{grid-column:1/-1;text-align:center;padding:35px 10px;color:#bbb}
-@media(max-width:360px){
- #appList{gap:8px;padding:8px}
- .card{padding:11px 5px}
- .appIcon{width:56px;height:56px}
- .appName{font-size:12px}
-}
+body{margin:0;padding:22px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px}
+h1{font-size:27px;margin:0;letter-spacing:1px}
+.tools{display:flex;gap:10px}
+button{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:10px 17px;font-size:15px;cursor:pointer}
+#status{color:#c5d0df;font-size:14px;margin-bottom:16px}
+#apps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.app{min-height:112px;display:flex;align-items:center;gap:14px;padding:16px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:12px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;min-width:0}
+.app:focus,.app.selected{border-color:#fff;background:rgba(255,255,255,.20);transform:scale(1.025)}
+.app-icon{width:62px;height:62px;flex-shrink:0;border-radius:13px;background:linear-gradient(145deg,#647d9c,#273c58);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:23px;font-weight:bold}
+.app-icon img{width:100%;height:100%;object-fit:contain}
+.app-info{min-width:0;flex:1}
+.app-name{font-size:17px;font-weight:bold;margin-bottom:7px;overflow-wrap:anywhere}
+.app-detail{color:#c1ccda;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.download-label{color:#8de6a3;font-size:13px;margin-top:5px}
+.installed{display:inline-block;color:#8de6a3;background:rgba(46,204,113,.15);border:1px solid rgba(46,204,113,.4);border-radius:5px;padding:3px 8px;font-size:12px;margin-top:5px}
+.not-installed{display:inline-block;color:#c5d9ff;background:rgba(91,151,230,.15);border:1px solid rgba(91,151,230,.4);border-radius:5px;padding:3px 8px;font-size:12px;margin-top:5px}
+.empty{grid-column:1/-1;text-align:center;padding:55px 15px;color:#c1ccda;font-size:17px}
+@media(max-width:700px){#apps{grid-template-columns:repeat(2,minmax(0,1fr))}.app{padding:10px;gap:9px}.app-icon{width:48px;height:48px}}
 </style>
 </head>
-
 <body>
-
-<div id="macInfo">MAC：讀取中...</div>
-
-<div id="loginPage">
- <div class="loginBox">
-  <div class="loginTitle">應用市場</div>
-  <div class="loginDesc">歡迎使用 APK 應用程式市場</div>
-  <div class="macBox">
-   裝置識別資訊<br>
-   MAC 位址：<span id="macValue">讀取中...</span>
-  </div>
-  <button class="loginButton" onclick="enterTestMarket()">進入市場（測試）</button>
-  <div class="testNotice">
-   目前為測試版本<br>
-   MEGA 裝置授權驗證尚未啟用
-  </div>
- </div>
+<header>
+<h1>Market</h1>
+<div class="tools">
+<button type="button" id="refreshBtn">????渡?</button>
+<button type="button" id="clearBtn">皜???/button>
 </div>
+</header>
 
-<div id="marketPage">
- <header>應用市場</header>
- <div id="appList">
-  <div class="empty">正在載入軟體清單...</div>
- </div>
-</div>
+<div id="status">甇?霈???函?撘??栽?/div>
+<main id="apps"><div class="empty">甇???? GitHub Releases??/div></main>
 
 <script>
-const list=document.getElementById("appList");
-let appsConfig=[];
-const appCards=new Map();
-let deviceMac="";
+(function(){
+"use strict";
 
-function readDeviceMac(){
- const macValue=document.getElementById("macValue");
- const macInfo=document.getElementById("macInfo");
- try{
-  if(window.AndroidMarket && typeof AndroidMarket.getDeviceMac==="function"){
-   deviceMac=AndroidMarket.getDeviceMac()||"";
-   if(deviceMac.length===12)deviceMac=deviceMac.match(/.{2}/g).join(":");
-   if(deviceMac){
-    macValue.textContent=deviceMac;
-    macInfo.textContent="MAC："+deviceMac;
-   }else{
-    macValue.textContent="無法讀取";
-    macInfo.textContent="MAC：無法讀取";
-   }
-  }else{
-   macValue.textContent="無法讀取";
-   macInfo.textContent="MAC：無法讀取";
-  }
- }catch(e){
-  deviceMac="";
-  macValue.textContent="無法讀取";
-  macInfo.textContent="MAC：無法讀取";
- }
-}
+const API="https://api.github.com/repos/dylan0728-web/Market/releases";
+const RELEASE_PREFIX="https://github.com/dylan0728-web/Market/releases/download/";
+const appsElement=document.getElementById("apps");
+const statusElement=document.getElementById("status");
+const refreshButton=document.getElementById("refreshBtn");
+const clearButton=document.getElementById("clearBtn");
 
-async function verifyMegaAuthorization(mac){
- return false;
-}
-
-function enterTestMarket(){
- document.getElementById("loginPage").style.display="none";
- document.getElementById("marketPage").style.display="block";
- loadApps();
-}
-
+let appList=[];
+let selectedIndex=0;
+let metadataReady=false;
 const iconMap={
 "AirScreen_2.3.1.apk":"AirScreen_2.3.1.png",
 "APKPure_3.17.58.apk":"APKPure_3.17.58.png",
@@ -157,7 +62,7 @@ const iconMap={
 "ES._4.2.1.9.apk":"ESFileExplorer_4.2.1.9.png",
 "File.Manager.+_3.2.8.apk":"FileManagerPlus_3.2.8.png",
 "FileManager+_3.2.8.apk":"FileManagerPlus_3.2.8.png",
-"Google.apk":"Google注音輸入法.png",
+"Google.apk":"Google瘜券頛詨瘜?png",
 "IQQIKeyboard_2.2.7942.0.apk":"IQQIKeyboard_2.2.7942.0.png",
 "LetsView_1.5.20.apk":"LetsView_1.5.20.png",
 "Orz_1.2.1-20260512.apk":"Orz_1.2.1-20260512.png",
@@ -166,204 +71,295 @@ const iconMap={
 "SmartTube_stable_32.56.apk":"SmartTube_stable_32.56.png",
 "Speedtest_4.1.9.apk":"Speedtest_4.1.9.png",
 "Trust.DNS_1.3.3.apk":"Trust_DNS_1.3.3.png",
-"_1.0-20241014.apk":"文件管理器_1.0-20241014.png",
-"_1.0.0.apk":"遠程安裝_1.0.0.png",
-"_1.0.6.apk":"瀏覽器_1.0.6.png",
-"_2.8.5.apk":"樂播投屏_2.8.5手機控制端.png",
-"_2.9.6.apk":"應用鎖_2.9.6.png",
-"_3.3.6.1.apk":"悟空遙控_3.3.6.1.png",
-"_8.13.32.apk":"樂播投屏_8.13.32.png",
-"_8.85.0.apk":"小紅書_8.85.0.png"
+"_1.0-20241014.apk":"?辣蝞∠??灶1.0-20241014.png",
+"_1.0.0.apk":"??摰?_1.0.0.png",
+"_1.0.6.apk":"?汗?灶1.0.6.png",
+"_2.8.5.apk":"璅??_2.8.5???批蝡?png",
+"_2.9.6.apk":"??2.9.6.png",
+"_3.3.6.1.apk":"?征?_3.3.6.1.png",
+"_8.13.32.apk":"璅??_8.13.32.png",
+"_8.85.0.apk":"撠??筷8.85.0.png"
 };
 
-function getConfig(fileName){
- return appsConfig.find(app=>String(app.file||"").toLowerCase()===fileName.toLowerCase())||{};
+function setStatus(message){
+    statusElement.textContent=message;
 }
 
-function getChineseName(fileName){
- const item=getConfig(fileName);
- return item.name||fileName.replace(/\.apk$/i,"");
+function formatSize(bytes){
+    const size=Number(bytes)||0;
+    if(size<1024*1024)return(size/1024).toFixed(1)+" KB";
+    return(size/1024/1024).toFixed(1)+" MB";
 }
 
-function createCard(fileName,url){
- const config=getConfig(fileName);
- const card=document.createElement("div");
- card.className="card";
-
- const icon=document.createElement("div");
- icon.className="appIcon";
- icon.textContent="APK";
-
- const iconFile=iconMap[fileName];
- const iconPath=config.icon||(iconFile?"icons/"+iconFile:"");
-
- if(iconPath){
-  const img=document.createElement("img");
-  img.alt=config.name||fileName;
-  img.loading="lazy";
-  img.src=iconPath;
-  img.onerror=()=>{
-   icon.replaceChildren();
-   icon.textContent="APK";
-  };
-  icon.replaceChildren(img);
- }
-
- const appName=document.createElement("div");
- appName.className="appName";
- appName.textContent=getChineseName(fileName);
-
- const progressArea=document.createElement("div");
- progressArea.className="progressArea";
-
- const track=document.createElement("div");
- track.className="progressTrack";
-
- const bar=document.createElement("div");
- bar.className="progressFill";
- track.appendChild(bar);
-
- const progressText=document.createElement("div");
- progressText.className="progressText";
- progressArea.appendChild(track);
- progressArea.appendChild(progressText);
- card.append(icon,appName,progressArea);
-
- card.addEventListener("click",()=>{
-  if(!window.AndroidMarket){
-   window.location.href=url;
-   return;
-  }
-
-  progressArea.style.display="none";
-  const packageName=config.packageName||"";
-
-  if(packageName && typeof AndroidMarket.checkInstalled==="function"){
-   AndroidMarket.checkInstalled(packageName,url);
-  }else if(typeof AndroidMarket.startDownload==="function"){
-   AndroidMarket.startDownload(url,fileName);
-  }else{
-   alert("目前無法啟動下載，請重新開啟市場");
-  }
- });
-
- list.appendChild(card);
- appCards.set(url,{
-  fileName,card,icon,bar,text:progressText,progressArea,
-  packageName:config.packageName||""
- });
+function renderEmpty(message){
+    appsElement.innerHTML="";
+    const empty=document.createElement("div");
+    empty.className="empty";
+    empty.textContent=message;
+    appsElement.appendChild(empty);
 }
 
-function loadApps(){
- fetch("./apps.json?time="+Date.now())
- .then(response=>{
-  if(!response.ok)throw new Error("apps.json 讀取失敗");
-  return response.json();
- })
- .then(data=>{
-  appsConfig=Array.isArray(data.apps)?data.apps:[];
-  return fetch("https://api.github.com/repos/dylan0728-web/Market/releases");
- })
- .then(response=>{
-  if(!response.ok)throw new Error("GitHub 軟體清單讀取失敗");
-  return response.json();
- })
- .then(releases=>{
-  list.replaceChildren();
-  appCards.clear();
+function renderApps(){
+    appsElement.innerHTML="";
 
-  const assets=[];
-  const seenFiles=new Set();
+    if(!appList.length){
+        renderEmpty("?桀?瘝? APK嚗?? GitHub Releases 銝 APK??);
+        return;
+    }
 
-  releases.forEach(release=>{
-   (release.assets||[]).forEach(asset=>{
-    if(!asset || typeof asset.name!=="string")return;
-    if(!asset.name.toLowerCase().endsWith(".apk"))return;
+    appList.forEach(function(app,index){
+        const card=document.createElement("div");
+        card.className="app";
+        card.tabIndex=0;
+        card.setAttribute("role","button");
 
-    // 排除舊的重複檔案，保留 FileManager+ 版本
-    if(asset.name==="File.Manager.+_3.2.8.apk")return;
+        const icon=document.createElement("div");
+        icon.className="app-icon";
 
-    if(seenFiles.has(asset.name))return;
-    seenFiles.add(asset.name);
+        if(iconMap[app.fileName]){
+            const img=document.createElement("img");
+            img.src="icons/"+iconMap[app.fileName];
+            img.alt="?蝔??內";
+            icon.appendChild(img);
+        }else{
+            icon.textContent=app.name.substring(0,2).toUpperCase();
+        }
 
-    assets.push(asset);
-   });
-  });
+        const info=document.createElement("div");
+        info.className="app-info";
 
-  if(assets.length===0){
-   list.innerHTML='<div class="empty">目前沒有可下載的 APK</div>';
-   return;
-  }
+        const name=document.createElement("div");
+        name.className="app-name";
+        name.textContent=app.appName||app.name;
 
-  assets.forEach(asset=>{
-   if(typeof asset.browser_download_url!=="string")return;
-   createCard(asset.name,asset.browser_download_url);
-  });
- })
- .catch(error=>{
-  console.error(error);
-  list.innerHTML='<div class="empty">軟體清單載入失敗，請稍後再試</div>';
- });
+        const detail=document.createElement("div");
+        detail.className="app-detail";
+        detail.textContent=
+            "?嚗?+(app.versionName||app.version||"?芣?蝷?)+
+            "嚚之撠?"+formatSize(app.size);
+
+        const label=document.createElement("div");
+
+        if(app.installed===true){
+            label.className="installed";
+            label.textContent="??撌脣?鋆?;
+        }else{
+            label.className="not-installed";
+            label.textContent="??銝?";
+        }
+
+        info.appendChild(name);
+        info.appendChild(detail);
+        info.appendChild(label);
+
+        card.appendChild(icon);
+        card.appendChild(info);
+
+        card.addEventListener("click",function(){
+            selectedIndex=index;
+            updateSelection();
+            downloadApp(app);
+        });
+
+        card.addEventListener("keydown",function(event){
+            if(event.key==="Enter"||event.key===" "){
+                event.preventDefault();
+                downloadApp(app);
+            }
+        });
+
+        appsElement.appendChild(card);
+    });
+
+    selectedIndex=0;
+    updateSelection();
 }
 
-window.onAppCheckResult=function(url,installed,appLabel,iconData,packageName){
- const item=appCards.get(url);
- if(!item)return;
+function updateSelection(){
+    const cards=appsElement.querySelectorAll(".app");
+    cards.forEach(function(card,index){
+        card.classList.toggle("selected",index===selectedIndex);
+    });
+    if(cards[selectedIndex])cards[selectedIndex].focus();
+}
 
- item.packageName=packageName||item.packageName;
+function downloadApp(app){
+    if(app.installed===true && app.packageName){
+        if(window.AndroidMarket && typeof window.AndroidMarket.launchApp==="function"){
+            window.AndroidMarket.launchApp(app.packageName);
+            return;
+        }
+        setStatus("Unable to open installed app.");
+        return;
+    }
 
- if(iconData){
-  const img=document.createElement("img");
-  img.alt=appLabel||item.fileName;
-  img.src="data:image/png;base64,"+iconData;
-  item.icon.replaceChildren(img);
- }
+    setStatus("Preparing download: "+app.fileName);
 
- if(installed){
-  const choice=confirm(
-   (appLabel||item.fileName)+
-   "\n\n此軟體已經安裝。\n\n按「確定」開啟軟體；按「取消」選擇卸載。"
-  );
+    if(window.AndroidMarket && typeof window.AndroidMarket.startDownload==="function"){
+        window.AndroidMarket.startDownload(app.url,app.fileName);
+        return;
+    }
 
-  if(choice){
-   if(item.packageName)AndroidMarket.launchApp(item.packageName);
-  }else{
-   if(item.packageName && confirm("確定要卸載／刪除此軟體嗎？")){
-    AndroidMarket.uninstallApp(item.packageName);
-   }
-  }
- }else{
-  AndroidMarket.startDownload(url,item.fileName);
- }
-};
+    setStatus("Please open this page in the Android Market app.");
+}
+function onApkMetadata(metadata){
+    if(!Array.isArray(metadata))return;
 
-window.onApkIconResult=function(url,iconData){
- const item=appCards.get(url);
- if(!item||!iconData)return;
+    metadata.forEach(function(item){
+        const app=appList.find(function(value){
+            return value.url===item.url;
+        });
 
- const img=document.createElement("img");
- img.alt=item.fileName;
- img.src="data:image/png;base64,"+iconData;
- item.icon.replaceChildren(img);
-};
+        if(!app)return;
 
-window.onApkDownloadProgress=function(url,percent,state){
- const item=appCards.get(url);
- if(!item)return;
+        if(item.ok){
+            app.appName=item.appName;
+            app.packageName=item.packageName;
+            app.versionName=item.versionName;
+            app.installed=item.installed===true;
+            app.icon=item.icon||"";
+        }else{
+            app.appName=item.appName||app.name;
+            app.versionName="鞈?霈?仃??;
+            app.installed=false;
+            app.icon="";
+        }
+    });
 
- if(state==="downloading"){
-  item.progressArea.style.display="block";
-  item.bar.style.width=Math.max(0,Math.min(100,percent))+"%";
-  item.text.textContent="下載中… "+percent+"%";
- }else{
-  item.progressArea.style.display="none";
-  item.bar.style.width="0%";
-  item.text.textContent="";
- }
-};
+    metadataReady=true;
+    renderApps();
 
-readDeviceMac();
+    setStatus("撌脣???APK 鞈?霈????"+appList.length+" ???函?撘?);
+}
+
+window.onApkMetadata=onApkMetadata;
+
+function requestMetadata(){
+    appList.forEach(function(app){ app.installed=false; });
+    metadataReady=false;
+    renderApps();
+    if(window.AndroidMarket && typeof window.AndroidMarket.inspectApks==="function"){
+        const files=appList.map(function(app){ return {url:app.url,fileName:app.fileName}; });
+        setStatus("Checking APK installation status...");
+        window.AndroidMarket.inspectApks(JSON.stringify(files));
+    }else{
+        metadataReady=true;
+        renderApps();
+    }
+}
+async function loadApps(){
+    metadataReady=false;
+    setStatus("甇?霈??GitHub Releases??);
+    renderEmpty("甇?頛嚗?蝔?);
+
+    try{
+        const response=await fetch(API,{
+            method:"GET",
+            headers:{"Accept":"application/vnd.github+json"},
+            cache:"no-store"
+        });
+
+        if(!response.ok){
+            throw new Error("GitHub API ?? HTTP "+response.status);
+        }
+
+        const releases=await response.json();
+
+        if(!Array.isArray(releases)){
+            throw new Error("GitHub ?鞈??澆?銝迤蝣?);
+        }
+
+        appList=[];
+        const seenFiles=new Set();
+
+        releases.forEach(function(release){
+            if(!release||release.draft||release.prerelease)return;
+
+            const assets=Array.isArray(release.assets)?release.assets:[];
+
+            assets.forEach(function(asset){
+                if(!asset||typeof asset.name!=="string")return;
+                if(!asset.name.toLowerCase().endsWith(".apk"))return;
+                if(typeof asset.browser_download_url!=="string")return;
+                if(asset.browser_download_url.indexOf(RELEASE_PREFIX)!==0)return;
+                if(seenFiles.has(asset.name))return;
+                seenFiles.add(asset.name);
+                if(asset.name==="File.Manager.+_3.2.8.apk")return;
+
+                appList.push({
+                    name:asset.name.replace(/\.apk$/i,""),
+                    appName:"",
+                    fileName:asset.name,
+                    size:asset.size||0,
+                    version:release.tag_name||release.name||"?芣?蝷箇???,
+                    versionName:"",
+                    url:asset.browser_download_url,
+                    icon:"",
+                    installed:false
+                });
+            });
+        });
+
+        if(!appList.length){
+            renderApps();
+            setStatus("撌脤?? GitHub嚗??桀?瘝? APK Release 鞈??);
+            return;
+        }
+
+        renderApps();
+        requestMetadata();
+
+    }catch(error){
+        appList=[];
+        renderEmpty("霈?仃??"+error.message);
+        setStatus("?⊥?霈??GitHub Releases嚗?蝣箄?蝬脰楝??敺??唳??);
+    }
+}
+
+document.addEventListener("keydown",function(event){
+    const cards=appsElement.querySelectorAll(".app");
+    if(!cards.length)return;
+
+    let next=selectedIndex;
+
+    switch(event.key){
+        case"ArrowRight":
+            next=Math.min(selectedIndex+1,cards.length-1);
+            break;
+        case"ArrowLeft":
+            next=Math.max(selectedIndex-1,0);
+            break;
+        case"ArrowDown":
+            next=Math.min(selectedIndex+3,cards.length-1);
+            break;
+        case"ArrowUp":
+            next=Math.max(selectedIndex-3,0);
+            break;
+        default:
+            return;
+    }
+
+    event.preventDefault();
+    selectedIndex=next;
+    updateSelection();
+});
+
+refreshButton.addEventListener("click",loadApps);
+
+clearButton.addEventListener("click",function(){
+    appList.forEach(function(app){
+        app.icon="";
+        app.installed=false;
+    });
+    renderApps();
+    requestMetadata();
+});
+
+loadApps();
+
+})();
 </script>
-
 </body>
 </html>
+
+
