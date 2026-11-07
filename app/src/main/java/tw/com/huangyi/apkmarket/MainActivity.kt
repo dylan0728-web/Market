@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -23,6 +22,7 @@ import android.widget.TextView
 import android.widget.Toast
 import org.json.JSONObject
 import java.io.File
+import java.net.NetworkInterface
 
 class MainActivity : Activity() {
 
@@ -43,7 +43,7 @@ class MainActivity : Activity() {
         layout.setBackgroundColor(0xFF101820.toInt())
 
         loadingText = TextView(this).apply {
-            text = "正在開啟 APK 市場..."
+            text = "正在開啟應用市場..."
             textSize = 18f
             setTextColor(0xFFFFFFFF.toInt())
             setPadding(24, 20, 24, 20)
@@ -86,6 +86,11 @@ class MainActivity : Activity() {
     inner class AndroidMarketBridge {
 
         @JavascriptInterface
+        fun getDeviceMac(): String {
+            return readHardwareMac()
+        }
+
+        @JavascriptInterface
         fun checkInstalled(packageName: String, url: String) {
             runOnUiThread {
                 val installed = isPackageInstalled(packageName)
@@ -122,6 +127,35 @@ class MainActivity : Activity() {
                 uninstallInstalledApp(packageName)
             }
         }
+    }
+
+    // 嘗試讀取設備真正的網路介面 MAC
+    private fun readHardwareMac(): String {
+        val interfaces = listOf("eth0", "wlan0", "en0")
+
+        for (name in interfaces) {
+            try {
+                val networkInterface =
+                    NetworkInterface.getByName(name) ?: continue
+
+                val mac = networkInterface.hardwareAddress ?: continue
+
+                val result = mac.joinToString("") {
+                    "%02X".format(it.toInt() and 0xFF)
+                }
+
+                if (result.length == 12 &&
+                    result != "000000000000" &&
+                    result != "020000000000"
+                ) {
+                    return result
+                }
+            } catch (e: Exception) {
+                // 繼續嘗試其他網路介面
+            }
+        }
+
+        return ""
     }
 
     private fun isPackageInstalled(packageName: String): Boolean {
