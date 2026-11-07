@@ -26,7 +26,7 @@ button:focus{outline:2px solid #fff}
 .not-installed{color:#c5d9ff;background:rgba(91,151,230,.15);border:1px solid rgba(91,151,230,.4)}
 .download-progress{display:none;margin-top:10px;width:100%}
 .download-progress-label{display:flex;justify-content:space-between;gap:8px;color:#dce8f8;font-size:12px;margin-bottom:5px}
-.download-track{width:100%;height:8px;background:rgba(0,0,0,.4);border-radius:10px;overflow:hidden}
+.download-track{width:100%;height:9px;background:rgba(0,0,0,.4);border-radius:10px;overflow:hidden}
 .download-bar-fill{width:0%;height:100%;background:linear-gradient(90deg,#36d399,#75e6ff);border-radius:10px;transition:width .25s}
 .empty{grid-column:1/-1;text-align:center;padding:55px 15px;color:#c1ccda;font-size:17px}
 #dialog{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
@@ -85,6 +85,7 @@ const cancelButton=document.getElementById("cancelBtn");
 let appList=[];
 let selectedIndex=0;
 let currentApp=null;
+let loading=false;
 
 function setStatus(message){
     statusElement.textContent=message;
@@ -168,12 +169,8 @@ function iconFor(fileName){
 }
 
 function updateProgressCard(app){
-    const cards=appsElement.querySelectorAll(".app");
-    let card=null;
-
-    cards.forEach(function(item){
-        if(item.dataset.url===app.url)card=item;
-    });
+    const card=Array.from(appsElement.querySelectorAll(".app"))
+        .find(function(item){return item.dataset.url===app.url;});
 
     if(!card)return;
 
@@ -189,9 +186,13 @@ function updateProgressCard(app){
     percent.textContent=(app.downloadPercent||0)+"%";
 
     if(label){
-        label.textContent=app.downloadState==="installing"
-            ?"下載完成，等待安裝"
-            :"下載中";
+        if(app.downloadState==="installing"){
+            label.textContent="下載完成，等待安裝";
+        }else if(app.downloadState==="failed"){
+            label.textContent="下載失敗";
+        }else{
+            label.textContent="下載中";
+        }
     }
 }
 
@@ -215,11 +216,7 @@ function renderApps(){
 
         if(app.icon){
             const img=document.createElement("img");
-            img.src=(app.icon.indexOf("data:image/")===0 ||
-                     app.icon.indexOf("icons/")===0 ||
-                     /^https?:\/\//i.test(app.icon))
-                ? app.icon
-                : "data:image/png;base64,"+app.icon;
+            img.src=app.icon;
             img.alt="應用程式圖示";
             img.onerror=function(){
                 icon.textContent=(app.appName||app.name).substring(0,2);
@@ -277,9 +274,7 @@ function renderApps(){
         progress.appendChild(progressLabel);
         progress.appendChild(track);
 
-        if(app.downloadActive){
-            progress.style.display="block";
-        }
+        if(app.downloadActive)progress.style.display="block";
 
         info.appendChild(name);
         info.appendChild(detail);
@@ -403,7 +398,6 @@ function downloadApp(app){
     }
 }
 
-// Android Kotlin 下載進度回報
 window.onApkDownloadProgress=function(url,percent,state){
     const app=appList.find(function(item){
         return item.url===url;
@@ -423,6 +417,7 @@ window.onApkDownloadProgress=function(url,percent,state){
         app.downloadActive=false;
         setStatus("下載失敗："+app.appName);
     }else{
+        app.downloadActive=true;
         setStatus("正在下載 "+app.appName+"："+app.downloadPercent+"%");
     }
 
@@ -443,10 +438,12 @@ function onApkMetadata(metadata){
         app.packageName=item.packageName||"";
         app.versionName=item.versionName||app.version||"未標示";
         app.installed=item.installed===true && !!app.packageName;
-        app.icon=app.icon||iconFor(app.fileName);
 
-        app.downloadActive=false;
-        app.downloadState="";
+        // 不覆蓋正在下載的進度狀態
+        if(!app.downloadActive){
+            app.downloadPercent=0;
+            app.downloadState="";
+        }
     });
 
     renderApps();
@@ -467,8 +464,12 @@ function requestMetadata(){
         app.packageName="";
         app.installed=false;
         app.icon=app.icon||iconFor(app.fileName);
-        app.downloadActive=false;
-        app.downloadState="";
+
+        // 保留正在下載的項目與進度
+        if(!app.downloadActive){
+            app.downloadPercent=0;
+            app.downloadState="";
+        }
     });
 
     renderApps();
@@ -495,6 +496,9 @@ function requestMetadata(){
 window.refreshInstalledState=requestMetadata;
 
 async function loadApps(){
+    if(loading)return;
+    loading=true;
+
     appList=[];
     setStatus("正在讀取 GitHub Releases……");
     renderEmpty("正在讀取 APK 清單，請稍候……");
@@ -565,6 +569,8 @@ async function loadApps(){
         appList=[];
         renderEmpty("讀取失敗："+error.message);
         setStatus("無法讀取 GitHub Releases，請檢查網路連線後重新整理。");
+    }finally{
+        loading=false;
     }
 }
 
