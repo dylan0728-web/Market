@@ -8,7 +8,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="皇奕科技 APK 市場"
+        android:label="HY市場"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
