@@ -5,39 +5,352 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Market</title>
+
 <style>
 *{box-sizing:border-box}
-body{margin:0;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101820,#202d38)}
-header{padding:22px 16px;text-align:center;font-size:25px;font-weight:bold}
-#appList{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:12px}
-.card{min-width:0;padding:14px 8px;border-radius:15px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.10);text-align:center;cursor:pointer;overflow:hidden}
-.card:active{background:rgba(255,255,255,.16)}
-.appIcon{width:66px;height:66px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;border-radius:15px;background:rgba(255,255,255,.12);overflow:hidden;font-size:23px;font-weight:bold}
-.appIcon img{width:100%;height:100%;object-fit:contain}
-.appName{min-height:38px;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1.4;word-break:break-word}
-.progressArea{display:none;margin-top:10px}
-.progressTrack{width:100%;height:5px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.20)}
-.progressFill{height:100%;width:0%;border-radius:10px;background:#35d07f;transition:width .25s}
-.progressText{margin-top:5px;font-size:11px;color:#b9f5d1}
-.empty{grid-column:1/-1;text-align:center;padding:35px 10px;color:#bbb}
+
+body{
+ margin:0;
+ color:#fff;
+ font-family:Arial,"Microsoft JhengHei",sans-serif;
+ background:linear-gradient(135deg,#101820,#202d38);
+ min-height:100vh;
+}
+
+header{
+ padding:22px 16px;
+ text-align:center;
+ font-size:25px;
+ font-weight:bold;
+}
+
+#macInfo{
+ position:fixed;
+ top:10px;
+ right:10px;
+ z-index:20;
+ padding:8px 11px;
+ border-radius:9px;
+ background:#263b4a;
+ border:1px solid #506778;
+ font-size:11px;
+ color:#c9e8ff;
+ max-width:65%;
+ word-break:break-all;
+}
+
+#loginPage{
+ min-height:100vh;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ padding:65px 20px 30px;
+}
+
+.loginBox{
+ width:100%;
+ max-width:380px;
+ padding:30px 24px;
+ border-radius:18px;
+ background:rgba(255,255,255,.09);
+ border:1px solid rgba(255,255,255,.14);
+ text-align:center;
+}
+
+.loginTitle{
+ font-size:26px;
+ font-weight:bold;
+ margin-bottom:12px;
+}
+
+.loginDesc{
+ color:#b9c8d2;
+ font-size:14px;
+ margin-bottom:25px;
+}
+
+.macBox{
+ padding:14px;
+ margin-bottom:20px;
+ background:rgba(0,0,0,.25);
+ border-radius:10px;
+ text-align:left;
+ font-size:13px;
+ line-height:1.8;
+ word-break:break-all;
+}
+
+#macValue{
+ color:#61d6ff;
+ font-weight:bold;
+}
+
+.loginButton{
+ width:100%;
+ padding:14px;
+ border:0;
+ border-radius:10px;
+ background:#1688d4;
+ color:white;
+ font-size:17px;
+ font-weight:bold;
+ cursor:pointer;
+}
+
+.loginButton:active{
+ background:#0869aa;
+}
+
+.testNotice{
+ margin-top:17px;
+ color:#ffcf70;
+ font-size:12px;
+ line-height:1.7;
+}
+
+#marketPage{
+ display:none;
+}
+
+#appList{
+ display:grid;
+ grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:12px;
+ padding:12px;
+}
+
+.card{
+ min-width:0;
+ padding:14px 8px;
+ border-radius:15px;
+ background:rgba(255,255,255,.09);
+ border:1px solid rgba(255,255,255,.10);
+ text-align:center;
+ cursor:pointer;
+ overflow:hidden;
+}
+
+.card:active{
+ background:rgba(255,255,255,.16);
+}
+
+.appIcon{
+ width:66px;
+ height:66px;
+ margin:0 auto 10px;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ border-radius:15px;
+ background:rgba(255,255,255,.12);
+ overflow:hidden;
+ font-size:23px;
+ font-weight:bold;
+}
+
+.appIcon img{
+ width:100%;
+ height:100%;
+ object-fit:contain;
+}
+
+.appName{
+ min-height:38px;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ font-size:14px;
+ line-height:1.4;
+ word-break:break-word;
+}
+
+.progressArea{
+ display:none;
+ margin-top:10px;
+}
+
+.progressTrack{
+ width:100%;
+ height:5px;
+ border-radius:10px;
+ overflow:hidden;
+ background:rgba(255,255,255,.20);
+}
+
+.progressFill{
+ height:100%;
+ width:0%;
+ border-radius:10px;
+ background:#35d07f;
+ transition:width .25s;
+}
+
+.progressText{
+ margin-top:5px;
+ font-size:11px;
+ color:#b9f5d1;
+}
+
+.empty{
+ grid-column:1/-1;
+ text-align:center;
+ padding:35px 10px;
+ color:#bbb;
+}
+
 @media(max-width:360px){
-#appList{gap:8px;padding:8px}
-.card{padding:11px 5px}
-.appIcon{width:56px;height:56px}
-.appName{font-size:12px}
+ #appList{gap:8px;padding:8px}
+ .card{padding:11px 5px}
+ .appIcon{width:56px;height:56px}
+ .appName{font-size:12px}
 }
 </style>
 </head>
+
 <body>
-<header>APK 應用程式市場</header>
-<div id="appList"><div class="empty">正在載入軟體清單...</div></div>
+
+<!-- 右上角 MAC 顯示 -->
+<div id="macInfo">MAC：讀取中...</div>
+
+<!-- 登入畫面 -->
+<div id="loginPage">
+
+ <div class="loginBox">
+
+  <div class="loginTitle">應用市場</div>
+
+  <div class="loginDesc">
+   歡迎使用 APK 應用程式市場
+  </div>
+
+  <div class="macBox">
+   裝置識別資訊<br>
+   MAC 位址：<span id="macValue">讀取中...</span>
+  </div>
+
+  <button class="loginButton" onclick="enterTestMarket()">
+   進入市場（測試）
+  </button>
+
+  <div class="testNotice">
+   目前為測試版本<br>
+   MEGA 裝置授權驗證尚未啟用
+  </div>
+
+ </div>
+</div>
+
+<!-- APK 市場 -->
+<div id="marketPage">
+
+ <header>應用市場</header>
+
+ <div id="appList">
+  <div class="empty">正在載入軟體清單...</div>
+ </div>
+
+</div>
 
 <script>
+
 const list=document.getElementById("appList");
+
 let appsConfig=[];
 const appCards=new Map();
 
+let deviceMac="";
+
+
+// ==============================
+// MAC 位址讀取
+// ==============================
+
+function readDeviceMac(){
+
+ const macValue=document.getElementById("macValue");
+ const macInfo=document.getElementById("macInfo");
+
+ try{
+
+  if(
+   window.AndroidMarket &&
+   typeof AndroidMarket.getDeviceMac==="function"
+  ){
+
+   deviceMac=AndroidMarket.getDeviceMac()||"";
+
+   if(deviceMac.length===12){
+
+    deviceMac=deviceMac.match(/.{2}/g).join(":");
+
+   }
+
+   if(deviceMac){
+
+    macValue.textContent=deviceMac;
+    macInfo.textContent="MAC："+deviceMac;
+
+   }else{
+
+    macValue.textContent="無法讀取";
+    macInfo.textContent="MAC：無法讀取";
+
+   }
+
+  }else{
+
+   macValue.textContent="無法讀取";
+   macInfo.textContent="MAC：無法讀取";
+
+  }
+
+ }catch(e){
+
+  deviceMac="";
+  macValue.textContent="無法讀取";
+  macInfo.textContent="MAC：無法讀取";
+
+ }
+
+}
+
+
+// ==============================
+// MEGA 授權接口（尚未啟用）
+// ==============================
+
+async function verifyMegaAuthorization(mac){
+
+ // 後續在此加入 MEGA 授權資料讀取
+ // 比對裝置 MAC 是否在授權清單
+ // 目前不會回傳授權成功
+
+ return false;
+
+}
+
+
+// ==============================
+// 測試進入市場
+// ==============================
+
+function enterTestMarket(){
+
+ document.getElementById("loginPage").style.display="none";
+
+ document.getElementById("marketPage").style.display="block";
+
+ loadApps();
+
+}
+
+
+// ==============================
+// APK 圖示對照
+// ==============================
+
 const iconMap={
+
 "AirScreen_2.3.1.apk":"AirScreen_2.3.1.png",
 "APKPure_3.17.58.apk":"APKPure_3.17.58.png",
 "Emotn.Store_1.0.40.apk":"EmotnStore_1.0.40.png",
@@ -62,178 +375,344 @@ const iconMap={
 "_3.3.6.1.apk":"悟空遙控_3.3.6.1.png",
 "_8.13.32.apk":"樂播投屏_8.13.32.png",
 "_8.85.0.apk":"小紅書_8.85.0.png"
+
 };
+
 
 function getConfig(fileName){
-return appsConfig.find(app=>String(app.file||"").toLowerCase()===fileName.toLowerCase())||{};
+
+ return appsConfig.find(
+  app=>String(app.file||"").toLowerCase()===fileName.toLowerCase()
+ )||{};
+
 }
+
 
 function getChineseName(fileName){
-const item=getConfig(fileName);
-return item.name||fileName.replace(/\.apk$/i,"");
+
+ const item=getConfig(fileName);
+
+ return item.name||fileName.replace(/\.apk$/i,"");
+
 }
+
+
+// ==============================
+// 建立 APK 卡片
+// ==============================
 
 function createCard(fileName,url){
-const config=getConfig(fileName);
-const card=document.createElement("div");
-card.className="card";
 
-const icon=document.createElement("div");
-icon.className="appIcon";
-icon.textContent="APK";
+ const config=getConfig(fileName);
 
-const iconFile=iconMap[fileName];
-const iconPath=config.icon||(iconFile?"icons/"+iconFile:"");
+ const card=document.createElement("div");
+ card.className="card";
 
-if(iconPath){
-const img=document.createElement("img");
-img.alt=config.name||fileName;
-img.loading="lazy";
-img.src=iconPath;
-img.onerror=()=>{
-icon.replaceChildren();
-icon.textContent="APK";
-};
-icon.replaceChildren(img);
+ const icon=document.createElement("div");
+ icon.className="appIcon";
+ icon.textContent="APK";
+
+ const iconFile=iconMap[fileName];
+
+ const iconPath=config.icon||(iconFile?"icons/"+iconFile:"");
+
+ if(iconPath){
+
+  const img=document.createElement("img");
+  img.alt=config.name||fileName;
+  img.loading="lazy";
+  img.src=iconPath;
+
+  img.onerror=()=>{
+   icon.replaceChildren();
+   icon.textContent="APK";
+  };
+
+  icon.replaceChildren(img);
+
+ }
+
+ const appName=document.createElement("div");
+ appName.className="appName";
+ appName.textContent=getChineseName(fileName);
+
+ const progressArea=document.createElement("div");
+ progressArea.className="progressArea";
+
+ const track=document.createElement("div");
+ track.className="progressTrack";
+
+ const bar=document.createElement("div");
+ bar.className="progressFill";
+
+ track.appendChild(bar);
+
+ const progressText=document.createElement("div");
+ progressText.className="progressText";
+
+ progressArea.appendChild(track);
+ progressArea.appendChild(progressText);
+
+ card.append(icon,appName,progressArea);
+
+ card.addEventListener("click",()=>{
+
+  if(!window.AndroidMarket){
+
+   window.location.href=url;
+   return;
+
+  }
+
+  progressArea.style.display="none";
+
+  const packageName=config.packageName||"";
+
+  if(
+   packageName &&
+   typeof AndroidMarket.checkInstalled==="function"
+  ){
+
+   AndroidMarket.checkInstalled(packageName,url);
+
+  }else if(
+   typeof AndroidMarket.startDownload==="function"
+  ){
+
+   AndroidMarket.startDownload(url,fileName);
+
+  }else{
+
+   alert("目前無法啟動下載，請重新開啟市場");
+
+  }
+
+ });
+
+ list.appendChild(card);
+
+ appCards.set(url,{
+
+  fileName,
+  card,
+  icon,
+  bar,
+  text:progressText,
+  progressArea,
+  packageName:config.packageName||""
+
+ });
+
 }
 
-const appName=document.createElement("div");
-appName.className="appName";
-appName.textContent=getChineseName(fileName);
 
-const progressArea=document.createElement("div");
-progressArea.className="progressArea";
-
-const track=document.createElement("div");
-track.className="progressTrack";
-
-const bar=document.createElement("div");
-bar.className="progressFill";
-track.appendChild(bar);
-
-const progressText=document.createElement("div");
-progressText.className="progressText";
-progressArea.appendChild(track);
-progressArea.appendChild(progressText);
-
-card.append(icon,appName,progressArea);
-
-card.addEventListener("click",()=>{
-if(!window.AndroidMarket){
-window.location.href=url;
-return;
-}
-
-progressArea.style.display="none";
-const packageName=config.packageName||"";
-
-if(packageName&&typeof AndroidMarket.checkInstalled==="function"){
-AndroidMarket.checkInstalled(packageName,url);
-}else if(typeof AndroidMarket.startDownload==="function"){
-AndroidMarket.startDownload(url,fileName);
-}else{
-alert("目前無法啟動下載，請重新開啟市場");
-}
-});
-
-list.appendChild(card);
-
-appCards.set(url,{
-fileName,card,icon,bar,text:progressText,
-progressArea,packageName:config.packageName||""
-});
-}
+// ==============================
+// 讀取 APK 清單
+// ==============================
 
 function loadApps(){
-fetch("./apps.json?time="+Date.now())
-.then(response=>{
-if(!response.ok)throw new Error("apps.json 讀取失敗");
-return response.json();
-})
-.then(data=>{
-appsConfig=Array.isArray(data.apps)?data.apps:[];
-return fetch("https://api.github.com/repos/dylan0728-web/Market/releases");
-})
-.then(response=>{
-if(!response.ok)throw new Error("GitHub 軟體清單讀取失敗");
-return response.json();
-})
-.then(releases=>{
-list.replaceChildren();
-appCards.clear();
-const assets=[];
 
-releases.forEach(release=>{
-(release.assets||[]).forEach(asset=>{
-if(asset.name.toLowerCase().endsWith(".apk"))assets.push(asset);
-});
-});
+ fetch("./apps.json?time="+Date.now())
 
-if(assets.length===0){
-list.innerHTML='<div class="empty">目前沒有可下載的 APK</div>';
-return;
+ .then(response=>{
+
+  if(!response.ok){
+   throw new Error("apps.json 讀取失敗");
+  }
+
+  return response.json();
+
+ })
+
+ .then(data=>{
+
+  appsConfig=Array.isArray(data.apps)?data.apps:[];
+
+  return fetch(
+   "https://api.github.com/repos/dylan0728-web/Market/releases"
+  );
+
+ })
+
+ .then(response=>{
+
+  if(!response.ok){
+   throw new Error("GitHub 軟體清單讀取失敗");
+  }
+
+  return response.json();
+
+ })
+
+ .then(releases=>{
+
+  list.replaceChildren();
+  appCards.clear();
+
+  const assets=[];
+
+  releases.forEach(release=>{
+
+   (release.assets||[]).forEach(asset=>{
+
+    if(asset.name.toLowerCase().endsWith(".apk")){
+     assets.push(asset);
+    }
+
+   });
+
+  });
+
+  if(assets.length===0){
+
+   list.innerHTML=
+    '<div class="empty">目前沒有可下載的 APK</div>';
+
+   return;
+
+  }
+
+  assets.forEach(asset=>{
+
+   createCard(asset.name,asset.browser_download_url);
+
+  });
+
+ })
+
+ .catch(error=>{
+
+  console.error(error);
+
+  list.innerHTML=
+   '<div class="empty">軟體清單載入失敗，請稍後再試</div>';
+
+ });
+
 }
 
-assets.forEach(asset=>createCard(asset.name,asset.browser_download_url));
-})
-.catch(error=>{
-console.error(error);
-list.innerHTML='<div class="empty">軟體清單載入失敗，請稍後再試</div>';
-});
-}
 
-window.onAppCheckResult=function(url,installed,appLabel,iconData,packageName){
-const item=appCards.get(url);
-if(!item)return;
+// ==============================
+// 已安裝軟體檢查結果
+// ==============================
 
-item.packageName=packageName||item.packageName;
+window.onAppCheckResult=function(
+ url,
+ installed,
+ appLabel,
+ iconData,
+ packageName
+){
 
-if(iconData){
-const img=document.createElement("img");
-img.alt=appLabel||item.fileName;
-img.src="data:image/png;base64,"+iconData;
-item.icon.replaceChildren(img);
-}
+ const item=appCards.get(url);
 
-if(installed){
-const choice=confirm((appLabel||item.fileName)+"\n\n此軟體已經安裝。\n\n按「確定」開啟軟體；按「取消」選擇卸載。");
-if(choice){
-if(item.packageName)AndroidMarket.launchApp(item.packageName);
-}else{
-if(item.packageName&&confirm("確定要卸載／刪除此軟體嗎？")){
-AndroidMarket.uninstallApp(item.packageName);
-}
-}
-}else{
-AndroidMarket.startDownload(url,item.fileName);
-}
+ if(!item)return;
+
+ item.packageName=packageName||item.packageName;
+
+ if(iconData){
+
+  const img=document.createElement("img");
+  img.alt=appLabel||item.fileName;
+  img.src="data:image/png;base64,"+iconData;
+
+  item.icon.replaceChildren(img);
+
+ }
+
+ if(installed){
+
+  const choice=confirm(
+   (appLabel||item.fileName)+
+   "\n\n此軟體已經安裝。\n\n按「確定」開啟軟體；按「取消」選擇卸載。"
+  );
+
+  if(choice){
+
+   if(item.packageName){
+    AndroidMarket.launchApp(item.packageName);
+   }
+
+  }else{
+
+   if(
+    item.packageName &&
+    confirm("確定要卸載／刪除此軟體嗎？")
+   ){
+
+    AndroidMarket.uninstallApp(item.packageName);
+
+   }
+
+  }
+
+ }else{
+
+  AndroidMarket.startDownload(url,item.fileName);
+
+ }
+
 };
+
+
+// ==============================
+// APK 圖示更新
+// ==============================
 
 window.onApkIconResult=function(url,iconData){
-const item=appCards.get(url);
-if(!item||!iconData)return;
-const img=document.createElement("img");
-img.alt=item.fileName;
-img.src="data:image/png;base64,"+iconData;
-item.icon.replaceChildren(img);
+
+ const item=appCards.get(url);
+
+ if(!item||!iconData)return;
+
+ const img=document.createElement("img");
+ img.alt=item.fileName;
+ img.src="data:image/png;base64,"+iconData;
+
+ item.icon.replaceChildren(img);
+
 };
+
+
+// ==============================
+// APK 下載進度
+// ==============================
 
 window.onApkDownloadProgress=function(url,percent,state){
-const item=appCards.get(url);
-if(!item)return;
 
-if(state==="downloading"){
-item.progressArea.style.display="block";
-item.bar.style.width=Math.max(0,Math.min(100,percent))+"%";
-item.text.textContent="下載中… "+percent+"%";
-}else{
-item.progressArea.style.display="none";
-item.bar.style.width="0%";
-item.text.textContent="";
-}
+ const item=appCards.get(url);
+
+ if(!item)return;
+
+ if(state==="downloading"){
+
+  item.progressArea.style.display="block";
+
+  item.bar.style.width=
+   Math.max(0,Math.min(100,percent))+"%";
+
+  item.text.textContent="下載中… "+percent+"%";
+
+ }else{
+
+  item.progressArea.style.display="none";
+
+  item.bar.style.width="0%";
+
+  item.text.textContent="";
+
+ }
+
 };
 
-loadApps();
+
+// ==============================
+// 網頁啟動
+// ==============================
+
+readDeviceMac();
+
 </script>
+
 </body>
 </html>
