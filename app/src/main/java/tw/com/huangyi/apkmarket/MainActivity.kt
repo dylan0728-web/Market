@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -152,11 +151,23 @@ class MainActivity : Activity() {
             textSize = 16f
             setTextColor(0xFFFFFFFF.toInt())
             gravity = android.view.Gravity.CENTER
-            setPadding(10, 15, 10, 15)
+            setPadding(10, 10, 10, 15)
+        }
+
+        val reason = TextView(this).apply {
+            text = authorizationErrorMessage.ifBlank {
+                "未取得授權檢查結果"
+            }
+            textSize = 15f
+            setTextColor(0xFFFFCC66.toInt())
+            gravity = android.view.Gravity.CENTER
+            setPadding(15, 15, 15, 15)
         }
 
         layout.addView(title)
         layout.addView(detail)
+        layout.addView(reason)
+
         setContentView(layout)
     }
 
