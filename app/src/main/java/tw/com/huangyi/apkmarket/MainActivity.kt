@@ -1,3 +1,4 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -139,7 +140,7 @@ class MainActivity : Activity() {
         }
 
         val title = TextView(this).apply {
-            text = AUTH_ERROR
+            text = "此機器Mac未授權"
             textSize = 23f
             setTextColor(0xFFFF6666.toInt())
             gravity = android.view.Gravity.CENTER
@@ -147,7 +148,7 @@ class MainActivity : Activity() {
         }
 
         val detail = TextView(this).apply {
-            text = "機器 MAC：$mac\n\n錯誤原因：\n$authorizationErrorMessage\n\n雲端授權資料中的期限：2027/12/31"
+            text = "機器Mac：$mac"
             textSize = 16f
             setTextColor(0xFFFFFFFF.toInt())
             gravity = android.view.Gravity.CENTER
