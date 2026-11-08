@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -60,6 +59,14 @@ class MainActivity : Activity() {
     @Volatile
     private var specialAuthorized = false
 
+    // 記錄授權檢查時實際讀取到的 MAC
+    @Volatile
+    private var authorizationDeviceMac = ""
+
+    // 記錄授權失敗的真正原因
+    @Volatile
+    private var authorizationErrorMessage = "尚未取得授權檢查結果"
+
     private val prefs by lazy {
         getSharedPreferences("apk_market_packages", Context.MODE_PRIVATE)
     }
@@ -89,6 +96,8 @@ class MainActivity : Activity() {
 
         authorized = false
         specialAuthorized = false
+        authorizationDeviceMac = ""
+        authorizationErrorMessage = "正在檢查授權"
 
         showAuthorizationLoading()
 
@@ -123,21 +132,35 @@ class MainActivity : Activity() {
         authorized = false
         specialAuthorized = false
 
+        val mac = authorizationDeviceMac.ifBlank {
+            "無法讀取 MAC"
+        }
+
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = android.view.Gravity.CENTER
             setBackgroundColor(0xFF101820.toInt())
-            setPadding(25, 25, 25, 25)
+            setPadding(30, 30, 30, 30)
         }
 
-        val text = TextView(this).apply {
+        val title = TextView(this).apply {
             text = AUTH_ERROR
             textSize = 23f
             setTextColor(0xFFFF6666.toInt())
             gravity = android.view.Gravity.CENTER
+            setPadding(10, 10, 10, 25)
         }
 
-        layout.addView(text)
+        val detail = TextView(this).apply {
+            text = "機器 MAC：$mac\n\n錯誤原因：$authorizationErrorMessage\n\n雲端授權資料中的期限：2027/12/31"
+            textSize = 18f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = android.view.Gravity.CENTER
+            setPadding(10, 15, 10, 15)
+        }
+
+        layout.addView(title)
+        layout.addView(detail)
         setContentView(layout)
     }
 
@@ -148,15 +171,26 @@ class MainActivity : Activity() {
     private fun checkCloudAuthorization() {
         Thread {
             try {
+                authorizationErrorMessage = "正在讀取機器 MAC"
+
                 val deviceMac = readHardwareMac()
+                authorizationDeviceMac = deviceMac
 
                 if (deviceMac.isBlank()) {
-                    throw Exception("無法讀取機器 MAC")
+                    throw Exception("無法讀取機器 MAC，請確認電視盒網卡")
                 }
+
+                authorizationErrorMessage = "正在連線 MEGA 下載授權檔"
 
                 // 從 MEGA 下載並解密授權文字
                 val authorizationText =
                     downloadMegaAuthorizationText()
+
+                if (authorizationText.isBlank()) {
+                    throw Exception("MEGA 授權檔內容為空")
+                }
+
+                authorizationErrorMessage = "授權檔已下載，正在比對 MAC 與期限"
 
                 // 比對 MAC、期限及特殊軟體權限
                 val result = verifyAuthorization(
@@ -165,11 +199,17 @@ class MainActivity : Activity() {
                 )
 
                 if (!result.first) {
-                    throw Exception("沒有有效授權")
+                    throw Exception(
+                        "授權檔已成功讀取，但找不到符合的有效授權。\n" +
+                            "目前機器 MAC：$deviceMac\n" +
+                            "請確認雲端授權檔內的 MAC 是否與此 MAC 完全相同，" +
+                            "以及日期格式是否正確。"
+                    )
                 }
 
                 authorized = true
                 specialAuthorized = result.second
+                authorizationErrorMessage = ""
 
                 runOnUiThread {
                     showMarket()
@@ -178,6 +218,9 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 authorized = false
                 specialAuthorized = false
+
+                authorizationErrorMessage =
+                    e.message ?: "未知授權錯誤"
 
                 runOnUiThread {
                     showAuthorizationDenied()
@@ -205,12 +248,16 @@ class MainActivity : Activity() {
         val fileHandle = linkParts[0]
         val keyString = linkParts[1]
 
-        val fileKey = Base64.decode(
-            keyString,
-            Base64.URL_SAFE or
-                Base64.NO_WRAP or
-                Base64.NO_PADDING
-        )
+        val fileKey = try {
+            Base64.decode(
+                keyString,
+                Base64.URL_SAFE or
+                    Base64.NO_WRAP or
+                    Base64.NO_PADDING
+            )
+        } catch (e: Exception) {
+            throw Exception("MEGA 授權金鑰解碼失敗：${e.message}")
+        }
 
         if (fileKey.size != 32) {
             throw Exception("MEGA 授權金鑰格式錯誤")
@@ -239,22 +286,26 @@ class MainActivity : Activity() {
             .execute().use { response ->
 
                 if (!response.isSuccessful) {
-                    throw Exception("MEGA API 連線失敗")
+                    throw Exception("MEGA API 連線失敗，HTTP ${response.code}")
                 }
 
                 val body = response.body?.string()
                     ?: throw Exception("MEGA API 沒有回應")
 
-                val array = JSONArray(body)
+                val array = try {
+                    JSONArray(body)
+                } catch (e: Exception) {
+                    throw Exception("MEGA API 回傳資料格式錯誤：${e.message}")
+                }
 
                 val item = array.optJSONObject(0)
-                    ?: throw Exception("MEGA 授權檔不存在")
+                    ?: throw Exception("MEGA 授權檔不存在或分享連結失效")
 
                 val url = item.optString("g", "")
                 val size = item.optLong("s", -1)
 
                 if (url.isBlank() || size < 0) {
-                    throw Exception("MEGA 授權檔資料錯誤")
+                    throw Exception("MEGA 授權檔資料錯誤，下載網址或檔案大小不存在")
                 }
 
                 Pair(url, size)
@@ -270,7 +321,7 @@ class MainActivity : Activity() {
             .execute().use { response ->
 
                 if (!response.isSuccessful) {
-                    throw Exception("MEGA 授權檔下載失敗")
+                    throw Exception("MEGA 授權檔下載失敗，HTTP ${response.code}")
                 }
 
                 response.body?.bytes()
@@ -278,7 +329,10 @@ class MainActivity : Activity() {
             }
 
         if (encryptedData.size.toLong() != downloadInfo.second) {
-            throw Exception("MEGA 授權檔大小不正確")
+            throw Exception(
+                "MEGA 授權檔大小不正確，預期 ${downloadInfo.second} bytes，" +
+                    "實際 ${encryptedData.size} bytes"
+            )
         }
 
         // MEGA 檔案金鑰共 8 個 32-bit 數值
@@ -316,7 +370,11 @@ class MainActivity : Activity() {
             IvParameterSpec(iv)
         )
 
-        val decryptedData = cipher.doFinal(encryptedData)
+        val decryptedData = try {
+            cipher.doFinal(encryptedData)
+        } catch (e: Exception) {
+            throw Exception("MEGA 授權檔解密失敗：${e.message}")
+        }
 
         return String(
             decryptedData,
@@ -327,8 +385,8 @@ class MainActivity : Activity() {
     /**
      * 授權檔格式：
      *
-     * 2027/12/31,ECF72BFBBE93,S
-     * 2027/12/31,ECF72BFBBE94,
+     * 2027/12/31,ECF72BFBBE93,
+     * 2027/12/31,ECF72BFBBE94,S
      *
      * 日期當天有效。
      * 隔日凌晨 00:00 起失效。
@@ -451,7 +509,6 @@ class MainActivity : Activity() {
         return mac
     }
 
-    // 修改範圍：MAC 讀取
     // 先讀取常見網卡，再自動搜尋其他網卡
     private fun readHardwareMac(): String {
 
@@ -715,7 +772,9 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun getDeviceMac(): String {
-            return readHardwareMac()
+            return authorizationDeviceMac.ifBlank {
+                readHardwareMac()
+            }
         }
 
         @JavascriptInterface
