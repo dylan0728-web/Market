@@ -235,7 +235,6 @@ class MainActivity : Activity() {
             .filter { it.isLetterOrDigit() }
     }
 
-    // 將 MAC 統一轉成 12 碼大寫英數字
     private fun normalizeMacAddress(value: String): String {
         val mac = value.trim()
             .replace(":", "")
@@ -250,33 +249,22 @@ class MainActivity : Activity() {
         return mac
     }
 
-    // 優先讀取電視盒系統網卡位址，再使用 NetworkInterface 備援
     private fun readHardwareMac(): String {
-        val interfaces = listOf(
-            "eth0",
-            "wlan0",
-            "wlan1",
-            "en0"
-        )
+        val interfaces = listOf("eth0", "wlan0", "wlan1", "en0")
 
-        // 第一順位：讀取 Android 電視盒網卡系統檔案
         for (name in interfaces) {
             try {
                 val addressFile = File("/sys/class/net/$name/address")
 
                 if (addressFile.exists() && addressFile.canRead()) {
                     val mac = normalizeMacAddress(addressFile.readText())
-
-                    if (mac.isNotBlank()) {
-                        return mac
-                    }
+                    if (mac.isNotBlank()) return mac
                 }
             } catch (e: Exception) {
                 // 繼續嘗試其他網卡
             }
         }
 
-        // 第二順位：透過 NetworkInterface 讀取
         for (name in interfaces) {
             try {
                 val networkInterface = NetworkInterface.getByName(name)
@@ -290,10 +278,8 @@ class MainActivity : Activity() {
                 }
 
                 val mac = normalizeMacAddress(rawMac)
+                if (mac.isNotBlank()) return mac
 
-                if (mac.isNotBlank()) {
-                    return mac
-                }
             } catch (e: Exception) {
                 // 繼續嘗試其他網卡
             }
@@ -457,16 +443,11 @@ class MainActivity : Activity() {
 
                         DownloadManager.STATUS_SUCCESSFUL -> {
                             activeDownloads.remove(url)
-
                             saveApkPackageName(fileName)
-
                             sendProgress(url, 100, "complete")
 
                             val uri = manager.getUriForDownloadedFile(id)
-
-                            if (uri != null) {
-                                openApkInstaller(uri)
-                            }
+                            if (uri != null) openApkInstaller(uri)
                         }
 
                         DownloadManager.STATUS_FAILED -> {
