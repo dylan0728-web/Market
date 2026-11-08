@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -86,11 +85,13 @@ class MainActivity : Activity() {
         val retryable: Boolean
     ) : IOException(message)
 
+    // 下載連線逾時調整
     private val httpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(120, TimeUnit.SECONDS)
+            .readTimeout(300, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
+            .callTimeout(0, TimeUnit.SECONDS)
             .followRedirects(true)
             .followSslRedirects(true)
             .retryOnConnectionFailure(true)
@@ -108,10 +109,6 @@ class MainActivity : Activity() {
         showAuthorizationLoading()
         checkCloudAuthorization()
     }
-
-    // =====================================================
-    // 授權畫面
-    // =====================================================
 
     private fun showAuthorizationLoading() {
         val layout = LinearLayout(this).apply {
@@ -584,10 +581,6 @@ class MainActivity : Activity() {
             foundSpecialAuthorization
         )
     }
-
-    // =====================================================
-    // 授權文字清理
-    // =====================================================
 
     private fun cleanAuthorizationText(value: String): String {
         return value
@@ -1177,7 +1170,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // APK 下載：OkHttp 直接下載，失敗自動重試
+    // APK 下載
     // =====================================================
 
     private fun downloadApk(
@@ -1242,6 +1235,10 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    // =====================================================
+    // APK 下載：延長逾時、失敗重試五次
+    // =====================================================
+
     private fun downloadApkWithOkHttp(
         url: String,
         fileName: String
@@ -1265,7 +1262,7 @@ class MainActivity : Activity() {
 
             var completed = false
 
-            for (attempt in 1..3) {
+            for (attempt in 1..5) {
 
                 try {
                     tempFile.delete()
@@ -1273,14 +1270,9 @@ class MainActivity : Activity() {
                     val request = Request.Builder()
                         .url(url)
                         .get()
-                        .header(
-                            "User-Agent",
-                            "HuangYi-APK-Market"
-                        )
-                        .header(
-                            "Accept",
-                            "application/octet-stream"
-                        )
+                        .header("User-Agent", "Mozilla/5.0")
+                        .header("Accept", "application/octet-stream")
+                        .header("Cache-Control", "no-cache")
                         .build()
 
                     httpClient.newCall(request)
@@ -1293,7 +1285,8 @@ class MainActivity : Activity() {
                                     .orEmpty()
 
                                 val retryable =
-                                    response.code == 429 ||
+                                    response.code == 408 ||
+                                        response.code == 429 ||
                                         response.code in 500..599
 
                                 throw DownloadHttpException(
@@ -1407,19 +1400,19 @@ class MainActivity : Activity() {
                             true
                         }
 
-                    if (!retryable || attempt >= 3) {
+                    if (!retryable || attempt >= 5) {
                         break
                     }
 
                     runOnUiThread {
                         Toast.makeText(
                             this,
-                            "下載連線中斷，正在重試（$attempt/3）",
+                            "下載連線中斷，正在重試（${attempt}/5）",
                             Toast.LENGTH_SHORT
                         ).show()
                     }
 
-                    Thread.sleep(1000L * attempt)
+                    Thread.sleep(2000L * attempt)
                 }
             }
 
