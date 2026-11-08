@@ -1,3 +1,4 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -450,15 +451,19 @@ class MainActivity : Activity() {
         return mac
     }
 
+    // 修改範圍：MAC 讀取
+    // 先讀取常見網卡，再自動搜尋其他網卡
     private fun readHardwareMac(): String {
-        val interfaces = listOf(
+
+        val preferredNames = listOf(
             "eth0",
             "wlan0",
             "wlan1",
             "en0"
         )
 
-        for (name in interfaces) {
+        // 第一階段：優先讀取常見網卡
+        for (name in preferredNames) {
             try {
                 val addressFile = File(
                     "/sys/class/net/$name/address"
@@ -466,7 +471,7 @@ class MainActivity : Activity() {
 
                 if (addressFile.exists() && addressFile.canRead()) {
                     val mac = normalizeMacAddress(
-                        addressFile.readText()
+                        addressFile.readText().trim()
                     )
 
                     if (mac.isNotBlank()) return mac
@@ -477,27 +482,155 @@ class MainActivity : Activity() {
             }
         }
 
-        for (name in interfaces) {
-            try {
-                val networkInterface =
-                    NetworkInterface.getByName(name)
-                        ?: continue
+        // 第二階段：自動搜尋 sysfs 中其他網卡
+        try {
+            val netDirectory = File("/sys/class/net")
+            val networkFiles = netDirectory.listFiles()
 
-                val hardwareAddress =
-                    networkInterface.hardwareAddress
-                        ?: continue
+            if (networkFiles != null) {
 
-                val rawMac = hardwareAddress.joinToString("") {
-                    "%02X".format(it.toInt() and 0xFF)
+                val excludedPrefixes = listOf(
+                    "lo",
+                    "dummy",
+                    "tun",
+                    "tap",
+                    "rmnet",
+                    "p2p",
+                    "sit",
+                    "ip6tnl",
+                    "veth",
+                    "docker",
+                    "br-"
+                )
+
+                val candidates = networkFiles
+                    .filter { file ->
+                        val name = file.name.lowercase(Locale.ROOT)
+
+                        !preferredNames.contains(name) &&
+                            excludedPrefixes.none {
+                                name.startsWith(it)
+                            }
+                    }
+                    .sortedBy { file ->
+                        val name = file.name.lowercase(Locale.ROOT)
+
+                        when {
+                            name.startsWith("eth") -> 0
+                            name.startsWith("en") -> 1
+                            name.startsWith("wlan") -> 2
+                            name.startsWith("wifi") -> 3
+                            else -> 4
+                        }
+                    }
+
+                for (networkFile in candidates) {
+                    try {
+                        val addressFile = File(
+                            networkFile,
+                            "address"
+                        )
+
+                        if (!addressFile.exists() ||
+                            !addressFile.canRead()
+                        ) {
+                            continue
+                        }
+
+                        val mac = normalizeMacAddress(
+                            addressFile.readText().trim()
+                        )
+
+                        if (mac.isNotBlank()) return mac
+
+                    } catch (e: Exception) {
+                        // 繼續嘗試下一張網卡
+                    }
+                }
+            }
+
+        } catch (e: Exception) {
+            // 繼續使用 NetworkInterface 搜尋
+        }
+
+        // 第三階段：透過 Android NetworkInterface 搜尋
+        try {
+            val enumeration =
+                NetworkInterface.getNetworkInterfaces()
+
+            if (enumeration != null) {
+
+                val allInterfaces = mutableListOf<NetworkInterface>()
+
+                while (enumeration.hasMoreElements()) {
+                    allInterfaces.add(enumeration.nextElement())
                 }
 
-                val mac = normalizeMacAddress(rawMac)
+                val excludedPrefixes = listOf(
+                    "lo",
+                    "dummy",
+                    "tun",
+                    "tap",
+                    "rmnet",
+                    "p2p",
+                    "sit",
+                    "ip6tnl",
+                    "veth",
+                    "docker",
+                    "br-"
+                )
 
-                if (mac.isNotBlank()) return mac
+                val candidates = allInterfaces
+                    .filter { networkInterface ->
 
-            } catch (e: Exception) {
-                // 繼續嘗試其他網卡
+                        val name =
+                            networkInterface.name.lowercase(Locale.ROOT)
+
+                        try {
+                            !networkInterface.isLoopback &&
+                                !networkInterface.isVirtual &&
+                                excludedPrefixes.none {
+                                    name.startsWith(it)
+                                }
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }
+                    .sortedBy { networkInterface ->
+                        val name =
+                            networkInterface.name.lowercase(Locale.ROOT)
+
+                        when {
+                            name.startsWith("eth") -> 0
+                            name.startsWith("en") -> 1
+                            name.startsWith("wlan") -> 2
+                            name.startsWith("wifi") -> 3
+                            else -> 4
+                        }
+                    }
+
+                for (networkInterface in candidates) {
+                    try {
+                        val hardwareAddress =
+                            networkInterface.hardwareAddress
+                                ?: continue
+
+                        val rawMac = hardwareAddress.joinToString("") {
+                            "%02X".format(it.toInt() and 0xFF)
+                        }
+
+                        val mac = normalizeMacAddress(rawMac)
+
+                        if (mac.isNotBlank()) return mac
+
+                    } catch (e: Exception) {
+                        // 繼續嘗試下一張網卡
+                    }
+                }
             }
+
+        } catch (e: Exception) {
+            // 找不到網卡時回傳空字串
         }
 
         return ""
