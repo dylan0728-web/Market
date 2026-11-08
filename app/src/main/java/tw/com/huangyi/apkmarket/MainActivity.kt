@@ -1,4 +1,4 @@
-
+```kotlin
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -104,7 +104,6 @@ class MainActivity : Activity() {
                     val fileName = item.optString("fileName", "")
                     val appName = item.optString("appName", "")
 
-                    // 優先使用下載 APK 時保存的真實套件名稱
                     var packageName = prefs.getString(
                         "package_$fileName",
                         ""
@@ -132,7 +131,6 @@ class MainActivity : Activity() {
                         }
                     }
 
-                    // 沒有保存過套件名稱時，才以應用程式顯示名稱精確比對
                     if (!installed) {
                         val candidates = listOf(
                             appName,
@@ -177,7 +175,6 @@ class MainActivity : Activity() {
                     output.put(result)
                 }
 
-                // 直接傳 JSON 陣列，不能再用 JSONObject.quote 包裝
                 runOnUiThread {
                     webView.evaluateJavascript(
                         "window.onApkMetadata && window.onApkMetadata($output);",
@@ -238,28 +235,67 @@ class MainActivity : Activity() {
             .filter { it.isLetterOrDigit() }
     }
 
-    private fun readHardwareMac(): String {
-        val interfaces = listOf("eth0", "wlan0", "en0")
+    // 將 MAC 統一轉成 12 碼大寫英數字
+    private fun normalizeMacAddress(value: String): String {
+        val mac = value.trim()
+            .replace(":", "")
+            .replace("-", "")
+            .replace(".", "")
+            .uppercase(Locale.ROOT)
 
+        if (!mac.matches(Regex("[0-9A-F]{12}"))) return ""
+        if (mac == "000000000000") return ""
+        if (mac == "020000000000") return ""
+
+        return mac
+    }
+
+    // 優先讀取電視盒系統網卡位址，再使用 NetworkInterface 備援
+    private fun readHardwareMac(): String {
+        val interfaces = listOf(
+            "eth0",
+            "wlan0",
+            "wlan1",
+            "en0"
+        )
+
+        // 第一順位：讀取 Android 電視盒網卡系統檔案
+        for (name in interfaces) {
+            try {
+                val addressFile = File("/sys/class/net/$name/address")
+
+                if (addressFile.exists() && addressFile.canRead()) {
+                    val mac = normalizeMacAddress(addressFile.readText())
+
+                    if (mac.isNotBlank()) {
+                        return mac
+                    }
+                }
+            } catch (e: Exception) {
+                // 繼續嘗試其他網卡
+            }
+        }
+
+        // 第二順位：透過 NetworkInterface 讀取
         for (name in interfaces) {
             try {
                 val networkInterface = NetworkInterface.getByName(name)
                     ?: continue
 
-                val mac = networkInterface.hardwareAddress ?: continue
+                val hardwareAddress = networkInterface.hardwareAddress
+                    ?: continue
 
-                val result = mac.joinToString("") {
+                val rawMac = hardwareAddress.joinToString("") {
                     "%02X".format(it.toInt() and 0xFF)
                 }
 
-                if (result.length == 12 &&
-                    result != "000000000000" &&
-                    result != "020000000000"
-                ) {
-                    return result
+                val mac = normalizeMacAddress(rawMac)
+
+                if (mac.isNotBlank()) {
+                    return mac
                 }
             } catch (e: Exception) {
-                // 繼續嘗試其他網路介面
+                // 繼續嘗試其他網卡
             }
         }
 
@@ -422,7 +458,6 @@ class MainActivity : Activity() {
                         DownloadManager.STATUS_SUCCESSFUL -> {
                             activeDownloads.remove(url)
 
-                            // 讀取下載完成 APK 的真實套件名稱
                             saveApkPackageName(fileName)
 
                             sendProgress(url, 100, "complete")
@@ -452,7 +487,6 @@ class MainActivity : Activity() {
         handler.post(task)
     }
 
-    // 從已下載 APK 讀取真正的套件名稱並保存
     private fun saveApkPackageName(fileName: String) {
         try {
             val apkFile = File(
@@ -591,3 +625,4 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 }
+```
