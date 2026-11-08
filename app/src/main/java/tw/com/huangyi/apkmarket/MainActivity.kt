@@ -1,6 +1,7 @@
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
+import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -20,7 +21,6 @@ import android.webkit.WebViewClient
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.core.content.FileProvider
 import org.json.JSONArray
 import org.json.JSONObject
 import okhttp3.MediaType.Companion.toMediaType
@@ -28,7 +28,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 import java.net.NetworkInterface
 import java.nio.ByteBuffer
@@ -51,7 +50,7 @@ class MainActivity : Activity() {
     private var pendingInstallUri: Uri? = null
     private var pendingInstallCheck = false
 
-    private val activeDownloads = mutableSetOf<String>()
+    private val activeDownloads = mutableMapOf<String, Long>()
 
     @Volatile
     private var authorized = false
@@ -80,12 +79,6 @@ class MainActivity : Activity() {
             "此機器MAC授權到期或是未授權"
     }
 
-    private class DownloadHttpException(
-        message: String,
-        val retryable: Boolean
-    ) : IOException(message)
-
-    // 下載連線逾時調整
     private val httpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(120, TimeUnit.SECONDS)
@@ -215,9 +208,7 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 authorized = false
                 specialAuthorized = false
-
-                authorizationErrorMessage =
-                    e.message ?: "未知授權錯誤"
+                authorizationErrorMessage = e.message ?: "未知授權錯誤"
 
                 runOnUiThread {
                     showAuthorizationDenied()
@@ -231,7 +222,6 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun downloadMegaAuthorizationText(): String {
-
         val linkParts = MEGA_AUTH_URL
             .substringAfter("/file/")
             .split("#")
@@ -278,7 +268,6 @@ class MainActivity : Activity() {
 
         val downloadInfo = httpClient.newCall(apiRequest)
             .execute().use { response ->
-
                 if (!response.isSuccessful) {
                     throw Exception("MEGA API 連線失敗，HTTP ${response.code}")
                 }
@@ -308,11 +297,7 @@ class MainActivity : Activity() {
         val originalDownloadUrl = downloadInfo.first
 
         val secureDownloadUrl =
-            if (originalDownloadUrl.startsWith(
-                    "http://",
-                    ignoreCase = true
-                )
-            ) {
+            if (originalDownloadUrl.startsWith("http://", true)) {
                 originalDownloadUrl.replaceFirst(
                     Regex("^http://", RegexOption.IGNORE_CASE),
                     "https://"
@@ -329,7 +314,6 @@ class MainActivity : Activity() {
         val encryptedData = try {
             httpClient.newCall(fileRequest)
                 .execute().use { response ->
-
                     if (!response.isSuccessful) {
                         throw Exception(
                             "MEGA 授權檔下載失敗，HTTP ${response.code}"
@@ -340,15 +324,12 @@ class MainActivity : Activity() {
                         ?: throw Exception("授權檔內容為空")
                 }
         } catch (e: Exception) {
-            throw Exception(
-                "MEGA 授權檔 HTTPS 下載失敗：${e.message}"
-            )
+            throw Exception("MEGA 授權檔 HTTPS 下載失敗：${e.message}")
         }
 
         if (encryptedData.size.toLong() != downloadInfo.second) {
             throw Exception(
-                "MEGA 授權檔大小不正確，預期 ${downloadInfo.second} bytes，" +
-                    "實際 ${encryptedData.size} bytes"
+                "MEGA 授權檔大小不正確，預期 ${downloadInfo.second} bytes，實際 ${encryptedData.size} bytes"
             )
         }
 
@@ -356,7 +337,6 @@ class MainActivity : Activity() {
             .order(ByteOrder.BIG_ENDIAN)
 
         val keyWords = IntArray(8)
-
         for (i in 0 until 8) {
             keyWords[i] = words.int
         }
@@ -377,7 +357,6 @@ class MainActivity : Activity() {
             .array()
 
         val cipher = Cipher.getInstance("AES/CTR/NoPadding")
-
         cipher.init(
             Cipher.DECRYPT_MODE,
             SecretKeySpec(aesKey, "AES"),
@@ -390,10 +369,7 @@ class MainActivity : Activity() {
             throw Exception("MEGA 授權檔解密失敗：${e.message}")
         }
 
-        return String(
-            decryptedData,
-            StandardCharsets.UTF_8
-        )
+        return String(decryptedData, StandardCharsets.UTF_8)
     }
 
     // =====================================================
@@ -410,7 +386,6 @@ class MainActivity : Activity() {
         if (normalizedDeviceMac.isBlank()) {
             authorizationErrorMessage =
                 "機器 MAC 標準化失敗。\n原始 MAC：${deviceMac.take(80)}"
-
             return Pair(false, false)
         }
 
@@ -423,20 +398,15 @@ class MainActivity : Activity() {
 
         var foundAuthorization = false
         var foundSpecialAuthorization = false
-
         var matchingMacFound = false
         var matchingMacDateError = ""
         var matchingMacExpired = ""
-        var diagnosticRows = mutableListOf<String>()
+        val diagnosticRows = mutableListOf<String>()
 
-        val lines = cleanContent
-            .lineSequence()
-            .toList()
+        val lines = cleanContent.lineSequence().toList()
 
         for ((index, line) in lines.withIndex()) {
-
             val row = cleanAuthorizationText(line).trim()
-
             if (row.isBlank()) continue
 
             val columns = row.split(",")
@@ -450,14 +420,8 @@ class MainActivity : Activity() {
                 continue
             }
 
-            val dateText = cleanAuthorizationText(
-                columns[0]
-            ).trim()
-
-            val rawMac = cleanAuthorizationText(
-                columns[1]
-            ).trim()
-
+            val dateText = cleanAuthorizationText(columns[0]).trim()
+            val rawMac = cleanAuthorizationText(columns[1]).trim()
             val macText = normalizeMacAddress(rawMac)
 
             if (macText.isBlank()) {
@@ -472,8 +436,7 @@ class MainActivity : Activity() {
             if (macText != normalizedDeviceMac) {
                 if (diagnosticRows.size < 4) {
                     diagnosticRows.add(
-                        "第 ${index + 1} 行：MAC 不相符，" +
-                            "授權 MAC=$macText，機器 MAC=$normalizedDeviceMac"
+                        "第 ${index + 1} 行：MAC 不相符，授權 MAC=$macText，機器 MAC=$normalizedDeviceMac"
                     )
                 }
                 continue
@@ -488,7 +451,6 @@ class MainActivity : Activity() {
             }
 
             val dateParts = dateText.split("/")
-
             val year = dateParts[0].toIntOrNull()
             val month = dateParts[1].toIntOrNull()
             val day = dateParts[2].toIntOrNull()
@@ -516,11 +478,8 @@ class MainActivity : Activity() {
 
             expiryCalendar.add(Calendar.DAY_OF_MONTH, 1)
 
-            val now = Calendar.getInstance()
-
-            if (!now.before(expiryCalendar)) {
-                matchingMacExpired =
-                    "MAC 已相符，但授權已到期：$dateText"
+            if (!Calendar.getInstance().before(expiryCalendar)) {
+                matchingMacExpired = "MAC 已相符，但授權已到期：$dateText"
                 continue
             }
 
@@ -540,9 +499,7 @@ class MainActivity : Activity() {
         if (foundAuthorization) {
             authorizationErrorMessage = ""
         } else {
-
             authorizationErrorMessage = buildString {
-
                 append("授權檔已成功下載及解密。")
                 append("\n目前機器 MAC：$normalizedDeviceMac")
 
@@ -558,15 +515,12 @@ class MainActivity : Activity() {
                             append(it)
                         }
                     }
-
                 } else if (matchingMacDateError.isNotBlank()) {
                     append("\n\n診斷結果：")
                     append(matchingMacDateError)
-
                 } else if (matchingMacExpired.isNotBlank()) {
                     append("\n\n診斷結果：")
                     append(matchingMacExpired)
-
                 } else {
                     append("\n\nMAC 已找到，但沒有通過日期及授權條件。")
                     append("\n請檢查授權資料每一欄是否正確。")
@@ -576,10 +530,7 @@ class MainActivity : Activity() {
             }
         }
 
-        return Pair(
-            foundAuthorization,
-            foundSpecialAuthorization
-        )
+        return Pair(foundAuthorization, foundSpecialAuthorization)
     }
 
     private fun cleanAuthorizationText(value: String): String {
@@ -599,7 +550,6 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun normalizeMacAddress(value: String): String {
-
         val cleaned = cleanAuthorizationText(value)
             .trim()
             .uppercase(Locale.ROOT)
@@ -613,10 +563,7 @@ class MainActivity : Activity() {
             .replace("\r", "")
             .replace("\n", "")
 
-        if (!mac.matches(Regex("[0-9A-F]{12}"))) {
-            return ""
-        }
-
+        if (!mac.matches(Regex("[0-9A-F]{12}"))) return ""
         if (mac == "000000000000") return ""
         if (mac == "020000000000") return ""
 
@@ -624,56 +571,36 @@ class MainActivity : Activity() {
     }
 
     private fun readHardwareMac(): String {
-
-        val preferredNames = listOf(
-            "eth0",
-            "wlan0",
-            "wlan1",
-            "en0"
-        )
+        val preferredNames = listOf("eth0", "wlan0", "wlan1", "en0")
 
         for (name in preferredNames) {
             try {
-                val addressFile = File(
-                    "/sys/class/net/$name/address"
-                )
-
+                val addressFile = File("/sys/class/net/$name/address")
                 if (addressFile.exists() && addressFile.canRead()) {
-                    val mac = normalizeMacAddress(
-                        addressFile.readText().trim()
-                    )
-
+                    val mac = normalizeMacAddress(addressFile.readText().trim())
                     if (mac.isNotBlank()) return mac
                 }
-
             } catch (e: Exception) {
             }
         }
 
         try {
-            val netDirectory = File("/sys/class/net")
-            val networkFiles = netDirectory.listFiles()
+            val networkFiles = File("/sys/class/net").listFiles()
 
             if (networkFiles != null) {
-
                 val excludedPrefixes = listOf(
                     "lo", "dummy", "tun", "tap", "rmnet",
-                    "p2p", "sit", "ip6tnl", "veth",
-                    "docker", "br-"
+                    "p2p", "sit", "ip6tnl", "veth", "docker", "br-"
                 )
 
                 val candidates = networkFiles
                     .filter { file ->
                         val name = file.name.lowercase(Locale.ROOT)
-
                         !preferredNames.contains(name) &&
-                            excludedPrefixes.none {
-                                name.startsWith(it)
-                            }
+                            excludedPrefixes.none { name.startsWith(it) }
                     }
                     .sortedBy { file ->
                         val name = file.name.lowercase(Locale.ROOT)
-
                         when {
                             name.startsWith("eth") -> 0
                             name.startsWith("en") -> 1
@@ -685,37 +612,22 @@ class MainActivity : Activity() {
 
                 for (networkFile in candidates) {
                     try {
-                        val addressFile = File(
-                            networkFile,
-                            "address"
-                        )
+                        val addressFile = File(networkFile, "address")
+                        if (!addressFile.exists() || !addressFile.canRead()) continue
 
-                        if (!addressFile.exists() ||
-                            !addressFile.canRead()
-                        ) {
-                            continue
-                        }
-
-                        val mac = normalizeMacAddress(
-                            addressFile.readText().trim()
-                        )
-
+                        val mac = normalizeMacAddress(addressFile.readText().trim())
                         if (mac.isNotBlank()) return mac
-
                     } catch (e: Exception) {
                     }
                 }
             }
-
         } catch (e: Exception) {
         }
 
         try {
-            val enumeration =
-                NetworkInterface.getNetworkInterfaces()
+            val enumeration = NetworkInterface.getNetworkInterfaces()
 
             if (enumeration != null) {
-
                 val allInterfaces = mutableListOf<NetworkInterface>()
 
                 while (enumeration.hasMoreElements()) {
@@ -724,30 +636,22 @@ class MainActivity : Activity() {
 
                 val excludedPrefixes = listOf(
                     "lo", "dummy", "tun", "tap", "rmnet",
-                    "p2p", "sit", "ip6tnl", "veth",
-                    "docker", "br-"
+                    "p2p", "sit", "ip6tnl", "veth", "docker", "br-"
                 )
 
                 val candidates = allInterfaces
                     .filter { networkInterface ->
-
-                        val name =
-                            networkInterface.name.lowercase(Locale.ROOT)
-
+                        val name = networkInterface.name.lowercase(Locale.ROOT)
                         try {
                             !networkInterface.isLoopback &&
                                 !networkInterface.isVirtual &&
-                                excludedPrefixes.none {
-                                    name.startsWith(it)
-                                }
+                                excludedPrefixes.none { name.startsWith(it) }
                         } catch (e: Exception) {
                             false
                         }
                     }
                     .sortedBy { networkInterface ->
-                        val name =
-                            networkInterface.name.lowercase(Locale.ROOT)
-
+                        val name = networkInterface.name.lowercase(Locale.ROOT)
                         when {
                             name.startsWith("eth") -> 0
                             name.startsWith("en") -> 1
@@ -767,14 +671,11 @@ class MainActivity : Activity() {
                         }
 
                         val mac = normalizeMacAddress(rawMac)
-
                         if (mac.isNotBlank()) return mac
-
                     } catch (e: Exception) {
                     }
                 }
             }
-
         } catch (e: Exception) {
         }
 
@@ -786,15 +687,15 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun showMarket() {
-
         if (!authorized) {
             showAuthorizationDenied()
             return
         }
 
-        val layout = LinearLayout(this)
-        layout.orientation = LinearLayout.VERTICAL
-        layout.setBackgroundColor(0xFF101820.toInt())
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(0xFF101820.toInt())
+        }
 
         loadingText = TextView(this).apply {
             text = "正在開啟應用市場..."
@@ -804,30 +705,20 @@ class MainActivity : Activity() {
         }
 
         webView = WebView(this)
-
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = false
 
-        webView.addJavascriptInterface(
-            AndroidMarketBridge(),
-            "AndroidMarket"
-        )
-
+        webView.addJavascriptInterface(AndroidMarketBridge(), "AndroidMarket")
         webView.webChromeClient = WebChromeClient()
 
         webView.webViewClient = object : WebViewClient() {
-
-            override fun onPageFinished(
-                view: WebView?,
-                url: String?
-            ) {
+            override fun onPageFinished(view: WebView?, url: String?) {
                 loadingText.visibility = View.GONE
             }
         }
 
         layout.addView(loadingText)
-
         layout.addView(
             webView,
             LinearLayout.LayoutParams(
@@ -838,7 +729,6 @@ class MainActivity : Activity() {
         )
 
         setContentView(layout)
-
         webView.loadUrl(MARKET_URL)
     }
 
@@ -849,71 +739,44 @@ class MainActivity : Activity() {
     inner class AndroidMarketBridge {
 
         @JavascriptInterface
-        fun isAuthorized(): Boolean {
-            return authorized
-        }
+        fun isAuthorized(): Boolean = authorized
 
         @JavascriptInterface
-        fun hasSpecialAccess(): Boolean {
-            return authorized && specialAuthorized
-        }
+        fun hasSpecialAccess(): Boolean = authorized && specialAuthorized
 
         @JavascriptInterface
         fun getDeviceMac(): String {
-            return authorizationDeviceMac.ifBlank {
-                readHardwareMac()
-            }
+            return authorizationDeviceMac.ifBlank { readHardwareMac() }
         }
 
         @JavascriptInterface
         fun inspectApks(jsonText: String) {
-
             if (!authorized) return
 
             try {
                 val input = JSONArray(jsonText)
-
-                val installedPackages =
-                    packageManager.getInstalledPackages(0)
-
+                val installedPackages = packageManager.getInstalledPackages(0)
                 val output = JSONArray()
 
                 for (i in 0 until input.length()) {
-
                     val item = input.optJSONObject(i) ?: continue
 
                     val url = item.optString("url", "")
                     val fileName = item.optString("fileName", "")
                     val appName = item.optString("appName", "")
 
-                    if (isSpecialApk(fileName) &&
-                        !specialAuthorized
-                    ) {
-                        continue
-                    }
+                    if (isSpecialApk(fileName) && !specialAuthorized) continue
 
-                    var packageName = prefs.getString(
-                        "package_$fileName",
-                        ""
-                    ) ?: ""
-
+                    var packageName = prefs.getString("package_$fileName", "") ?: ""
                     var installed = false
                     var installedLabel = appName
-
-                    var installedVersion =
-                        item.optString("versionName", "")
+                    var installedVersion = item.optString("versionName", "")
 
                     if (packageName.isNotBlank()) {
                         try {
-                            val info = packageManager.getPackageInfo(
-                                packageName,
-                                0
-                            )
-
+                            val info = packageManager.getPackageInfo(packageName, 0)
                             installed = true
-
-                            installedVersion =
-                                info.versionName ?: installedVersion
+                            installedVersion = info.versionName ?: installedVersion
 
                             installedLabel = try {
                                 packageManager.getApplicationLabel(
@@ -922,25 +785,18 @@ class MainActivity : Activity() {
                             } catch (e: Exception) {
                                 appName
                             }
-
                         } catch (e: Exception) {
                             installed = false
                         }
                     }
 
                     if (!installed) {
-
                         val candidates = listOf(
                             appName,
                             fileName.substringBeforeLast(".")
-                        ).map {
-                            normalizeName(it)
-                        }.filter {
-                            it.isNotBlank()
-                        }
+                        ).map { normalizeName(it) }.filter { it.isNotBlank() }
 
                         for (info in installedPackages) {
-
                             val label = try {
                                 packageManager.getApplicationLabel(
                                     info.applicationInfo!!
@@ -949,55 +805,40 @@ class MainActivity : Activity() {
                                 ""
                             }
 
-                            val normalizedLabel = normalizeName(label)
-
                             if (
-                                normalizedLabel.isNotBlank() &&
-                                candidates.contains(normalizedLabel)
+                                normalizeName(label).isNotBlank() &&
+                                candidates.contains(normalizeName(label))
                             ) {
                                 packageName = info.packageName
                                 installed = true
                                 installedLabel = label
-
-                                installedVersion =
-                                    info.versionName ?: installedVersion
+                                installedVersion = info.versionName ?: installedVersion
 
                                 prefs.edit()
-                                    .putString(
-                                        "package_$fileName",
-                                        packageName
-                                    )
+                                    .putString("package_$fileName", packageName)
                                     .apply()
-
                                 break
                             }
                         }
                     }
 
                     val result = JSONObject()
-
                     result.put("url", url)
                     result.put("appName", installedLabel)
-                    result.put(
-                        "packageName",
-                        if (installed) packageName else ""
-                    )
+                    result.put("packageName", if (installed) packageName else "")
                     result.put("versionName", installedVersion)
                     result.put("installed", installed)
-
                     output.put(result)
                 }
 
                 runOnUiThread {
                     if (authorized && ::webView.isInitialized) {
                         webView.evaluateJavascript(
-                            "window.onApkMetadata && " +
-                                "window.onApkMetadata($output);",
+                            "window.onApkMetadata && window.onApkMetadata($output);",
                             null
                         )
                     }
                 }
-
             } catch (e: Exception) {
                 runOnUiThread {
                     Toast.makeText(
@@ -1010,35 +851,24 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
-        fun checkInstalled(
-            packageName: String,
-            url: String
-        ) {
+        fun checkInstalled(packageName: String, url: String) {
             if (!authorized) return
 
             runOnUiThread {
-
                 val installed = isPackageInstalled(packageName)
-
                 val safeUrl = JSONObject.quote(url)
                 val safePackage = JSONObject.quote(packageName)
 
                 webView.evaluateJavascript(
-                    "window.onAppCheckResult && " +
-                        "window.onAppCheckResult(" +
-                        "$safeUrl,$installed,$safePackage);",
+                    "window.onAppCheckResult && window.onAppCheckResult($safeUrl,$installed,$safePackage);",
                     null
                 )
             }
         }
 
         @JavascriptInterface
-        fun startDownload(
-            url: String,
-            fileName: String
-        ) {
+        fun startDownload(url: String, fileName: String) {
             runOnUiThread {
-
                 if (!authorized) {
                     Toast.makeText(
                         this@MainActivity,
@@ -1048,9 +878,7 @@ class MainActivity : Activity() {
                     return@runOnUiThread
                 }
 
-                if (isSpecialApk(fileName) &&
-                    !specialAuthorized
-                ) {
+                if (isSpecialApk(fileName) && !specialAuthorized) {
                     Toast.makeText(
                         this@MainActivity,
                         "此軟體尚未取得特殊軟體授權",
@@ -1066,19 +894,13 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun launchApp(packageName: String) {
             if (!authorized) return
-
-            runOnUiThread {
-                launchInstalledApp(packageName)
-            }
+            runOnUiThread { launchInstalledApp(packageName) }
         }
 
         @JavascriptInterface
         fun uninstallApp(packageName: String) {
             if (!authorized) return
-
-            runOnUiThread {
-                uninstallInstalledApp(packageName)
-            }
+            runOnUiThread { uninstallInstalledApp(packageName) }
         }
     }
 
@@ -1087,46 +909,31 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun isSpecialApk(fileName: String): Boolean {
-        return fileName.trim().endsWith(
-            "_S.apk",
-            ignoreCase = true
-        )
+        return fileName.trim().endsWith("_S.apk", ignoreCase = true)
     }
 
     private fun normalizeName(value: String): String {
-        return value.lowercase(Locale.ROOT)
-            .filter {
-                it.isLetterOrDigit()
-            }
+        return value.lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
     }
 
     // =====================================================
     // 已安裝軟體
     // =====================================================
 
-    private fun isPackageInstalled(
-        packageName: String
-    ): Boolean {
-
+    private fun isPackageInstalled(packageName: String): Boolean {
         if (packageName.isBlank()) return false
 
         return try {
-            packageManager.getPackageInfo(
-                packageName,
-                0
-            )
+            packageManager.getPackageInfo(packageName, 0)
             true
         } catch (e: Exception) {
             false
         }
     }
 
-    private fun launchInstalledApp(
-        packageName: String
-    ) {
+    private fun launchInstalledApp(packageName: String) {
         try {
-            val intent =
-                packageManager.getLaunchIntentForPackage(packageName)
+            val intent = packageManager.getLaunchIntentForPackage(packageName)
 
             if (intent != null) {
                 startActivity(intent)
@@ -1137,29 +944,21 @@ class MainActivity : Activity() {
                     Toast.LENGTH_SHORT
                 ).show()
             }
-
         } catch (e: Exception) {
-            Toast.makeText(
-                this,
-                "無法開啟此軟體",
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(this, "無法開啟此軟體", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun uninstallInstalledApp(
-        packageName: String
-    ) {
+    private fun uninstallInstalledApp(packageName: String) {
         if (packageName.isBlank()) return
 
         try {
-            val intent = Intent(
-                Intent.ACTION_DELETE,
-                Uri.parse("package:$packageName")
+            startActivity(
+                Intent(
+                    Intent.ACTION_DELETE,
+                    Uri.parse("package:$packageName")
+                )
             )
-
-            startActivity(intent)
-
         } catch (e: Exception) {
             Toast.makeText(
                 this,
@@ -1170,19 +969,13 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // APK 下載
+    // APK 下載：Android 原生 DownloadManager
     // =====================================================
 
-    private fun downloadApk(
-        url: String,
-        fileName: String
-    ) {
-
+    private fun downloadApk(url: String, fileName: String) {
         if (!authorized) return
 
-        if (isSpecialApk(fileName) &&
-            !specialAuthorized
-        ) {
+        if (isSpecialApk(fileName) && !specialAuthorized) {
             Toast.makeText(
                 this,
                 "此軟體尚未取得特殊軟體授權",
@@ -1195,15 +988,11 @@ class MainActivity : Activity() {
                 "https://github.com/dylan0728-web/Market/releases/download/"
             )
         ) {
-            Toast.makeText(
-                this,
-                "下載網址不正確",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "下載網址不正確", Toast.LENGTH_LONG).show()
             return
         }
 
-        if (!activeDownloads.add(url)) {
+        if (activeDownloads.containsKey(url)) {
             Toast.makeText(
                 this,
                 "這個 APK 正在下載中",
@@ -1215,248 +1004,181 @@ class MainActivity : Activity() {
         val safeName = File(fileName).name
 
         if (safeName.isBlank() || !safeName.endsWith(".apk", true)) {
-            activeDownloads.remove(url)
-            Toast.makeText(
-                this,
-                "APK 檔名不正確",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "APK 檔名不正確", Toast.LENGTH_LONG).show()
             return
         }
 
-        Toast.makeText(
-            this,
-            "開始下載：$safeName",
-            Toast.LENGTH_SHORT
-        ).show()
-
-        Thread {
-            downloadApkWithOkHttp(url, safeName)
-        }.start()
-    }
-
-    // =====================================================
-    // APK 下載：延長逾時、失敗重試五次
-    // =====================================================
-
-    private fun downloadApkWithOkHttp(
-        url: String,
-        fileName: String
-    ) {
-
-        var lastError = "未知下載錯誤"
-
         try {
-            val downloadDirectory = getExternalFilesDir(
-                Environment.DIRECTORY_DOWNLOADS
-            ) ?: throw IOException("找不到 APK 儲存資料夾")
+            val request = DownloadManager.Request(Uri.parse(url))
+            request.setTitle(safeName)
+            request.setDescription("正在下載 APK")
+            request.setNotificationVisibility(
+                DownloadManager.Request.VISIBILITY_VISIBLE
+            )
+            request.setAllowedOverMetered(true)
+            request.setAllowedOverRoaming(true)
+            request.setDestinationInExternalFilesDir(
+                this,
+                Environment.DIRECTORY_DOWNLOADS,
+                safeName
+            )
 
-            if (!downloadDirectory.exists() &&
-                !downloadDirectory.mkdirs()
-            ) {
-                throw IOException("無法建立 APK 儲存資料夾")
-            }
+            val manager = getSystemService(
+                Context.DOWNLOAD_SERVICE
+            ) as DownloadManager
 
-            val finalFile = File(downloadDirectory, fileName)
-            val tempFile = File(downloadDirectory, "$fileName.part")
+            val id = manager.enqueue(request)
+            activeDownloads[url] = id
 
-            var completed = false
+            Toast.makeText(
+                this,
+                "開始下載：$safeName",
+                Toast.LENGTH_SHORT
+            ).show()
 
-            for (attempt in 1..5) {
-
-                try {
-                    tempFile.delete()
-
-                    val request = Request.Builder()
-                        .url(url)
-                        .get()
-                        .header("User-Agent", "Mozilla/5.0")
-                        .header("Accept", "application/octet-stream")
-                        .header("Cache-Control", "no-cache")
-                        .build()
-
-                    httpClient.newCall(request)
-                        .execute().use { response ->
-
-                            if (!response.isSuccessful) {
-                                val detail = response.body
-                                    ?.string()
-                                    ?.take(200)
-                                    .orEmpty()
-
-                                val retryable =
-                                    response.code == 408 ||
-                                        response.code == 429 ||
-                                        response.code in 500..599
-
-                                throw DownloadHttpException(
-                                    "HTTP ${response.code}" +
-                                        if (detail.isNotBlank()) {
-                                            "：$detail"
-                                        } else {
-                                            ""
-                                        },
-                                    retryable
-                                )
-                            }
-
-                            val body = response.body
-                                ?: throw IOException("伺服器沒有提供 APK 檔案")
-
-                            val totalBytes = body.contentLength()
-                            var downloadedBytes = 0L
-
-                            body.byteStream().use { input ->
-
-                                FileOutputStream(tempFile).use { output ->
-
-                                    val buffer = ByteArray(64 * 1024)
-
-                                    while (true) {
-
-                                        val count = input.read(buffer)
-
-                                        if (count == -1) break
-
-                                        output.write(buffer, 0, count)
-
-                                        downloadedBytes += count
-
-                                        val percent =
-                                            if (totalBytes > 0) {
-                                                (
-                                                    downloadedBytes *
-                                                        100 / totalBytes
-                                                    ).toInt().coerceIn(0, 99)
-                                            } else {
-                                                0
-                                            }
-
-                                        sendProgress(
-                                            url,
-                                            percent,
-                                            "downloading"
-                                        )
-                                    }
-
-                                    output.flush()
-                                    output.fd.sync()
-                                }
-                            }
-                        }
-
-                    if (!tempFile.exists() ||
-                        tempFile.length() <= 0
-                    ) {
-                        throw IOException("下載完成但 APK 檔案是空的")
-                    }
-
-                    if (finalFile.exists()) {
-                        finalFile.delete()
-                    }
-
-                    if (!tempFile.renameTo(finalFile)) {
-                        tempFile.copyTo(finalFile, overwrite = true)
-                        tempFile.delete()
-                    }
-
-                    if (!finalFile.exists() ||
-                        finalFile.length() <= 0
-                    ) {
-                        throw IOException("APK 檔案儲存失敗")
-                    }
-
-                    val apkUri = FileProvider.getUriForFile(
-                        this,
-                        "$packageName.fileprovider",
-                        finalFile
-                    )
-
-                    completed = true
-
-                    runOnUiThread {
-
-                        activeDownloads.remove(url)
-
-                        saveApkPackageName(fileName)
-
-                        sendProgress(url, 100, "complete")
-
-                        openApkInstaller(apkUri)
-                    }
-
-                    break
-
-                } catch (e: Exception) {
-
-                    lastError = e.message ?: "下載連線錯誤"
-
-                    tempFile.delete()
-
-                    val retryable =
-                        if (e is DownloadHttpException) {
-                            e.retryable
-                        } else {
-                            true
-                        }
-
-                    if (!retryable || attempt >= 5) {
-                        break
-                    }
-
-                    runOnUiThread {
-                        Toast.makeText(
-                            this,
-                            "下載連線中斷，正在重試（${attempt}/5）",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-
-                    Thread.sleep(2000L * attempt)
-                }
-            }
-
-            if (!completed) {
-                throw IOException(lastError)
-            }
-
+            checkDownloadProgress(id, url, safeName)
         } catch (e: Exception) {
-
-            val errorMessage = e.message ?: "未知下載錯誤"
-
-            runOnUiThread {
-
-                activeDownloads.remove(url)
-
-                sendProgress(url, 0, "failed")
-
-                Toast.makeText(
-                    this,
-                    "下載失敗：$fileName\n$errorMessage",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+            activeDownloads.remove(url)
+            Toast.makeText(
+                this,
+                "下載啟動失敗：${e.message}",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
-    private fun saveApkPackageName(
+    // =====================================================
+    // 下載進度監控
+    // =====================================================
+
+    private fun checkDownloadProgress(
+        id: Long,
+        url: String,
         fileName: String
     ) {
+        val manager = getSystemService(
+            Context.DOWNLOAD_SERVICE
+        ) as DownloadManager
+
+        val task = object : Runnable {
+            override fun run() {
+                if (activeDownloads[url] != id) return
+
+                val cursor = try {
+                    manager.query(
+                        DownloadManager.Query().setFilterById(id)
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+
+                if (cursor == null) {
+                    activeDownloads.remove(url)
+                    sendProgress(url, 0, "failed")
+                    return
+                }
+
+                cursor.use {
+                    if (!it.moveToFirst()) {
+                        activeDownloads.remove(url)
+                        sendProgress(url, 0, "failed")
+                        return
+                    }
+
+                    val status = it.getInt(
+                        it.getColumnIndexOrThrow(
+                            DownloadManager.COLUMN_STATUS
+                        )
+                    )
+
+                    val total = it.getLong(
+                        it.getColumnIndexOrThrow(
+                            DownloadManager.COLUMN_TOTAL_SIZE_BYTES
+                        )
+                    )
+
+                    val downloaded = it.getLong(
+                        it.getColumnIndexOrThrow(
+                            DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR
+                        )
+                    )
+
+                    when (status) {
+                        DownloadManager.STATUS_PENDING,
+                        DownloadManager.STATUS_RUNNING,
+                        DownloadManager.STATUS_PAUSED -> {
+                            val percent = if (total > 0) {
+                                (downloaded * 100 / total)
+                                    .toInt()
+                                    .coerceIn(0, 99)
+                            } else {
+                                0
+                            }
+
+                            sendProgress(url, percent, "downloading")
+                            handler.postDelayed(this, 1000)
+                        }
+
+                        DownloadManager.STATUS_SUCCESSFUL -> {
+                            activeDownloads.remove(url)
+                            saveApkPackageName(fileName)
+                            sendProgress(url, 100, "complete")
+
+                            val uri = manager.getUriForDownloadedFile(id)
+
+                            if (uri != null) {
+                                openApkInstaller(uri)
+                            } else {
+                                sendProgress(url, 0, "failed")
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "下載完成，但找不到 APK 檔案",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+
+                        DownloadManager.STATUS_FAILED -> {
+                            val reason = it.getInt(
+                                it.getColumnIndexOrThrow(
+                                    DownloadManager.COLUMN_REASON
+                                )
+                            )
+
+                            activeDownloads.remove(url)
+                            sendProgress(url, 0, "failed")
+
+                            Toast.makeText(
+                                this@MainActivity,
+                                "下載失敗：$fileName\n錯誤代碼：$reason",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+            }
+        }
+
+        handler.post(task)
+    }
+
+    // =====================================================
+    // 儲存 APK 套件名稱
+    // =====================================================
+
+    private fun saveApkPackageName(fileName: String) {
         try {
             val apkFile = File(
-                getExternalFilesDir(
-                    Environment.DIRECTORY_DOWNLOADS
-                ),
+                getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
                 File(fileName).name
             )
 
             if (!apkFile.exists()) return
 
-            val packageInfo =
-                packageManager.getPackageArchiveInfo(
-                    apkFile.absolutePath,
-                    0
-                ) ?: return
+            val packageInfo = packageManager.getPackageArchiveInfo(
+                apkFile.absolutePath,
+                0
+            ) ?: return
 
             val packageName = packageInfo.packageName
 
@@ -1465,16 +1187,11 @@ class MainActivity : Activity() {
                     .putString("package_$fileName", packageName)
                     .apply()
             }
-
         } catch (e: Exception) {
         }
     }
 
-    private fun sendProgress(
-        url: String,
-        percent: Int,
-        state: String
-    ) {
+    private fun sendProgress(url: String, percent: Int, state: String) {
         val safeUrl = JSONObject.quote(url)
         val safeState = JSONObject.quote(state)
 
@@ -1495,7 +1212,6 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun openApkInstaller(uri: Uri) {
-
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !packageManager.canRequestPackageInstalls()
@@ -1508,7 +1224,6 @@ class MainActivity : Activity() {
                     Uri.parse("package:$packageName")
                 )
             )
-
             return
         }
 
@@ -1524,22 +1239,13 @@ class MainActivity : Activity() {
                 "application/vnd.android.package-archive"
             )
 
-            intent.addFlags(
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-
-            intent.addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK
-            )
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
             pendingInstallCheck = true
-
             startActivity(intent)
-
         } catch (e: Exception) {
-
             pendingInstallCheck = false
-
             Toast.makeText(
                 this,
                 "無法開啟安裝畫面：${e.message}",
@@ -1568,11 +1274,9 @@ class MainActivity : Activity() {
         }
 
         if (pendingInstallCheck && ::webView.isInitialized) {
-
             pendingInstallCheck = false
 
             handler.postDelayed({
-
                 if (::webView.isInitialized && authorized) {
                     webView.evaluateJavascript(
                         "window.refreshInstalledState && " +
@@ -1580,7 +1284,6 @@ class MainActivity : Activity() {
                         null
                     )
                 }
-
             }, 1500)
         }
     }
@@ -1593,17 +1296,12 @@ class MainActivity : Activity() {
         keyCode: Int,
         event: KeyEvent?
     ): Boolean {
-
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-
-            if (::webView.isInitialized &&
-                webView.canGoBack()
-            ) {
+            if (::webView.isInitialized && webView.canGoBack()) {
                 webView.goBack()
             } else {
                 finish()
             }
-
             return true
         }
 
