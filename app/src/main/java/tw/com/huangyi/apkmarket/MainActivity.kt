@@ -1,7 +1,7 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
-import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -21,6 +21,7 @@ import android.webkit.WebViewClient
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import org.json.JSONArray
 import org.json.JSONObject
 import okhttp3.MediaType.Companion.toMediaType
@@ -28,6 +29,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.net.NetworkInterface
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -49,7 +52,7 @@ class MainActivity : Activity() {
     private var pendingInstallUri: Uri? = null
     private var pendingInstallCheck = false
 
-    private val activeDownloads = mutableMapOf<String, Long>()
+    private val activeDownloads = mutableSetOf<String>()
 
     @Volatile
     private var authorized = false
@@ -78,13 +81,19 @@ class MainActivity : Activity() {
             "此機器MAC授權到期或是未授權"
     }
 
+    private class DownloadHttpException(
+        message: String,
+        val retryable: Boolean
+    ) : IOException(message)
+
     private val httpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(20, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
             .followRedirects(true)
             .followSslRedirects(true)
+            .retryOnConnectionFailure(true)
             .build()
     }
 
@@ -391,7 +400,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 授權比對：逐欄驗證日期及 MAC，並輸出診斷資訊
+    // 授權比對
     // =====================================================
 
     private fun verifyAuthorization(
@@ -475,7 +484,6 @@ class MainActivity : Activity() {
 
             matchingMacFound = true
 
-            // 日期必須為 yyyy/MM/dd
             if (!dateText.matches(Regex("\\d{4}/\\d{2}/\\d{2}"))) {
                 matchingMacDateError =
                     "MAC 已相符，但日期格式錯誤：[$dateText]"
@@ -494,23 +502,14 @@ class MainActivity : Activity() {
                 continue
             }
 
-            // 手動建立日期，禁止自動修正錯誤日期
             val expiryCalendar = Calendar.getInstance().apply {
                 isLenient = false
                 clear()
-                set(
-                    year,
-                    month - 1,
-                    day,
-                    0,
-                    0,
-                    0
-                )
+                set(year, month - 1, day, 0, 0, 0)
                 set(Calendar.MILLISECOND, 0)
             }
 
             try {
-                // 強制驗證日期是否真實存在
                 expiryCalendar.timeInMillis
             } catch (e: Exception) {
                 matchingMacDateError =
@@ -518,7 +517,6 @@ class MainActivity : Activity() {
                 continue
             }
 
-            // 到期日當天 23:59:59 前有效
             expiryCalendar.add(Calendar.DAY_OF_MONTH, 1)
 
             val now = Calendar.getInstance()
@@ -656,7 +654,6 @@ class MainActivity : Activity() {
                 }
 
             } catch (e: Exception) {
-                // 繼續嘗試其他網卡
             }
         }
 
@@ -713,13 +710,11 @@ class MainActivity : Activity() {
                         if (mac.isNotBlank()) return mac
 
                     } catch (e: Exception) {
-                        // 繼續嘗試下一張網卡
                     }
                 }
             }
 
         } catch (e: Exception) {
-            // 繼續使用 NetworkInterface
         }
 
         try {
@@ -783,13 +778,11 @@ class MainActivity : Activity() {
                         if (mac.isNotBlank()) return mac
 
                     } catch (e: Exception) {
-                        // 繼續嘗試下一張網卡
                     }
                 }
             }
 
         } catch (e: Exception) {
-            // 找不到網卡時回傳空字串
         }
 
         return ""
@@ -1184,7 +1177,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // APK 下載
+    // APK 下載：OkHttp 直接下載，失敗自動重試
     // =====================================================
 
     private fun downloadApk(
@@ -1205,177 +1198,252 @@ class MainActivity : Activity() {
             return
         }
 
-        try {
-            if (!url.startsWith(
-                    "https://github.com/dylan0728-web/Market/releases/download/"
-                )
-            ) {
-                Toast.makeText(
-                    this,
-                    "下載網址不正確",
-                    Toast.LENGTH_LONG
-                ).show()
-                return
-            }
-
-            if (activeDownloads.containsKey(url)) {
-                Toast.makeText(
-                    this,
-                    "這個 APK 正在下載中",
-                    Toast.LENGTH_SHORT
-                ).show()
-                return
-            }
-
-            val safeName = File(fileName).name
-
-            val request = DownloadManager.Request(Uri.parse(url))
-
-            request.setTitle(safeName)
-            request.setDescription("正在下載 APK")
-
-            request.setNotificationVisibility(
-                DownloadManager.Request.VISIBILITY_VISIBLE
+        if (!url.startsWith(
+                "https://github.com/dylan0728-web/Market/releases/download/"
             )
-
-            request.setDestinationInExternalFilesDir(
-                this,
-                Environment.DIRECTORY_DOWNLOADS,
-                safeName
-            )
-
-            val manager = getSystemService(
-                Context.DOWNLOAD_SERVICE
-            ) as DownloadManager
-
-            val id = manager.enqueue(request)
-
-            activeDownloads[url] = id
-
+        ) {
             Toast.makeText(
                 this,
-                "開始下載：$safeName",
-                Toast.LENGTH_SHORT
-            ).show()
-
-            checkDownloadProgress(id, url, safeName)
-
-        } catch (e: Exception) {
-            Toast.makeText(
-                this,
-                "下載啟動失敗：${e.message}",
+                "下載網址不正確",
                 Toast.LENGTH_LONG
             ).show()
+            return
         }
+
+        if (!activeDownloads.add(url)) {
+            Toast.makeText(
+                this,
+                "這個 APK 正在下載中",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val safeName = File(fileName).name
+
+        if (safeName.isBlank() || !safeName.endsWith(".apk", true)) {
+            activeDownloads.remove(url)
+            Toast.makeText(
+                this,
+                "APK 檔名不正確",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        Toast.makeText(
+            this,
+            "開始下載：$safeName",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        Thread {
+            downloadApkWithOkHttp(url, safeName)
+        }.start()
     }
 
-    private fun checkDownloadProgress(
-        id: Long,
+    private fun downloadApkWithOkHttp(
         url: String,
         fileName: String
     ) {
 
-        val manager = getSystemService(
-            Context.DOWNLOAD_SERVICE
-        ) as DownloadManager
+        var lastError = "未知下載錯誤"
 
-        val task = object : Runnable {
+        try {
+            val downloadDirectory = getExternalFilesDir(
+                Environment.DIRECTORY_DOWNLOADS
+            ) ?: throw IOException("找不到 APK 儲存資料夾")
 
-            override fun run() {
+            if (!downloadDirectory.exists() &&
+                !downloadDirectory.mkdirs()
+            ) {
+                throw IOException("無法建立 APK 儲存資料夾")
+            }
 
-                val cursor = manager.query(
-                    DownloadManager.Query().setFilterById(id)
-                ) ?: return
+            val finalFile = File(downloadDirectory, fileName)
+            val tempFile = File(downloadDirectory, "$fileName.part")
 
-                cursor.use {
+            var completed = false
 
-                    if (!it.moveToFirst()) return
+            for (attempt in 1..3) {
 
-                    val status = it.getInt(
-                        it.getColumnIndexOrThrow(
-                            DownloadManager.COLUMN_STATUS
+                try {
+                    tempFile.delete()
+
+                    val request = Request.Builder()
+                        .url(url)
+                        .get()
+                        .header(
+                            "User-Agent",
+                            "HuangYi-APK-Market"
                         )
-                    )
-
-                    val total = it.getLong(
-                        it.getColumnIndexOrThrow(
-                            DownloadManager.COLUMN_TOTAL_SIZE_BYTES
+                        .header(
+                            "Accept",
+                            "application/octet-stream"
                         )
-                    )
+                        .build()
 
-                    val downloaded = it.getLong(
-                        it.getColumnIndexOrThrow(
-                            DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR
-                        )
-                    )
+                    httpClient.newCall(request)
+                        .execute().use { response ->
 
-                    when (status) {
+                            if (!response.isSuccessful) {
+                                val detail = response.body
+                                    ?.string()
+                                    ?.take(200)
+                                    .orEmpty()
 
-                        DownloadManager.STATUS_PENDING,
-                        DownloadManager.STATUS_RUNNING -> {
+                                val retryable =
+                                    response.code == 429 ||
+                                        response.code in 500..599
 
-                            val percent = if (total > 0) {
-                                (downloaded * 100 / total).toInt()
-                            } else {
-                                0
+                                throw DownloadHttpException(
+                                    "HTTP ${response.code}" +
+                                        if (detail.isNotBlank()) {
+                                            "：$detail"
+                                        } else {
+                                            ""
+                                        },
+                                    retryable
+                                )
                             }
 
-                            sendProgress(url, percent, "downloading")
+                            val body = response.body
+                                ?: throw IOException("伺服器沒有提供 APK 檔案")
 
-                            handler.postDelayed(this, 1000)
-                        }
+                            val totalBytes = body.contentLength()
+                            var downloadedBytes = 0L
 
-                        DownloadManager.STATUS_SUCCESSFUL -> {
+                            body.byteStream().use { input ->
 
-                            activeDownloads.remove(url)
+                                FileOutputStream(tempFile).use { output ->
 
-                            saveApkPackageName(fileName)
+                                    val buffer = ByteArray(64 * 1024)
 
-                            sendProgress(url, 100, "complete")
+                                    while (true) {
 
-                            val uri =
-                                manager.getUriForDownloadedFile(id)
+                                        val count = input.read(buffer)
 
-                            if (uri != null) {
-                                openApkInstaller(uri)
+                                        if (count == -1) break
+
+                                        output.write(buffer, 0, count)
+
+                                        downloadedBytes += count
+
+                                        val percent =
+                                            if (totalBytes > 0) {
+                                                (
+                                                    downloadedBytes *
+                                                        100 / totalBytes
+                                                    ).toInt().coerceIn(0, 99)
+                                            } else {
+                                                0
+                                            }
+
+                                        sendProgress(
+                                            url,
+                                            percent,
+                                            "downloading"
+                                        )
+                                    }
+
+                                    output.flush()
+                                    output.fd.sync()
+                                }
                             }
                         }
 
-                       DownloadManager.STATUS_FAILED -> {
-
-    val reason = it.getInt(
-        it.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON)
-    )
-
-    val reasonText = when (reason) {
-        DownloadManager.ERROR_CANNOT_RESUME -> "無法繼續下載"
-        DownloadManager.ERROR_DEVICE_NOT_FOUND -> "找不到儲存裝置"
-        DownloadManager.ERROR_FILE_ALREADY_EXISTS -> "檔案已存在"
-        DownloadManager.ERROR_FILE_ERROR -> "檔案存取錯誤"
-        DownloadManager.ERROR_HTTP_DATA_ERROR -> "HTTP 資料錯誤"
-        DownloadManager.ERROR_INSUFFICIENT_SPACE -> "儲存空間不足"
-        DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "重新導向次數過多"
-        DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "HTTP 狀態碼錯誤"
-        DownloadManager.ERROR_UNKNOWN -> "未知下載錯誤"
-        else -> "錯誤代碼：$reason"
-    }
-
-    activeDownloads.remove(url)
-
-    sendProgress(url, 0, "failed")
-
-    Toast.makeText(
-        this@MainActivity,
-        "下載失敗：$fileName\n$reasonText（$reason）",
-        Toast.LENGTH_LONG
-    ).show()
-}
+                    if (!tempFile.exists() ||
+                        tempFile.length() <= 0
+                    ) {
+                        throw IOException("下載完成但 APK 檔案是空的")
                     }
+
+                    if (finalFile.exists()) {
+                        finalFile.delete()
+                    }
+
+                    if (!tempFile.renameTo(finalFile)) {
+                        tempFile.copyTo(finalFile, overwrite = true)
+                        tempFile.delete()
+                    }
+
+                    if (!finalFile.exists() ||
+                        finalFile.length() <= 0
+                    ) {
+                        throw IOException("APK 檔案儲存失敗")
+                    }
+
+                    val apkUri = FileProvider.getUriForFile(
+                        this,
+                        "$packageName.fileprovider",
+                        finalFile
+                    )
+
+                    completed = true
+
+                    runOnUiThread {
+
+                        activeDownloads.remove(url)
+
+                        saveApkPackageName(fileName)
+
+                        sendProgress(url, 100, "complete")
+
+                        openApkInstaller(apkUri)
+                    }
+
+                    break
+
+                } catch (e: Exception) {
+
+                    lastError = e.message ?: "下載連線錯誤"
+
+                    tempFile.delete()
+
+                    val retryable =
+                        if (e is DownloadHttpException) {
+                            e.retryable
+                        } else {
+                            true
+                        }
+
+                    if (!retryable || attempt >= 3) {
+                        break
+                    }
+
+                    runOnUiThread {
+                        Toast.makeText(
+                            this,
+                            "下載連線中斷，正在重試（$attempt/3）",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+
+                    Thread.sleep(1000L * attempt)
                 }
             }
-        }
 
-        handler.post(task)
+            if (!completed) {
+                throw IOException(lastError)
+            }
+
+        } catch (e: Exception) {
+
+            val errorMessage = e.message ?: "未知下載錯誤"
+
+            runOnUiThread {
+
+                activeDownloads.remove(url)
+
+                sendProgress(url, 0, "failed")
+
+                Toast.makeText(
+                    this,
+                    "下載失敗：$fileName\n$errorMessage",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
 
     private fun saveApkPackageName(
@@ -1406,7 +1474,6 @@ class MainActivity : Activity() {
             }
 
         } catch (e: Exception) {
-            // 無法解析時不影響 APK 安裝
         }
     }
 
