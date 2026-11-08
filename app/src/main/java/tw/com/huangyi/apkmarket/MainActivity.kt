@@ -450,54 +450,165 @@ class MainActivity : Activity() {
         return mac
     }
 
+    /**
+     * MAC 讀取：
+     * 1. 優先讀取常見實體網卡。
+     * 2. 再自動搜尋其他網卡名稱。
+     * 3. 排除 loopback、虛擬網卡及行動網路介面。
+     *
+     * 授權比對及網頁 MAC 顯示都使用這個函式，
+     * 確保兩邊取得的是同一個 MAC。
+     */
     private fun readHardwareMac(): String {
-        val interfaces = listOf(
+
+        val preferredNames = listOf(
             "eth0",
             "wlan0",
             "wlan1",
             "en0"
         )
 
-        for (name in interfaces) {
+        // 第一階段：優先讀取常見網卡
+        for (name in preferredNames) {
             try {
                 val addressFile = File(
                     "/sys/class/net/$name/address"
                 )
 
-                if (addressFile.exists() && addressFile.canRead()) {
+                if (addressFile.exists()) {
                     val mac = normalizeMacAddress(
-                        addressFile.readText()
+                        addressFile.readText().trim()
                     )
 
-                    if (mac.isNotBlank()) return mac
+                    if (mac.isNotBlank()) {
+                        return mac
+                    }
                 }
-
             } catch (e: Exception) {
                 // 繼續嘗試其他網卡
             }
         }
 
-        for (name in interfaces) {
-            try {
-                val networkInterface =
-                    NetworkInterface.getByName(name)
-                        ?: continue
+        // 第二階段：自動搜尋系統內其他實體網卡
+        try {
+            val netDirectory = File("/sys/class/net")
 
-                val hardwareAddress =
-                    networkInterface.hardwareAddress
-                        ?: continue
+            val networkFiles = netDirectory.listFiles()
 
-                val rawMac = hardwareAddress.joinToString("") {
-                    "%02X".format(it.toInt() and 0xFF)
+            if (networkFiles != null) {
+
+                val sortedFiles = networkFiles
+                    .filter { file ->
+                        val name = file.name.lowercase(Locale.ROOT)
+
+                        !name.startsWith("lo") &&
+                        !name.startsWith("dummy") &&
+                        !name.startsWith("tun") &&
+                        !name.startsWith("tap") &&
+                        !name.startsWith("rmnet") &&
+                        !name.startsWith("p2p") &&
+                        !name.startsWith("sit") &&
+                        !name.startsWith("ip6tnl")
+                    }
+                    .sortedBy { it.name }
+
+                for (file in sortedFiles) {
+                    try {
+                        val addressFile = File(
+                            file,
+                            "address"
+                        )
+
+                        if (!addressFile.exists()) continue
+
+                        val mac = normalizeMacAddress(
+                            addressFile.readText().trim()
+                        )
+
+                        if (mac.isNotBlank()) {
+                            return mac
+                        }
+                    } catch (e: Exception) {
+                        // 繼續嘗試下一張網卡
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // 繼續使用 NetworkInterface 方法
+        }
+
+        // 第三階段：使用 Android NetworkInterface 讀取
+        try {
+            val interfaces =
+                NetworkInterface.getNetworkInterfaces()
+
+            if (interfaces != null) {
+
+                val allInterfaces = mutableListOf<NetworkInterface>()
+
+                while (interfaces.hasMoreElements()) {
+                    val networkInterface = interfaces.nextElement()
+
+                    try {
+                        val name = networkInterface.name
+                            .lowercase(Locale.ROOT)
+
+                        if (networkInterface.isLoopback) continue
+                        if (networkInterface.isVirtual) continue
+
+                        if (
+                            name.startsWith("lo") ||
+                            name.startsWith("dummy") ||
+                            name.startsWith("tun") ||
+                            name.startsWith("tap") ||
+                            name.startsWith("rmnet") ||
+                            name.startsWith("p2p") ||
+                            name.startsWith("sit") ||
+                            name.startsWith("ip6tnl")
+                        ) {
+                            continue
+                        }
+
+                        allInterfaces.add(networkInterface)
+
+                    } catch (e: Exception) {
+                        // 繼續檢查其他網卡
+                    }
                 }
 
-                val mac = normalizeMacAddress(rawMac)
+                // 優先順序：乙太網路，其次 Wi-Fi，最後其他網卡
+                val sortedInterfaces = allInterfaces.sortedBy { networkInterface ->
+                    when (networkInterface.name.lowercase(Locale.ROOT)) {
+                        "eth0" -> 0
+                        "wlan0" -> 1
+                        "wlan1" -> 2
+                        else -> 3
+                    }
+                }
 
-                if (mac.isNotBlank()) return mac
+                for (networkInterface in sortedInterfaces) {
+                    try {
+                        val hardwareAddress =
+                            networkInterface.hardwareAddress ?: continue
 
-            } catch (e: Exception) {
-                // 繼續嘗試其他網卡
+                        val rawMac = hardwareAddress.joinToString("") {
+                            "%02X".format(it.toInt() and 0xFF)
+                        }
+
+                        val mac = normalizeMacAddress(rawMac)
+
+                        if (mac.isNotBlank()) {
+                            return mac
+                        }
+
+                    } catch (e: Exception) {
+                        // 繼續嘗試下一張網卡
+                    }
+                }
             }
+
+        } catch (e: Exception) {
+            // 無法取得網卡清單
         }
 
         return ""
