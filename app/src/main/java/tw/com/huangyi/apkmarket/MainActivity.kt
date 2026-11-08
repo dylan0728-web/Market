@@ -350,13 +350,12 @@ class MainActivity : Activity() {
             .putInt(keyWords[3] xor keyWords[7])
             .array()
 
-        val iv = ByteBuffer.allocate(16)
-            .order(ByteOrder.BIG_ENDIAN)
-            .putInt(keyWords[4])
-            .putInt(keyWords[5])
-            .putInt(keyWords[6])
-            .putInt(keyWords[7])
-            .array()
+val iv = ByteBuffer.allocate(16)
+    .order(ByteOrder.BIG_ENDIAN)
+    .putInt(keyWords[4])
+    .putInt(keyWords[5])
+    .putLong(0L)
+    .array()
 
         val cipher = Cipher.getInstance("AES/CTR/NoPadding")
         cipher.init(
