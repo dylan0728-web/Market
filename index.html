@@ -6,6 +6,64 @@
 <title>應用市場</title>
 <style>
 *{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#101827;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif}
+body{padding:22px;background:linear-gradient(135deg,#101827,#303b4d)}
+header{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:22px}
+h1{font-size:28px;margin:0}
+#macInfo{font-size:15px;color:#dce8fa;text-align:right;overflow-wrap:anywhere}
+#status{font-size:14px;color:#c5d0df;margin-bottom:18px}
+#apps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.app{min-height:145px;display:flex;align-items:center;gap:16px;padding:17px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.12);border-radius:14px;cursor:pointer;min-width:0;outline:none}
+.app:focus,.app.selected{border-color:#fff;background:rgba(255,255,255,.2);transform:scale(1.02)}
+.app-icon{width:82px;height:82px;flex-shrink:0;border-radius:14px;background:#273c58;display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:23px;font-weight:bold}
+.app-icon img{width:100%;height:100%;object-fit:contain}
+.app-info{flex:1;min-width:0}
+.app-name{font-size:18px;font-weight:bold;margin-bottom:7px;overflow-wrap:anywhere}
+.app-detail{font-size:13px;color:#c1ccda;line-height:1.6;overflow-wrap:anywhere}
+.installed,.not-installed{display:inline-block;margin-top:6px;padding:4px 9px;border-radius:5px;font-size:12px}
+.installed{color:#8de6a3;background:rgba(46,204,113,.15)}
+.not-installed{color:#c5d9ff;background:rgba(91,151,230,.15)}
+.download-progress{display:none;margin-top:11px;width:100%}
+.download-progress-label{display:flex;justify-content:space-between;font-size:12px;color:#dce8fa;margin-bottom:5px}
+.download-track{height:9px;width:100%;background:#182334;border-radius:10px;overflow:hidden}
+.download-bar-fill{height:100%;width:0;background:#35d078;border-radius:10px;transition:width .2s}
+.empty{grid-column:1/-1;text-align:center;padding:55px 15px;color:#c1ccda;font-size:17px}
+#dialog{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
+.dialog-box{width:min(360px,100%);background:#263448;border:1px solid #60738d;border-radius:15px;padding:22px;text-align:center}
+.dialog-box h2{font-size:20px;margin:0 0 10px}
+.dialog-box p{color:#c5d0df}
+.dialog-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}
+.dialog-actions button{min-width:85px;background:#405875;color:#fff;border:1px solid #7188a5;border-radius:8px;padding:10px 17px;font-size:15px}
+@media(max-width:700px){#apps{grid-template-columns:repeat(2,minmax(0,1fr))}.app-icon{width:68px;height:68px}}
+@media(max-width:450px){body{padding:12px}header{align-items:flex-start;flex-direction:column}.app{padding:11px;gap:10px}.app-icon{width:58px;height:58px}}
+</style>
+</head>
+<body>
+<header>
+<h1>應用市場</h1>
+<div id="macInfo">MAC：讀取中</div>
+</header>
+<div id="status">正在準備應用程式清單……</div>
+<main id="apps"><div class="empty">正在連線 GitHub Releases……</div></main>
+<div id="dialog">
+  <div class="dialog-box">
+    <h2 id="dialogTitle">應用程式</h2>
+    <p id="dialogText">請選擇操作</p>
+    <div class="dialog-actions">
+      <button type="button" id="openBtn">開啟</button>
+      <button type="button" id="uninstallBtn">卸載</button>
+      <button type="button" id="cancelBtn">取消</button>
+    </div>
+  </div>
+</div>
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>應用市場</title>
+<style>
+*{box-sizing:border-box}
 body{margin:0;padding:22px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh}
 header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px}
 h1{font-size:27px;margin:0;letter-spacing:1px}
