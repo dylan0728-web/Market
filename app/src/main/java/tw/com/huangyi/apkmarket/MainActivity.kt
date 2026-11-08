@@ -1,3 +1,4 @@
+```kotlin
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -77,7 +78,7 @@ class MainActivity : Activity() {
             "https://mega.nz/file/sksyEIJI#SlPBp24JhbRtlI02z12MSt2EEdYiYU84yLybZ6P4qaA"
 
         private const val AUTH_ERROR =
-            "此機器MAC授權到期或是未授權"
+            "此機器Mac未授權"
     }
 
     private val httpClient by lazy {
@@ -147,7 +148,7 @@ class MainActivity : Activity() {
         }
 
         val detail = TextView(this).apply {
-            text = "機器 MAC：$mac\n\n錯誤原因：\n$authorizationErrorMessage\n\n雲端授權資料中的期限：2027/12/31"
+            text = "機器MAC：$mac"
             textSize = 16f
             setTextColor(0xFFFFFFFF.toInt())
             gravity = android.view.Gravity.CENTER
@@ -350,7 +351,6 @@ class MainActivity : Activity() {
             .putInt(keyWords[3] xor keyWords[7])
             .array()
 
-        // 修正：還原原本正確的 MEGA AES IV
         val iv = ByteBuffer.allocate(16)
             .order(ByteOrder.BIG_ENDIAN)
             .putInt(keyWords[4])
@@ -1398,3 +1398,4 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 }
+```
