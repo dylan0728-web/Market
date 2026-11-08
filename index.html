@@ -220,13 +220,19 @@ function updateProgressCard(app){
 
     if(!area||!bar||!percent)return;
 
-    area.style.display=app.downloadActive?"block":"none";
+    area.style.display=
+        app.downloadActive &&
+        app.downloadState!=="installing" &&
+        app.downloadState!=="complete"
+        ? "block"
+        : "none";
+
     bar.style.width=(app.downloadPercent||0)+"%";
     percent.textContent=(app.downloadPercent||0)+"%";
 
     if(label){
-        if(app.downloadState==="installing"){
-            label.textContent="下載完成，等待安裝";
+        if(app.downloadState==="installing"||app.downloadState==="complete"){
+            label.textContent="";
         }else if(app.downloadState==="failed"){
             label.textContent="下載失敗";
         }else{
@@ -314,7 +320,11 @@ function renderApps(){
         progress.appendChild(progressLabel);
         progress.appendChild(track);
 
-        if(app.downloadActive)progress.style.display="block";
+        if(app.downloadActive &&
+           app.downloadState!=="installing" &&
+           app.downloadState!=="complete"){
+            progress.style.display="block";
+        }
 
         info.appendChild(name);
         info.appendChild(detail);
@@ -355,10 +365,18 @@ function moveSelection(next){
 
     if(selectedCard){
         selectedCard.focus({preventScroll:true});
-        selectedCard.scrollIntoView({
-            behavior:"smooth",
-            block:"nearest"
-        });
+
+        if(selectedIndex===0){
+            window.scrollTo({
+                top:0,
+                behavior:"smooth"
+            });
+        }else{
+            selectedCard.scrollIntoView({
+                behavior:"smooth",
+                block:"nearest"
+            });
+        }
     }
 }
 
@@ -472,16 +490,18 @@ window.onApkDownloadProgress=function(url,percent,state){
     app.downloadPercent=Math.max(0,Math.min(100,Number(percent)||0));
     app.downloadState=state;
 
-    if(state==="complete"){
+    if(state==="complete"||state==="installing"){
         app.downloadPercent=100;
         app.downloadState="installing";
-        app.downloadActive=true;
-        setStatus("下載完成，請完成安裝："+app.appName);
+        app.downloadActive=false;
+        setStatus("下載完成："+app.appName);
     }else if(state==="failed"){
         app.downloadActive=false;
+        app.downloadState="failed";
         setStatus("下載失敗："+app.appName);
     }else{
         app.downloadActive=true;
+        app.downloadState="downloading";
         setStatus("正在下載 "+app.appName+"："+app.downloadPercent+"%");
     }
 
