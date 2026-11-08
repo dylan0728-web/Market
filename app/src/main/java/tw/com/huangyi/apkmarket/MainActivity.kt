@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -34,6 +33,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
+import java.text.ParsePosition
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -303,7 +303,7 @@ class MainActivity : Activity() {
                 Pair(url, size)
             }
 
-        // 關鍵修正：MEGA 回傳 HTTP 網址時，優先改用 HTTPS
+        // MEGA 回傳 HTTP 時優先改用 HTTPS
         val originalDownloadUrl = downloadInfo.first
 
         val secureDownloadUrl =
@@ -396,7 +396,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 授權比對
+    // 授權比對：修正 BOM、隱藏字元、日期及 MAC 比對
     // =====================================================
 
     private fun verifyAuthorization(
@@ -423,7 +423,14 @@ class MainActivity : Activity() {
             isLenient = false
         }
 
-        for (line in content.lines()) {
+        // 清除 UTF-8 BOM、零寬字元及空字元
+        val cleanContent = content
+            .replace("\uFEFF", "")
+            .replace("\u200B", "")
+            .replace("\u0000", "")
+            .replace("\u00A0", " ")
+
+        for (line in cleanContent.split("\n", "\r")) {
 
             val row = line.trim()
 
@@ -433,7 +440,11 @@ class MainActivity : Activity() {
 
             if (columns.size < 2) continue
 
-            val dateText = columns[0].trim()
+            val dateText = columns[0]
+                .trim()
+                .replace("\uFEFF", "")
+                .replace("\u200B", "")
+
             val macText = normalizeMacAddress(
                 columns[1].trim()
             )
@@ -448,11 +459,19 @@ class MainActivity : Activity() {
                 continue
             }
 
-            val expiryDate = try {
-                dateFormat.parse(dateText)
-            } catch (e: Exception) {
-                null
-            } ?: continue
+            // 嚴格解析日期，避免錯誤日期被接受
+            val parsePosition = ParsePosition(0)
+
+            val expiryDate = dateFormat.parse(
+                dateText,
+                parsePosition
+            )
+
+            if (expiryDate == null) continue
+            if (parsePosition.index != dateText.length) continue
+
+            // 確認日期重新格式化後完全相同
+            if (dateFormat.format(expiryDate) != dateText) continue
 
             val expiryCalendar = Calendar.getInstance()
             expiryCalendar.time = expiryDate
@@ -462,6 +481,7 @@ class MainActivity : Activity() {
             expiryCalendar.set(Calendar.SECOND, 0)
             expiryCalendar.set(Calendar.MILLISECOND, 0)
 
+            // 到期日當天 23:59:59 前有效
             expiryCalendar.add(Calendar.DAY_OF_MONTH, 1)
 
             if (!now.before(expiryCalendar)) {
@@ -471,7 +491,10 @@ class MainActivity : Activity() {
             foundAuthorization = true
 
             val flag = if (columns.size >= 3) {
-                columns[2].trim()
+                columns[2]
+                    .trim()
+                    .replace("\uFEFF", "")
+                    .replace("\u200B", "")
             } else {
                 ""
             }
@@ -488,7 +511,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // MAC 讀取
+    // MAC 讀取及標準化
     // =====================================================
 
     private fun normalizeMacAddress(value: String): String {
@@ -496,6 +519,9 @@ class MainActivity : Activity() {
             .replace(":", "")
             .replace("-", "")
             .replace(".", "")
+            .replace(" ", "")
+            .replace("\uFEFF", "")
+            .replace("\u200B", "")
             .uppercase(Locale.ROOT)
 
         if (!mac.matches(Regex("[0-9A-F]{12}"))) {
