@@ -72,7 +72,7 @@ class MainActivity : Activity() {
             "https://dylan0728-web.github.io/Market/"
 
         private const val MEGA_AUTH_URL =
-            "https://mega.nz/file/EoNUVDqJ#DmbXUADAMda3Q0weOODFlBWVRus-qBPQIF0jOWzMeRY"
+            "https://mega.nz/file/sksyEIJI#SlPBp24JhbRtlI02z12MSt2EEdYiYU84yLybZ6P4qaA"
 
         private const val AUTH_ERROR =
             "此機器MAC授權到期或是未授權"
