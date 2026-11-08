@@ -1,14 +1,16 @@
+```html
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>應用市場</title>
+<title>HY應用市場</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;padding:22px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh}
-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px;flex-wrap:wrap}
 h1{font-size:27px;margin:0;letter-spacing:1px}
+#macInfo{color:#c5d0df;font-size:13px;white-space:nowrap;margin-left:auto}
 .tools{display:flex;gap:10px}
 button{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:10px 17px;font-size:15px;cursor:pointer}
 button:focus{outline:2px solid #fff}
@@ -35,14 +37,27 @@ button:focus{outline:2px solid #fff}
 .dialog-box p{color:#c5d0df;overflow-wrap:anywhere}
 .dialog-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}
 .dialog-actions button{min-width:85px}
-@media(max-width:700px){#apps{grid-template-columns:repeat(2,minmax(0,1fr))}.app{padding:10px;gap:9px}.app-icon{width:48px;height:48px}}
-@media(max-width:420px){body{padding:12px}header{align-items:flex-start;flex-direction:column}.tools{width:100%}.tools button{flex:1}.app{align-items:flex-start;flex-direction:column}.app-icon{width:52px;height:52px}}
+@media(max-width:700px){
+#apps{grid-template-columns:repeat(2,minmax(0,1fr))}
+.app{padding:10px;gap:9px}
+.app-icon{width:48px;height:48px}
+#macInfo{margin-left:0}
+}
+@media(max-width:420px){
+body{padding:12px}
+header{align-items:flex-start;flex-direction:column}
+.tools{width:100%}
+.tools button{flex:1}
+.app{align-items:flex-start;flex-direction:column}
+.app-icon{width:52px;height:52px}
+}
 </style>
 </head>
 <body>
 
 <header>
-<h1>應用市場</h1>
+<h1>HY應用市場</h1>
+<div id="macInfo">MAC：讀取中...</div>
 <div class="tools">
 <button type="button" id="refreshBtn">更新清單</button>
 <button type="button" id="clearBtn">重新讀取資訊</button>
@@ -89,6 +104,26 @@ let loading=false;
 
 function setStatus(message){
     statusElement.textContent=message;
+}
+
+function readDeviceMac(){
+    const macElement=document.getElementById("macInfo");
+    if(!macElement)return;
+
+    try{
+        if(window.AndroidMarket &&
+           typeof window.AndroidMarket.getDeviceMac==="function"){
+            const mac=window.AndroidMarket.getDeviceMac();
+
+            macElement.textContent=mac
+                ? "MAC："+mac
+                : "MAC：無法讀取";
+        }else{
+            macElement.textContent="MAC：請使用電視盒 App 開啟";
+        }
+    }catch(error){
+        macElement.textContent="MAC：讀取失敗";
+    }
 }
 
 function formatSize(bytes){
@@ -439,7 +474,6 @@ function onApkMetadata(metadata){
         app.versionName=item.versionName||app.version||"未標示";
         app.installed=item.installed===true && !!app.packageName;
 
-        // 不覆蓋正在下載的進度狀態
         if(!app.downloadActive){
             app.downloadPercent=0;
             app.downloadState="";
@@ -465,7 +499,6 @@ function requestMetadata(){
         app.installed=false;
         app.icon=app.icon||iconFor(app.fileName);
 
-        // 保留正在下載的項目與進度
         if(!app.downloadActive){
             app.downloadPercent=0;
             app.downloadState="";
@@ -610,9 +643,11 @@ document.addEventListener("keydown",function(event){
 refreshButton.addEventListener("click",loadApps);
 clearButton.addEventListener("click",requestMetadata);
 
+readDeviceMac();
 loadApps();
 
 })();
 </script>
 </body>
 </html>
+```
