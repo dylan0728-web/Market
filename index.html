@@ -9,8 +9,9 @@
 html{
     min-height:100%;
     height:auto;
-    overflow-y:auto;
     overflow-x:hidden;
+    overflow-y:auto;
+    scroll-behavior:smooth;
 }
 body{
     margin:0;
@@ -20,38 +21,177 @@ body{
     background:linear-gradient(135deg,#101827,#303b4d);
     min-height:100vh;
     height:auto;
-    overflow-y:auto;
     overflow-x:hidden;
+    overflow-y:visible;
     -webkit-overflow-scrolling:touch;
 }
-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px;flex-wrap:wrap}
+header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:22px;
+    gap:12px;
+    flex-wrap:wrap;
+}
 h1{font-size:27px;margin:0;letter-spacing:1px}
-#macInfo{color:#c5d0df;font-size:13px;white-space:nowrap;margin-left:auto}
-#status{color:#c5d0df;font-size:14px;margin-bottom:16px}
-#apps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;padding-bottom:30px}
-.app{min-height:112px;display:flex;align-items:center;gap:14px;padding:16px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:12px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;min-width:0}
-.app:focus,.app.selected{border-color:#fff;background:rgba(255,255,255,.20);transform:scale(1.025)}
-.app-icon{width:62px;height:62px;flex-shrink:0;border-radius:13px;background:linear-gradient(145deg,#647d9c,#273c58);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:23px;font-weight:bold}
-.app-icon img{width:100%;height:100%;object-fit:contain}
+#macInfo{
+    color:#c5d0df;
+    font-size:13px;
+    white-space:nowrap;
+    margin-left:auto;
+}
+#status{
+    color:#c5d0df;
+    font-size:14px;
+    margin-bottom:16px;
+}
+#apps{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:15px;
+    padding-bottom:30px;
+}
+.app{
+    min-height:112px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:16px;
+    background:rgba(255,255,255,.10);
+    border:2px solid rgba(255,255,255,.10);
+    border-radius:12px;
+    cursor:pointer;
+    transition:transform .12s,border-color .12s;
+    outline:none;
+    min-width:0;
+}
+.app:focus,.app.selected{
+    border-color:#fff;
+    background:rgba(255,255,255,.20);
+    transform:scale(1.025);
+}
+.app-icon{
+    width:62px;
+    height:62px;
+    flex-shrink:0;
+    border-radius:13px;
+    background:linear-gradient(145deg,#647d9c,#273c58);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    font-size:23px;
+    font-weight:bold;
+}
+.app-icon img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+}
 .app-info{min-width:0;flex:1}
-.app-name{font-size:17px;font-weight:bold;margin-bottom:7px;overflow-wrap:anywhere}
-.app-detail{color:#c1ccda;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
-.installed,.not-installed{display:inline-block;border-radius:5px;padding:3px 8px;font-size:12px;margin-top:5px}
-.installed{color:#8de6a3;background:rgba(46,204,113,.15);border:1px solid rgba(46,204,113,.4)}
-.not-installed{color:#c5d9ff;background:rgba(91,151,230,.15);border:1px solid rgba(91,151,230,.4)}
-.download-progress{display:none;margin-top:10px;width:100%}
-.download-progress-label{display:flex;justify-content:space-between;gap:8px;color:#dce8f8;font-size:12px;margin-bottom:5px}
-.download-track{width:100%;height:9px;background:rgba(0,0,0,.4);border-radius:10px;overflow:hidden}
-.download-bar-fill{width:0%;height:100%;background:linear-gradient(90deg,#36d399,#75e6ff);border-radius:10px;transition:width .25s}
-.empty{grid-column:1/-1;text-align:center;padding:55px 15px;color:#c1ccda;font-size:17px}
-#dialog{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
-.dialog-box{width:min(360px,100%);background:#263448;border:1px solid #60738d;border-radius:15px;padding:22px;text-align:center;box-shadow:0 12px 40px #0008}
+.app-name{
+    font-size:17px;
+    font-weight:bold;
+    margin-bottom:7px;
+    overflow-wrap:anywhere;
+}
+.app-detail{
+    color:#c1ccda;
+    font-size:12px;
+    line-height:1.7;
+    overflow-wrap:anywhere;
+}
+.installed,.not-installed{
+    display:inline-block;
+    border-radius:5px;
+    padding:3px 8px;
+    font-size:12px;
+    margin-top:5px;
+}
+.installed{
+    color:#8de6a3;
+    background:rgba(46,204,113,.15);
+    border:1px solid rgba(46,204,113,.4);
+}
+.not-installed{
+    color:#c5d9ff;
+    background:rgba(91,151,230,.15);
+    border:1px solid rgba(91,151,230,.4);
+}
+.download-progress{
+    display:none;
+    margin-top:10px;
+    width:100%;
+}
+.download-progress-label{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    color:#dce8f8;
+    font-size:12px;
+    margin-bottom:5px;
+}
+.download-track{
+    width:100%;
+    height:9px;
+    background:rgba(0,0,0,.4);
+    border-radius:10px;
+    overflow:hidden;
+}
+.download-bar-fill{
+    width:0%;
+    height:100%;
+    background:linear-gradient(90deg,#36d399,#75e6ff);
+    border-radius:10px;
+    transition:width .25s;
+}
+.empty{
+    grid-column:1/-1;
+    text-align:center;
+    padding:55px 15px;
+    color:#c1ccda;
+    font-size:17px;
+}
+#dialog{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.72);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:10;
+}
+.dialog-box{
+    width:min(360px,100%);
+    background:#263448;
+    border:1px solid #60738d;
+    border-radius:15px;
+    padding:22px;
+    text-align:center;
+    box-shadow:0 12px 40px #0008;
+}
 .dialog-box h2{font-size:20px;margin:0 0 10px}
 .dialog-box p{color:#c5d0df;overflow-wrap:anywhere}
-.dialog-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}
-button{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:10px 17px;font-size:15px;cursor:pointer}
+.dialog-actions{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:20px;
+}
+button{
+    background:rgba(255,255,255,.13);
+    color:#fff;
+    border:1px solid rgba(255,255,255,.2);
+    border-radius:9px;
+    padding:10px 17px;
+    font-size:15px;
+    cursor:pointer;
+}
 button:focus{outline:2px solid #fff}
 .dialog-actions button{min-width:85px}
+
 @media(max-width:700px){
     #apps{grid-template-columns:repeat(2,minmax(0,1fr))}
     .app{padding:10px;gap:9px}
@@ -74,18 +214,20 @@ button:focus{outline:2px solid #fff}
 </header>
 
 <div id="status">正在準備應用程式清單……</div>
-<main id="apps"><div class="empty">正在連線 GitHub Releases……</div></main>
+<main id="apps">
+    <div class="empty">正在連線 GitHub Releases……</div>
+</main>
 
 <div id="dialog">
-  <div class="dialog-box">
-    <h2 id="dialogTitle">應用程式</h2>
-    <p id="dialogText">請選擇操作</p>
-    <div class="dialog-actions">
-      <button type="button" id="openBtn">開啟</button>
-      <button type="button" id="uninstallBtn">卸載</button>
-      <button type="button" id="cancelBtn">取消</button>
+    <div class="dialog-box">
+        <h2 id="dialogTitle">應用程式</h2>
+        <p id="dialogText">請選擇操作</p>
+        <div class="dialog-actions">
+            <button type="button" id="openBtn">開啟</button>
+            <button type="button" id="uninstallBtn">卸載</button>
+            <button type="button" id="cancelBtn">取消</button>
+        </div>
     </div>
-  </div>
 </div>
 
 <script>
@@ -207,37 +349,105 @@ function iconFor(fileName){
         : "";
 }
 
+/* 將整個網頁捲回最頂端，包含 MAC 顯示位置 */
+function scrollPageToTop(){
+    document.documentElement.scrollTop=0;
+    document.body.scrollTop=0;
+
+    try{
+        window.scrollTo({
+            top:0,
+            left:0,
+            behavior:"smooth"
+        });
+    }catch(error){
+        window.scrollTo(0,0);
+    }
+}
+
+/* 讓目前選取的 APP 保持在可視範圍內 */
+function scrollCardIntoView(card,index){
+    if(!card)return;
+
+    if(index===0){
+        scrollPageToTop();
+        return;
+    }
+
+    const rect=card.getBoundingClientRect();
+    const viewportHeight=window.innerHeight||
+        document.documentElement.clientHeight;
+
+    const header=document.querySelector("header");
+    const headerBottom=header
+        ? header.getBoundingClientRect().bottom
+        : 0;
+
+    const currentScroll=window.pageYOffset||
+        document.documentElement.scrollTop||
+        document.body.scrollTop||0;
+
+    let targetScroll=currentScroll;
+
+    if(rect.top<headerBottom+12){
+        targetScroll=currentScroll+rect.top-headerBottom-16;
+    }else if(rect.bottom>viewportHeight-16){
+        targetScroll=currentScroll+rect.bottom-viewportHeight+24;
+    }else{
+        return;
+    }
+
+    targetScroll=Math.max(0,targetScroll);
+
+    try{
+        window.scrollTo({
+            top:targetScroll,
+            left:0,
+            behavior:"smooth"
+        });
+    }catch(error){
+        document.documentElement.scrollTop=targetScroll;
+        document.body.scrollTop=targetScroll;
+    }
+}
+
 function updateProgressCard(app){
     const card=Array.from(appsElement.querySelectorAll(".app"))
-        .find(function(item){return item.dataset.url===app.url;});
+        .find(function(item){
+            return item.dataset.url===app.url;
+        });
 
     if(!card)return;
 
     const area=card.querySelector(".download-progress");
     const bar=card.querySelector(".download-bar-fill");
     const percent=card.querySelector(".download-percent");
-    const label=card.querySelector(".download-progress-label span:first-child");
 
     if(!area||!bar||!percent)return;
 
-    area.style.display=
-        app.downloadActive &&
+    const shouldShow=
+        app.downloadActive===true &&
         app.downloadState!=="installing" &&
-        app.downloadState!=="complete"
-        ? "block"
-        : "none";
+        app.downloadState!=="complete" &&
+        app.downloadState!=="failed";
+
+    area.style.display=shouldShow?"block":"none";
+
+    if(!shouldShow){
+        bar.style.width="0%";
+        percent.textContent="";
+        return;
+    }
 
     bar.style.width=(app.downloadPercent||0)+"%";
     percent.textContent=(app.downloadPercent||0)+"%";
 
+    const label=area.querySelector(
+        ".download-progress-label span:first-child"
+    );
+
     if(label){
-        if(app.downloadState==="installing"||app.downloadState==="complete"){
-            label.textContent="";
-        }else if(app.downloadState==="failed"){
-            label.textContent="下載失敗";
-        }else{
-            label.textContent="下載中";
-        }
+        label.textContent="下載中";
     }
 }
 
@@ -285,6 +495,7 @@ function renderApps(){
             "｜大小："+formatSize(app.size);
 
         const label=document.createElement("div");
+
         if(app.installed===true && app.packageName){
             label.className="installed";
             label.textContent="已安裝";
@@ -304,7 +515,7 @@ function renderApps(){
 
         const percent=document.createElement("span");
         percent.className="download-percent";
-        percent.textContent=(app.downloadPercent||0)+"%";
+        percent.textContent="";
 
         progressLabel.appendChild(progressText);
         progressLabel.appendChild(percent);
@@ -314,17 +525,11 @@ function renderApps(){
 
         const fill=document.createElement("div");
         fill.className="download-bar-fill";
-        fill.style.width=(app.downloadPercent||0)+"%";
+        fill.style.width="0%";
 
         track.appendChild(fill);
         progress.appendChild(progressLabel);
         progress.appendChild(track);
-
-        if(app.downloadActive &&
-           app.downloadState!=="installing" &&
-           app.downloadState!=="complete"){
-            progress.style.display="block";
-        }
 
         info.appendChild(name);
         info.appendChild(detail);
@@ -341,6 +546,8 @@ function renderApps(){
         });
 
         appsElement.appendChild(card);
+
+        updateProgressCard(app);
     });
 
     selectedIndex=Math.min(selectedIndex,appList.length-1);
@@ -349,6 +556,7 @@ function renderApps(){
 
 function updateSelection(){
     const cards=appsElement.querySelectorAll(".app");
+
     cards.forEach(function(card,index){
         card.classList.toggle("selected",index===selectedIndex);
     });
@@ -357,26 +565,26 @@ function updateSelection(){
 function moveSelection(next){
     if(!appList.length)return;
 
-    selectedIndex=Math.max(0,Math.min(next,appList.length-1));
+    const previousIndex=selectedIndex;
+
+    selectedIndex=Math.max(
+        0,
+        Math.min(next,appList.length-1)
+    );
+
     updateSelection();
 
     const cards=appsElement.querySelectorAll(".app");
     const selectedCard=cards[selectedIndex];
 
     if(selectedCard){
-        selectedCard.focus({preventScroll:true});
-
-        if(selectedIndex===0){
-            window.scrollTo({
-                top:0,
-                behavior:"smooth"
-            });
-        }else{
-            selectedCard.scrollIntoView({
-                behavior:"smooth",
-                block:"nearest"
-            });
+        try{
+            selectedCard.focus({preventScroll:true});
+        }catch(error){
+            selectedCard.focus();
         }
+
+        scrollCardIntoView(selectedCard,selectedIndex);
     }
 }
 
@@ -401,6 +609,13 @@ function handleAppClick(app){
 function closeDialog(){
     dialog.style.display="none";
     currentApp=null;
+
+    const cards=appsElement.querySelectorAll(".app");
+    const selectedCard=cards[selectedIndex];
+
+    if(selectedCard){
+        selectedCard.focus({preventScroll:true});
+    }
 }
 
 openButton.addEventListener("click",function(){
@@ -465,8 +680,8 @@ function downloadApp(app){
     app.downloadActive=true;
     app.downloadPercent=0;
     app.downloadState="downloading";
-    updateProgressCard(app);
 
+    updateProgressCard(app);
     setStatus("正在啟動下載："+app.appName);
 
     try{
@@ -487,25 +702,36 @@ window.onApkDownloadProgress=function(url,percent,state){
 
     if(!app)return;
 
-    app.downloadPercent=Math.max(0,Math.min(100,Number(percent)||0));
-    app.downloadState=state;
-
     if(state==="complete"||state==="installing"){
-        app.downloadPercent=100;
-        app.downloadState="installing";
+        app.downloadPercent=0;
+        app.downloadState="complete";
         app.downloadActive=false;
+
+        updateProgressCard(app);
         setStatus("下載完成："+app.appName);
-    }else if(state==="failed"){
-        app.downloadActive=false;
-        app.downloadState="failed";
-        setStatus("下載失敗："+app.appName);
-    }else{
-        app.downloadActive=true;
-        app.downloadState="downloading";
-        setStatus("正在下載 "+app.appName+"："+app.downloadPercent+"%");
+        return;
     }
 
+    if(state==="failed"){
+        app.downloadPercent=0;
+        app.downloadState="failed";
+        app.downloadActive=false;
+
+        updateProgressCard(app);
+        setStatus("下載失敗："+app.appName);
+        return;
+    }
+
+    app.downloadPercent=Math.max(
+        0,
+        Math.min(100,Number(percent)||0)
+    );
+
+    app.downloadState="downloading";
+    app.downloadActive=true;
+
     updateProgressCard(app);
+    setStatus("正在下載 "+app.appName+"："+app.downloadPercent+"%");
 };
 
 function onApkMetadata(metadata){
@@ -579,9 +805,10 @@ window.refreshInstalledState=requestMetadata;
 
 async function loadApps(){
     if(loading)return;
-    loading=true;
 
+    loading=true;
     appList=[];
+
     setStatus("正在讀取 GitHub Releases……");
     renderEmpty("正在讀取 APK 清單，請稍候……");
 
@@ -656,9 +883,11 @@ async function loadApps(){
     }
 }
 
+/* Android TV 遙控器方向鍵及確認鍵 */
 document.addEventListener("keydown",function(event){
     if(dialog.style.display==="flex"){
         if(event.key==="Escape"||event.key==="Backspace"){
+            event.preventDefault();
             closeDialog();
         }
         return;
@@ -669,27 +898,51 @@ document.addEventListener("keydown",function(event){
     const key=event.key;
     const keyCode=event.keyCode;
 
-    if(key==="ArrowRight"){
+    if(
+        key==="ArrowRight"||
+        keyCode===22
+    ){
         event.preventDefault();
         moveSelection(selectedIndex+1);
         return;
     }
 
-    if(key==="ArrowLeft"){
+    if(
+        key==="ArrowLeft"||
+        keyCode===21
+    ){
         event.preventDefault();
         moveSelection(selectedIndex-1);
         return;
     }
 
-    if(key==="ArrowDown"){
+    if(
+        key==="ArrowDown"||
+        keyCode===20
+    ){
         event.preventDefault();
         moveSelection(selectedIndex+3);
         return;
     }
 
-    if(key==="ArrowUp"){
+    if(
+        key==="ArrowUp"||
+        keyCode===19
+    ){
         event.preventDefault();
+
+        /*
+         * 一直按上：
+         * 選取框逐排往上移動。
+         * 到達第一排後繼續按上，
+         * 畫面會持續回到 MAC 頂端。
+         */
         moveSelection(selectedIndex-3);
+
+        if(selectedIndex===0){
+            scrollPageToTop();
+        }
+
         return;
     }
 
@@ -710,6 +963,7 @@ document.addEventListener("keydown",function(event){
     }
 },true);
 
+/* 啟動 */
 readDeviceMac();
 loadApps();
 
