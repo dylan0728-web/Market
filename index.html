@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -7,15 +6,29 @@
 <title>HY應用市場</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;padding:22px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh}
+html{
+    min-height:100%;
+    height:auto;
+    overflow-y:auto;
+    overflow-x:hidden;
+}
+body{
+    margin:0;
+    padding:22px;
+    color:#fff;
+    font-family:Arial,"Microsoft JhengHei",sans-serif;
+    background:linear-gradient(135deg,#101827,#303b4d);
+    min-height:100vh;
+    height:auto;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+}
 header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px;flex-wrap:wrap}
 h1{font-size:27px;margin:0;letter-spacing:1px}
 #macInfo{color:#c5d0df;font-size:13px;white-space:nowrap;margin-left:auto}
-.tools{display:flex;gap:10px}
-button{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:10px 17px;font-size:15px;cursor:pointer}
-button:focus{outline:2px solid #fff}
 #status{color:#c5d0df;font-size:14px;margin-bottom:16px}
-#apps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+#apps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;padding-bottom:30px}
 .app{min-height:112px;display:flex;align-items:center;gap:14px;padding:16px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:12px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;min-width:0}
 .app:focus,.app.selected{border-color:#fff;background:rgba(255,255,255,.20);transform:scale(1.025)}
 .app-icon{width:62px;height:62px;flex-shrink:0;border-radius:13px;background:linear-gradient(145deg,#647d9c,#273c58);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:23px;font-weight:bold}
@@ -36,20 +49,20 @@ button:focus{outline:2px solid #fff}
 .dialog-box h2{font-size:20px;margin:0 0 10px}
 .dialog-box p{color:#c5d0df;overflow-wrap:anywhere}
 .dialog-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}
+button{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:10px 17px;font-size:15px;cursor:pointer}
+button:focus{outline:2px solid #fff}
 .dialog-actions button{min-width:85px}
 @media(max-width:700px){
-#apps{grid-template-columns:repeat(2,minmax(0,1fr))}
-.app{padding:10px;gap:9px}
-.app-icon{width:48px;height:48px}
-#macInfo{margin-left:0}
+    #apps{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .app{padding:10px;gap:9px}
+    .app-icon{width:48px;height:48px}
+    #macInfo{margin-left:0}
 }
 @media(max-width:420px){
-body{padding:12px}
-header{align-items:flex-start;flex-direction:column}
-.tools{width:100%}
-.tools button{flex:1}
-.app{align-items:flex-start;flex-direction:column}
-.app-icon{width:52px;height:52px}
+    body{padding:12px}
+    header{align-items:flex-start;flex-direction:column}
+    .app{align-items:flex-start;flex-direction:column}
+    .app-icon{width:52px;height:52px}
 }
 </style>
 </head>
@@ -58,10 +71,6 @@ header{align-items:flex-start;flex-direction:column}
 <header>
 <h1>HY應用市場</h1>
 <div id="macInfo">MAC：讀取中...</div>
-<div class="tools">
-<button type="button" id="refreshBtn">更新清單</button>
-<button type="button" id="clearBtn">重新讀取資訊</button>
-</div>
 </header>
 
 <div id="status">正在準備應用程式清單……</div>
@@ -88,8 +97,6 @@ const RELEASE_PREFIX="https://github.com/dylan0728-web/Market/releases/download/
 
 const appsElement=document.getElementById("apps");
 const statusElement=document.getElementById("status");
-const refreshButton=document.getElementById("refreshBtn");
-const clearButton=document.getElementById("clearBtn");
 const dialog=document.getElementById("dialog");
 const dialogTitle=document.getElementById("dialogTitle");
 const dialogText=document.getElementById("dialogText");
@@ -114,10 +121,7 @@ function readDeviceMac(){
         if(window.AndroidMarket &&
            typeof window.AndroidMarket.getDeviceMac==="function"){
             const mac=window.AndroidMarket.getDeviceMac();
-
-            macElement.textContent=mac
-                ? "MAC："+mac
-                : "MAC：無法讀取";
+            macElement.textContent=mac?"MAC："+mac:"MAC：無法讀取";
         }else{
             macElement.textContent="MAC：請使用電視盒 App 開啟";
         }
@@ -244,6 +248,7 @@ function renderApps(){
         card.className="app";
         card.tabIndex=0;
         card.setAttribute("role","button");
+        card.setAttribute("aria-label",app.appName||app.name);
         card.dataset.url=app.url;
 
         const icon=document.createElement("div");
@@ -325,15 +330,6 @@ function renderApps(){
             handleAppClick(app);
         });
 
-        card.addEventListener("keydown",function(event){
-            if(event.key==="Enter"||event.key===" "){
-                event.preventDefault();
-                selectedIndex=index;
-                updateSelection();
-                handleAppClick(app);
-            }
-        });
-
         appsElement.appendChild(card);
     });
 
@@ -346,6 +342,24 @@ function updateSelection(){
     cards.forEach(function(card,index){
         card.classList.toggle("selected",index===selectedIndex);
     });
+}
+
+function moveSelection(next){
+    if(!appList.length)return;
+
+    selectedIndex=Math.max(0,Math.min(next,appList.length-1));
+    updateSelection();
+
+    const cards=appsElement.querySelectorAll(".app");
+    const selectedCard=cards[selectedIndex];
+
+    if(selectedCard){
+        selectedCard.focus({preventScroll:true});
+        selectedCard.scrollIntoView({
+            behavior:"smooth",
+            block:"nearest"
+        });
+    }
 }
 
 function handleAppClick(app){
@@ -377,11 +391,15 @@ openButton.addEventListener("click",function(){
     const packageName=currentApp.packageName;
     closeDialog();
 
-    if(window.AndroidMarket &&
-       typeof window.AndroidMarket.launchApp==="function"){
-        window.AndroidMarket.launchApp(packageName);
-    }else{
-        setStatus("無法呼叫 Android 開啟功能。");
+    try{
+        if(window.AndroidMarket &&
+           typeof window.AndroidMarket.launchApp==="function"){
+            window.AndroidMarket.launchApp(packageName);
+        }else{
+            setStatus("無法呼叫 Android 開啟功能。");
+        }
+    }catch(error){
+        setStatus("開啟應用程式失敗："+error.message);
     }
 });
 
@@ -393,11 +411,15 @@ uninstallButton.addEventListener("click",function(){
     closeDialog();
 
     if(confirm("確定要卸載「"+name+"」嗎？")){
-        if(window.AndroidMarket &&
-           typeof window.AndroidMarket.uninstallApp==="function"){
-            window.AndroidMarket.uninstallApp(packageName);
-        }else{
-            setStatus("無法呼叫 Android 卸載功能。");
+        try{
+            if(window.AndroidMarket &&
+               typeof window.AndroidMarket.uninstallApp==="function"){
+                window.AndroidMarket.uninstallApp(packageName);
+            }else{
+                setStatus("無法呼叫 Android 卸載功能。");
+            }
+        }catch(error){
+            setStatus("卸載功能呼叫失敗："+error.message);
         }
     }
 });
@@ -416,20 +438,27 @@ function downloadApp(app){
 
     if(app.downloadActive)return;
 
+    if(!window.AndroidMarket ||
+       typeof window.AndroidMarket.startDownload!=="function"){
+        setStatus("無法連接 Android 下載功能，請確認已使用電視盒市場 App 開啟。");
+        return;
+    }
+
     app.downloadActive=true;
     app.downloadPercent=0;
     app.downloadState="downloading";
     updateProgressCard(app);
 
-    setStatus("正在下載："+app.appName);
+    setStatus("正在啟動下載："+app.appName);
 
-    if(window.AndroidMarket &&
-       typeof window.AndroidMarket.startDownload==="function"){
+    try{
         window.AndroidMarket.startDownload(app.url,app.fileName);
-    }else{
+        setStatus("已送出下載指令："+app.appName);
+    }catch(error){
         app.downloadActive=false;
+        app.downloadState="failed";
         updateProgressCard(app);
-        setStatus("請使用 Android 應用市場開啟此頁面，才能下載及安裝 APK。");
+        setStatus("下載啟動失敗："+error.message);
     }
 }
 
@@ -609,39 +638,57 @@ async function loadApps(){
 
 document.addEventListener("keydown",function(event){
     if(dialog.style.display==="flex"){
-        if(event.key==="Escape")closeDialog();
+        if(event.key==="Escape"||event.key==="Backspace"){
+            closeDialog();
+        }
         return;
     }
 
-    const cards=appsElement.querySelectorAll(".app");
-    if(!cards.length)return;
+    if(!appList.length)return;
 
-    let next=selectedIndex;
+    const key=event.key;
+    const keyCode=event.keyCode;
 
-    switch(event.key){
-        case"ArrowRight":
-            next=Math.min(selectedIndex+1,cards.length-1);
-            break;
-        case"ArrowLeft":
-            next=Math.max(selectedIndex-1,0);
-            break;
-        case"ArrowDown":
-            next=Math.min(selectedIndex+3,cards.length-1);
-            break;
-        case"ArrowUp":
-            next=Math.max(selectedIndex-3,0);
-            break;
-        default:
-            return;
+    if(key==="ArrowRight"){
+        event.preventDefault();
+        moveSelection(selectedIndex+1);
+        return;
     }
 
-    event.preventDefault();
-    selectedIndex=next;
-    updateSelection();
-});
+    if(key==="ArrowLeft"){
+        event.preventDefault();
+        moveSelection(selectedIndex-1);
+        return;
+    }
 
-refreshButton.addEventListener("click",loadApps);
-clearButton.addEventListener("click",requestMetadata);
+    if(key==="ArrowDown"){
+        event.preventDefault();
+        moveSelection(selectedIndex+3);
+        return;
+    }
+
+    if(key==="ArrowUp"){
+        event.preventDefault();
+        moveSelection(selectedIndex-3);
+        return;
+    }
+
+    if(
+        key==="Enter"||
+        key===" "||
+        key==="Select"||
+        key==="OK"||
+        keyCode===23||
+        keyCode===66||
+        keyCode===160
+    ){
+        event.preventDefault();
+        event.stopPropagation();
+
+        const app=appList[selectedIndex];
+        if(app)handleAppClick(app);
+    }
+},true);
 
 readDeviceMac();
 loadApps();
@@ -650,4 +697,3 @@ loadApps();
 </script>
 </body>
 </html>
-```
