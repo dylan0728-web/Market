@@ -100,34 +100,6 @@ function renderEmpty(message){
     appsElement.appendChild(empty);
 }
 
-const ICON_MAP={
-"AirScreen_2.3.1.apk":"AirScreen_2.3.1.png",
-"APKPure_3.17.58.apk":"APKPure_3.17.58.png",
-"Emotn.Store_1.0.40.apk":"EmotnStore_1.0.40.png",
-"Emotn.UI_1.0.9.0.apk":"EmotnUI_1.0.9.0.png",
-"ES._4.2.1.9.apk":"ESFileExplorer_4.2.1.9.png",
-"FileManager+_3.2.8.apk":"FileManagerPlus_3.2.8.png",
-"Google.apk":"Google_Play_Store.png",
-"IQQIKeyboard_2.2.7942.0.apk":"IQQIKeyboard_2.2.7942.0.png",
-"LetsView_1.5.20.apk":"LetsView_1.5.20.png",
-"Orz_1.2.1-20260512.apk":"Orz_1.2.1-20260512.png",
-"Orz_1.2.1-20260708.apk":"Orz_1.2.1-20260512.png",
-"SmartTube_stable_32.38.apk":"SmartTube_stable_32.38.png",
-"SmartTube_stable_32.56.apk":"SmartTube_stable_32.56.png",
-"Speedtest_4.1.9.apk":"Speedtest_4.1.9.png",
-"Trust.DNS_1.3.3.apk":"Trust_DNS_1.3.3.png",
-"_1.0-20241014.apk":"文件管理器_1.0-20241014.png",
-"_1.0.0.apk":"遠程安裝_1.0.0.png",
-"_1.0.6.apk":"瀏覽器_1.0.6.png",
-"_2.8.5.apk":"樂播投屏_2.8.5手機控制端.png",
-"_2.9.6.apk":"應用鎖_2.9.6.png",
-"_3.3.6.1.apk":"悟空遙控_3.3.6.1.png",
-"_8.13.32.apk":"樂播投屏_8.13.32.png",
-"_8.85.0.apk":"小紅書_8.85.0.png"
-};
-function iconFor(fileName){
-    return ICON_MAP[fileName] ? "icons/"+encodeURIComponent(ICON_MAP[fileName]).replace(/%2F/g,"/") : "";
-}
 function renderApps(){
     appsElement.innerHTML="";
 
@@ -147,7 +119,9 @@ function renderApps(){
 
         if(app.icon){
             const img=document.createElement("img");
-            img.src=(app.icon.indexOf("data:image/")===0 || app.icon.indexOf("icons/")===0 || /^https?:\/\//i.test(app.icon)) ? app.icon : "data:image/png;base64,"+app.icon;
+            img.src=app.icon.indexOf("data:image/")===0
+                ? app.icon
+                : "data:image/png;base64,"+app.icon;
             img.alt="應用程式圖示";
             img.onerror=function(){
                 icon.textContent=(app.appName||app.name).substring(0,2);
@@ -297,13 +271,13 @@ function onApkMetadata(metadata){
             app.packageName=item.packageName||"";
             app.versionName=item.versionName||"未標示";
             app.installed=item.installed===true;
-            if(!app.icon && item.icon){app.icon="data:image/png;base64,"+item.icon;}
+            app.icon=item.icon||"";
         }else{
             app.appName=item.appName||app.name;
             app.packageName="";
             app.versionName="無法讀取";
             app.installed=false;
-            app.icon=app.icon||iconFor(app.fileName);
+            app.icon="";
         }
     });
 
@@ -321,7 +295,7 @@ function requestMetadata(){
     appList.forEach(function(app){
         app.installed=false;
         app.packageName="";
-        app.icon=app.icon||iconFor(app.fileName);
+        app.icon="";
         app.appName="";
         app.versionName="";
     });
@@ -392,7 +366,7 @@ async function loadApps(){
                     version:release.tag_name||release.name||"未標示版本",
                     versionName:"",
                     url:asset.browser_download_url,
-                    icon:iconFor(asset.name),
+                    icon:"",
                     packageName:"",
                     installed:false
                 });
