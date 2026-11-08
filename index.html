@@ -1,3 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>應用市場</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:22px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;gap:12px}
+h1{font-size:27px;margin:0;letter-spacing:1px}
+.tools{display:flex;gap:10px}
+button{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:10px 17px;font-size:15px;cursor:pointer}
+button:focus{outline:2px solid #fff}
+#status{color:#c5d0df;font-size:14px;margin-bottom:16px}
+#apps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.app{min-height:112px;display:flex;align-items:center;gap:14px;padding:16px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:12px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;min-width:0}
+.app:focus,.app.selected{border-color:#fff;background:rgba(255,255,255,.20);transform:scale(1.025)}
+.app-icon{width:62px;height:62px;flex-shrink:0;border-radius:13px;background:linear-gradient(145deg,#647d9c,#273c58);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:23px;font-weight:bold}
+.app-icon img{width:100%;height:100%;object-fit:contain}
+.app-info{min-width:0;flex:1}
+.app-name{font-size:17px;font-weight:bold;margin-bottom:7px;overflow-wrap:anywhere}
+.app-detail{color:#c1ccda;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.installed,.not-installed{display:inline-block;border-radius:5px;padding:3px 8px;font-size:12px;margin-top:5px}
+.installed{color:#8de6a3;background:rgba(46,204,113,.15);border:1px solid rgba(46,204,113,.4)}
+.not-installed{color:#c5d9ff;background:rgba(91,151,230,.15);border:1px solid rgba(91,151,230,.4)}
+.empty{grid-column:1/-1;text-align:center;padding:55px 15px;color:#c1ccda;font-size:17px}
+#dialog{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
+.dialog-box{width:min(360px,100%);background:#263448;border:1px solid #60738d;border-radius:15px;padding:22px;text-align:center;box-shadow:0 12px 40px #0008}
+.dialog-box h2{font-size:20px;margin:0 0 10px}
+.dialog-box p{color:#c5d0df;overflow-wrap:anywhere}
+.dialog-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}
+.dialog-actions button{min-width:85px}
+@media(max-width:700px){#apps{grid-template-columns:repeat(2,minmax(0,1fr))}.app{padding:10px;gap:9px}.app-icon{width:48px;height:48px}}
+@media(max-width:420px){body{padding:12px}header{align-items:flex-start;flex-direction:column}.tools{width:100%}.tools button{flex:1}.app{align-items:flex-start;flex-direction:column}.app-icon{width:52px;height:52px}}
+</style>
+</head>
+<body>
+<header>
+<h1>應用市場</h1>
+<div class="tools">
+<button type="button" id="refreshBtn">更新清單</button>
+<button type="button" id="clearBtn">重新讀取資訊</button>
+</div>
+</header>
+
+<div id="status">正在準備應用程式清單……</div>
+<main id="apps"><div class="empty">正在連線 GitHub Releases……</div></main>
+
+<div id="dialog">
+  <div class="dialog-box">
+    <h2 id="dialogTitle">應用程式</h2>
+    <p id="dialogText">請選擇操作</p>
+    <div class="dialog-actions">
+      <button type="button" id="openBtn">開啟</button>
+      <button type="button" id="uninstallBtn">卸載</button>
+      <button type="button" id="cancelBtn">取消</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
 "use strict";
@@ -7,6 +68,8 @@ const RELEASE_PREFIX="https://github.com/dylan0728-web/Market/releases/download/
 
 const appsElement=document.getElementById("apps");
 const statusElement=document.getElementById("status");
+const refreshButton=document.getElementById("refreshBtn");
+const clearButton=document.getElementById("clearBtn");
 const dialog=document.getElementById("dialog");
 const dialogTitle=document.getElementById("dialogTitle");
 const dialogText=document.getElementById("dialogText");
@@ -17,12 +80,16 @@ const cancelButton=document.getElementById("cancelBtn");
 let appList=[];
 let selectedIndex=0;
 let currentApp=null;
-let loading=false;
-let authorizationReady=false;
-let specialAccess=false;
+let metadataReady=false;
 
 function setStatus(message){
     statusElement.textContent=message;
+}
+
+function formatSize(bytes){
+    const size=Number(bytes)||0;
+    if(size<1024*1024)return(size/1024).toFixed(1)+" KB";
+    return(size/1024/1024).toFixed(1)+" MB";
 }
 
 function renderEmpty(message){
@@ -31,60 +98,6 @@ function renderEmpty(message){
     empty.className="empty";
     empty.textContent=message;
     appsElement.appendChild(empty);
-}
-
-/* MAC 與授權檢查 */
-function checkAuthorization(){
-    authorizationReady=false;
-    specialAccess=false;
-
-    try{
-        if(!window.AndroidMarket ||
-           typeof window.AndroidMarket.isAuthorized!=="function" ||
-           typeof window.AndroidMarket.hasSpecialAccess!=="function"){
-            setStatus("此機器MAC授權到期或是未授權");
-            renderEmpty("此機器MAC授權到期或是未授權");
-            return false;
-        }
-
-        if(window.AndroidMarket.isAuthorized()!==true){
-            setStatus("此機器MAC授權到期或是未授權");
-            renderEmpty("此機器MAC授權到期或是未授權");
-            return false;
-        }
-
-        specialAccess=window.AndroidMarket.hasSpecialAccess()===true;
-        authorizationReady=true;
-        return true;
-
-    }catch(error){
-        setStatus("此機器MAC授權到期或是未授權");
-        renderEmpty("此機器MAC授權到期或是未授權");
-        return false;
-    }
-}
-
-function readDeviceMac(){
-    const macElement=document.getElementById("macInfo");
-    if(!macElement)return;
-
-    try{
-        if(window.AndroidMarket &&
-           typeof window.AndroidMarket.getDeviceMac==="function"){
-            const mac=window.AndroidMarket.getDeviceMac();
-            macElement.textContent=mac?"MAC："+mac:"MAC：無法讀取";
-        }else{
-            macElement.textContent="MAC：請使用電視盒 App 開啟";
-        }
-    }catch(error){
-        macElement.textContent="MAC：讀取失敗";
-    }
-}
-
-function formatSize(bytes){
-    const size=Number(bytes)||0;
-    if(size<1024*1024)return(size/1024).toFixed(1)+" KB";
-    return(size/1024/1024).toFixed(1)+" MB";
 }
 
 const ICON_MAP={
@@ -112,146 +125,9 @@ const ICON_MAP={
 "_8.13.32.apk":"樂播投屏_8.13.32.png",
 "_8.85.0.apk":"小紅書_8.85.0.png"
 };
-
-const NAME_MAP={
-"AirScreen_2.3.1.apk":"AirScreen",
-"APKPure_3.17.58.apk":"APKPure",
-"Emotn.Store_1.0.40.apk":"Emotn Store",
-"Emotn.UI_1.0.9.0.apk":"Emotn UI",
-"ES._4.2.1.9.apk":"ES File Explorer",
-"FileManager+_3.2.8.apk":"File Manager+",
-"Google.apk":"Google Play Store",
-"IQQIKeyboard_2.2.7942.0.apk":"IQQI Keyboard",
-"LetsView_1.5.20.apk":"LetsView",
-"Orz_1.2.1-20260512.apk":"Orz",
-"Orz_1.2.1-20260708.apk":"Orz",
-"SmartTube_stable_32.38.apk":"SmartTube",
-"SmartTube_stable_32.56.apk":"SmartTube",
-"Speedtest_4.1.9.apk":"Speedtest",
-"Trust.DNS_1.3.3.apk":"Trust DNS",
-"_1.0-20241014.apk":"文件管理器",
-"_1.0.0.apk":"遠程安裝",
-"_1.0.6.apk":"瀏覽器",
-"_2.8.5.apk":"樂播投屏",
-"_2.9.6.apk":"應用鎖",
-"_3.3.6.1.apk":"悟空遙控",
-"_8.13.32.apk":"樂播投屏",
-"_8.85.0.apk":"小紅書"
-};
-
-function displayName(fileName){
-    if(NAME_MAP[fileName])return NAME_MAP[fileName];
-    return fileName.replace(/\.apk$/i,"").replace(/[_-]\d[\w.-]*$/,"");
-}
-
 function iconFor(fileName){
-    return ICON_MAP[fileName]
-        ? "icons/"+encodeURIComponent(ICON_MAP[fileName]).replace(/%2F/g,"/")
-        : "";
+    return ICON_MAP[fileName] ? "icons/"+encodeURIComponent(ICON_MAP[fileName]).replace(/%2F/g,"/") : "";
 }
-
-function getPageScroller(){
-    return document.scrollingElement ||
-        document.documentElement ||
-        document.body;
-}
-
-function smoothPageScroll(target){
-    const scroller=getPageScroller();
-    const maxScroll=Math.max(0,scroller.scrollHeight-window.innerHeight);
-    target=Math.max(0,Math.min(target,maxScroll));
-
-    window.scrollTo({
-        top:target,
-        left:0,
-        behavior:"smooth"
-    });
-}
-
-function scrollPageToTop(){
-    smoothPageScroll(0);
-}
-
-function scrollCardIntoView(card,index,direction){
-    if(!card)return;
-
-    const scroller=getPageScroller();
-    const currentScroll=scroller.scrollTop||
-        window.pageYOffset||
-        document.documentElement.scrollTop||
-        document.body.scrollTop||0;
-
-    const rect=card.getBoundingClientRect();
-    const viewportHeight=window.innerHeight||
-        document.documentElement.clientHeight;
-
-    const header=document.querySelector("header");
-    const headerBottom=header?header.getBoundingClientRect().bottom:0;
-
-    let target=currentScroll;
-
-    if(direction==="up"){
-        if(index===0){
-            scrollPageToTop();
-            return;
-        }
-
-        const upperLimit=Math.max(headerBottom+25,viewportHeight*0.25);
-
-        if(rect.top<upperLimit){
-            const rowStep=card.offsetHeight+
-                (parseFloat(getComputedStyle(appsElement).rowGap)||22);
-            target=currentScroll-rowStep;
-        }
-    }else if(direction==="down"){
-        const lowerLimit=viewportHeight*0.75;
-
-        if(rect.bottom>lowerLimit){
-            const rowStep=card.offsetHeight+
-                (parseFloat(getComputedStyle(appsElement).rowGap)||22);
-            target=currentScroll+rowStep;
-        }
-    }
-
-    if(target!==currentScroll)smoothPageScroll(target);
-}
-
-function updateProgressCard(app){
-    const card=Array.from(appsElement.querySelectorAll(".app"))
-        .find(function(item){return item.dataset.url===app.url;});
-
-    if(!card)return;
-
-    const area=card.querySelector(".download-progress");
-    const bar=card.querySelector(".download-bar-fill");
-    const percent=card.querySelector(".download-percent");
-
-    if(!area||!bar||!percent)return;
-
-    const shouldShow=
-        app.downloadActive===true &&
-        app.downloadState!=="installing" &&
-        app.downloadState!=="complete" &&
-        app.downloadState!=="failed";
-
-    area.style.display=shouldShow?"block":"none";
-
-    if(!shouldShow){
-        bar.style.width="0%";
-        percent.textContent="";
-        return;
-    }
-
-    bar.style.width=(app.downloadPercent||0)+"%";
-    percent.textContent=(app.downloadPercent||0)+"%";
-
-    const label=area.querySelector(
-        ".download-progress-label span:first-child"
-    );
-
-    if(label)label.textContent="下載中";
-}
-
 function renderApps(){
     appsElement.innerHTML="";
 
@@ -265,22 +141,20 @@ function renderApps(){
         card.className="app";
         card.tabIndex=0;
         card.setAttribute("role","button");
-        card.setAttribute("aria-label",app.appName||app.name);
-        card.dataset.url=app.url;
 
         const icon=document.createElement("div");
         icon.className="app-icon";
 
         if(app.icon){
             const img=document.createElement("img");
-            img.src=app.icon;
+            img.src=(app.icon.indexOf("data:image/")===0 || app.icon.indexOf("icons/")===0 || /^https?:\/\//i.test(app.icon)) ? app.icon : "data:image/png;base64,"+app.icon;
             img.alt="應用程式圖示";
             img.onerror=function(){
                 icon.textContent=(app.appName||app.name).substring(0,2);
             };
             icon.appendChild(img);
         }else{
-            icon.textContent=(app.appName||app.name).substring(0,2);
+            icon.textContent=(app.appName||app.name).substring(0,2).toUpperCase();
         }
 
         const info=document.createElement("div");
@@ -296,8 +170,7 @@ function renderApps(){
             "｜大小："+formatSize(app.size);
 
         const label=document.createElement("div");
-
-        if(app.installed===true && app.packageName){
+        if(app.installed===true){
             label.className="installed";
             label.textContent="已安裝";
         }else{
@@ -305,38 +178,9 @@ function renderApps(){
             label.textContent="尚未安裝";
         }
 
-        const progress=document.createElement("div");
-        progress.className="download-progress";
-
-        const progressLabel=document.createElement("div");
-        progressLabel.className="download-progress-label";
-
-        const progressText=document.createElement("span");
-        progressText.textContent="下載中";
-
-        const percent=document.createElement("span");
-        percent.className="download-percent";
-        percent.textContent="";
-
-        progressLabel.appendChild(progressText);
-        progressLabel.appendChild(percent);
-
-        const track=document.createElement("div");
-        track.className="download-track";
-
-        const fill=document.createElement("div");
-        fill.className="download-bar-fill";
-        fill.style.width="0%";
-
-        track.appendChild(fill);
-        progress.appendChild(progressLabel);
-        progress.appendChild(track);
-
         info.appendChild(name);
         info.appendChild(detail);
         info.appendChild(label);
-        info.appendChild(progress);
-
         card.appendChild(icon);
         card.appendChild(info);
 
@@ -346,8 +190,16 @@ function renderApps(){
             handleAppClick(app);
         });
 
+        card.addEventListener("keydown",function(event){
+            if(event.key==="Enter"||event.key===" "){
+                event.preventDefault();
+                selectedIndex=index;
+                updateSelection();
+                handleAppClick(app);
+            }
+        });
+
         appsElement.appendChild(card);
-        updateProgressCard(app);
     });
 
     selectedIndex=Math.min(selectedIndex,appList.length-1);
@@ -359,41 +211,10 @@ function updateSelection(){
     cards.forEach(function(card,index){
         card.classList.toggle("selected",index===selectedIndex);
     });
-}
-
-function moveSelection(next,direction){
-    if(!appList.length)return;
-
-    const oldIndex=selectedIndex;
-    selectedIndex=Math.max(0,Math.min(next,appList.length-1));
-    updateSelection();
-
-    const cards=appsElement.querySelectorAll(".app");
-    const selectedCard=cards[selectedIndex];
-
-    if(selectedCard){
-        try{
-            selectedCard.focus({preventScroll:true});
-        }catch(error){
-            selectedCard.focus();
-        }
-
-        if(selectedIndex!==oldIndex){
-            scrollCardIntoView(selectedCard,selectedIndex,direction);
-        }else if(direction==="up"&&selectedIndex===0){
-            scrollPageToTop();
-        }
-    }
+    if(cards[selectedIndex])cards[selectedIndex].focus();
 }
 
 function handleAppClick(app){
-    if(!checkAuthorization())return;
-
-    if(app.downloadActive){
-        setStatus("此 APK 正在下載，請稍候。");
-        return;
-    }
-
     if(app.installed===true && app.packageName){
         currentApp=app;
         dialogTitle.textContent=app.appName||app.name;
@@ -402,60 +223,39 @@ function handleAppClick(app){
         openButton.focus();
         return;
     }
-
     downloadApp(app);
 }
 
 function closeDialog(){
     dialog.style.display="none";
     currentApp=null;
-
-    const cards=appsElement.querySelectorAll(".app");
-    const selectedCard=cards[selectedIndex];
-
-    if(selectedCard){
-        try{selectedCard.focus({preventScroll:true});}
-        catch(error){selectedCard.focus();}
-    }
 }
 
 openButton.addEventListener("click",function(){
     if(!currentApp)return;
-    if(!checkAuthorization())return;
-
     const packageName=currentApp.packageName;
     closeDialog();
 
-    try{
-        if(window.AndroidMarket &&
-           typeof window.AndroidMarket.launchApp==="function"){
-            window.AndroidMarket.launchApp(packageName);
-        }else{
-            setStatus("無法呼叫 Android 開啟功能。");
-        }
-    }catch(error){
-        setStatus("開啟應用程式失敗："+error.message);
+    if(window.AndroidMarket &&
+       typeof window.AndroidMarket.launchApp==="function"){
+        window.AndroidMarket.launchApp(packageName);
+    }else{
+        setStatus("無法呼叫 Android 開啟功能。");
     }
 });
 
 uninstallButton.addEventListener("click",function(){
     if(!currentApp)return;
-    if(!checkAuthorization())return;
-
     const packageName=currentApp.packageName;
     const name=currentApp.appName||currentApp.name;
     closeDialog();
 
     if(confirm("確定要卸載「"+name+"」嗎？")){
-        try{
-            if(window.AndroidMarket &&
-               typeof window.AndroidMarket.uninstallApp==="function"){
-                window.AndroidMarket.uninstallApp(packageName);
-            }else{
-                setStatus("無法呼叫 Android 卸載功能。");
-            }
-        }catch(error){
-            setStatus("卸載功能呼叫失敗："+error.message);
+        if(window.AndroidMarket &&
+           typeof window.AndroidMarket.uninstallApp==="function"){
+            window.AndroidMarket.uninstallApp(packageName);
+        }else{
+            setStatus("無法呼叫 Android 卸載功能。");
         }
     }
 });
@@ -467,77 +267,20 @@ dialog.addEventListener("click",function(event){
 });
 
 function downloadApp(app){
-    if(!checkAuthorization())return;
-
-    /* 再次限制特殊 APK */
-    if(/_S\.apk$/i.test(app.fileName) && !specialAccess){
-        setStatus("此機器MAC授權到期或是未授權");
-        return;
-    }
-
     if(!app.url||!app.fileName){
         setStatus("APK 下載資料不完整。");
         return;
     }
 
-    if(app.downloadActive)return;
+    setStatus("正在準備下載："+app.fileName);
 
-    if(!window.AndroidMarket ||
-       typeof window.AndroidMarket.startDownload!=="function"){
-        setStatus("無法連接 Android 下載功能，請確認已使用電視盒市場 App 開啟。");
-        return;
-    }
-
-    app.downloadActive=true;
-    app.downloadPercent=0;
-    app.downloadState="downloading";
-
-    updateProgressCard(app);
-    setStatus("正在啟動下載："+app.appName);
-
-    try{
+    if(window.AndroidMarket &&
+       typeof window.AndroidMarket.startDownload==="function"){
         window.AndroidMarket.startDownload(app.url,app.fileName);
-        setStatus("已送出下載指令："+app.appName);
-    }catch(error){
-        app.downloadActive=false;
-        app.downloadState="failed";
-        updateProgressCard(app);
-        setStatus("下載啟動失敗："+error.message);
+    }else{
+        setStatus("請使用 Android 應用市場開啟此頁面，才能下載及安裝 APK。");
     }
 }
-
-window.onApkDownloadProgress=function(url,percent,state){
-    const app=appList.find(function(item){
-        return item.url===url;
-    });
-
-    if(!app)return;
-
-    if(state==="complete"||state==="installing"){
-        app.downloadPercent=0;
-        app.downloadState="complete";
-        app.downloadActive=false;
-        updateProgressCard(app);
-        setStatus("下載完成："+app.appName);
-        return;
-    }
-
-    if(state==="failed"){
-        app.downloadPercent=0;
-        app.downloadState="failed";
-        app.downloadActive=false;
-        updateProgressCard(app);
-        setStatus("下載失敗："+app.appName);
-        return;
-    }
-
-    app.downloadPercent=Math.max(0,Math.min(100,Number(percent)||0));
-    app.downloadState="downloading";
-    app.downloadActive=true;
-
-    updateProgressCard(app);
-    setStatus("正在下載 "+app.appName+"："+app.downloadPercent+"%");
-};
 
 function onApkMetadata(metadata){
     if(!Array.isArray(metadata))return;
@@ -549,76 +292,60 @@ function onApkMetadata(metadata){
 
         if(!app)return;
 
-        app.appName=item.appName||app.appName||app.name;
-        app.packageName=item.packageName||"";
-        app.versionName=item.versionName||app.version||"未標示";
-        app.installed=item.installed===true && !!app.packageName;
-
-        if(!app.downloadActive){
-            app.downloadPercent=0;
-            app.downloadState="";
+        if(item.ok){
+            app.appName=item.appName||app.name;
+            app.packageName=item.packageName||"";
+            app.versionName=item.versionName||"未標示";
+            app.installed=item.installed===true;
+            if(!app.icon && item.icon){app.icon="data:image/png;base64,"+item.icon;}
+        }else{
+            app.appName=item.appName||app.name;
+            app.packageName="";
+            app.versionName="無法讀取";
+            app.installed=false;
+            app.icon=app.icon||iconFor(app.fileName);
         }
     });
 
+    metadataReady=true;
     renderApps();
 
-    const installedCount=appList.filter(function(app){
-        return app.installed;
-    }).length;
-
-    setStatus("清單讀取完成，共 "+appList.length+
-        " 個應用程式，已安裝 "+installedCount+" 個。");
+    const successCount=metadata.filter(function(item){return item.ok;}).length;
+    setStatus("APK 資訊讀取完成，共 "+appList.length+
+        " 個項目，成功解析 "+successCount+" 個。");
 }
 
 window.onApkMetadata=onApkMetadata;
 
 function requestMetadata(){
     appList.forEach(function(app){
-        app.appName=displayName(app.fileName);
-        app.packageName="";
         app.installed=false;
+        app.packageName="";
         app.icon=app.icon||iconFor(app.fileName);
-
-        if(!app.downloadActive){
-            app.downloadPercent=0;
-            app.downloadState="";
-        }
+        app.appName="";
+        app.versionName="";
     });
 
+    metadataReady=false;
     renderApps();
 
     if(window.AndroidMarket &&
        typeof window.AndroidMarket.inspectApks==="function"){
-
         const files=appList.map(function(app){
-            return {
-                url:app.url,
-                fileName:app.fileName,
-                appName:app.appName,
-                versionName:app.version
-            };
+            return {url:app.url,fileName:app.fileName};
         });
-
-        setStatus("正在檢查已安裝的應用程式……");
+        setStatus("正在讀取 APK 名稱、版本及圖示，請稍候……");
         window.AndroidMarket.inspectApks(JSON.stringify(files));
     }else{
-        setStatus("已載入 APK 清單。請使用 Android 應用市場讀取安裝狀態。");
+        metadataReady=true;
+        renderApps();
+        setStatus("已載入 APK 清單。請使用 Android 應用市場開啟此頁面以讀取圖示及安裝狀態。");
     }
 }
 
-window.refreshInstalledState=requestMetadata;
-
 async function loadApps(){
-    if(loading)return;
-
-    loading=true;
+    metadataReady=false;
     appList=[];
-
-    if(!checkAuthorization()){
-        loading=false;
-        return;
-    }
-
     setStatus("正在讀取 GitHub Releases……");
     renderEmpty("正在讀取 APK 清單，請稍候……");
 
@@ -651,17 +378,15 @@ async function loadApps(){
                 if(!asset.name.toLowerCase().endsWith(".apk"))return;
                 if(typeof asset.browser_download_url!=="string")return;
                 if(asset.browser_download_url.indexOf(RELEASE_PREFIX)!==0)return;
+
                 if(asset.name==="File.Manager.+_3.2.8.apk")return;
                 if(seenFiles.has(asset.name))return;
-
-                /* 沒有 S 授權，不顯示 _S.apk */
-                if(/_S\.apk$/i.test(asset.name) && !specialAccess)return;
 
                 seenFiles.add(asset.name);
 
                 appList.push({
                     name:asset.name.replace(/\.apk$/i,""),
-                    appName:displayName(asset.name),
+                    appName:"",
                     fileName:asset.name,
                     size:asset.size||0,
                     version:release.tag_name||release.name||"未標示版本",
@@ -669,10 +394,7 @@ async function loadApps(){
                     url:asset.browser_download_url,
                     icon:iconFor(asset.name),
                     packageName:"",
-                    installed:false,
-                    downloadActive:false,
-                    downloadPercent:0,
-                    downloadState:""
+                    installed:false
                 });
             });
         });
@@ -684,76 +406,57 @@ async function loadApps(){
         }
 
         renderApps();
-        setStatus("找到 "+appList.length+" 個 APK，正在檢查安裝狀態……");
+        setStatus("找到 "+appList.length+" 個 APK，正在讀取應用程式資訊……");
         requestMetadata();
 
     }catch(error){
         appList=[];
         renderEmpty("讀取失敗："+error.message);
         setStatus("無法讀取 GitHub Releases，請檢查網路連線後重新整理。");
-    }finally{
-        loading=false;
     }
 }
 
-/* Android TV 遙控器方向鍵及確認鍵 */
 document.addEventListener("keydown",function(event){
     if(dialog.style.display==="flex"){
-        if(event.key==="Escape"||event.key==="Backspace"){
-            event.preventDefault();
+        if(event.key==="Escape"){
             closeDialog();
         }
         return;
     }
 
-    if(!appList.length)return;
+    const cards=appsElement.querySelectorAll(".app");
+    if(!cards.length)return;
 
-    const key=event.key;
-    const keyCode=event.keyCode;
+    let next=selectedIndex;
 
-    if(key==="ArrowRight"||keyCode===22){
-        event.preventDefault();
-        moveSelection(selectedIndex+1,"right");
-        return;
+    switch(event.key){
+        case"ArrowRight":
+            next=Math.min(selectedIndex+1,cards.length-1);
+            break;
+        case"ArrowLeft":
+            next=Math.max(selectedIndex-1,0);
+            break;
+        case"ArrowDown":
+            next=Math.min(selectedIndex+3,cards.length-1);
+            break;
+        case"ArrowUp":
+            next=Math.max(selectedIndex-3,0);
+            break;
+        default:
+            return;
     }
 
-    if(key==="ArrowLeft"||keyCode===21){
-        event.preventDefault();
-        moveSelection(selectedIndex-1,"left");
-        return;
-    }
+    event.preventDefault();
+    selectedIndex=next;
+    updateSelection();
+});
 
-    if(key==="ArrowDown"||keyCode===20){
-        event.preventDefault();
-        moveSelection(selectedIndex+3,"down");
-        return;
-    }
+refreshButton.addEventListener("click",loadApps);
+clearButton.addEventListener("click",requestMetadata);
 
-    if(key==="ArrowUp"||keyCode===19){
-        event.preventDefault();
-        moveSelection(selectedIndex-3,"up");
-        return;
-    }
-
-    if(
-        key==="Enter"||
-        key===" "||
-        key==="Select"||
-        key==="OK"||
-        keyCode===23||
-        keyCode===66||
-        keyCode===160
-    ){
-        event.preventDefault();
-        event.stopPropagation();
-
-        const app=appList[selectedIndex];
-        if(app)handleAppClick(app);
-    }
-},true);
-
-readDeviceMac();
 loadApps();
 
 })();
 </script>
+</body>
+</html>
