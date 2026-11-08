@@ -1,3 +1,4 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -34,7 +35,6 @@ import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
@@ -59,11 +59,9 @@ class MainActivity : Activity() {
     @Volatile
     private var specialAuthorized = false
 
-    // 記錄授權檢查時實際讀取到的 MAC
     @Volatile
     private var authorizationDeviceMac = ""
 
-    // 記錄授權失敗的真正原因
     @Volatile
     private var authorizationErrorMessage = "尚未取得授權檢查結果"
 
@@ -75,7 +73,6 @@ class MainActivity : Activity() {
         private const val MARKET_URL =
             "https://dylan0728-web.github.io/Market/"
 
-        // 固定 MEGA 授權分享連結
         private const val MEGA_AUTH_URL =
             "https://mega.nz/file/EoNUVDqJ#DmbXUADAMda3Q0weOODFlBWVRus-qBPQIF0jOWzMeRY"
 
@@ -88,6 +85,8 @@ class MainActivity : Activity() {
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
             .build()
     }
 
@@ -100,8 +99,6 @@ class MainActivity : Activity() {
         authorizationErrorMessage = "正在檢查授權"
 
         showAuthorizationLoading()
-
-        // 必須先完成雲端授權檢查，才能建立市場畫面
         checkCloudAuthorization()
     }
 
@@ -182,7 +179,6 @@ class MainActivity : Activity() {
 
                 authorizationErrorMessage = "正在連線 MEGA 下載授權檔"
 
-                // 從 MEGA 下載並解密授權文字
                 val authorizationText =
                     downloadMegaAuthorizationText()
 
@@ -192,7 +188,6 @@ class MainActivity : Activity() {
 
                 authorizationErrorMessage = "授權檔已下載，正在比對 MAC 與期限"
 
-                // 比對 MAC、期限及特殊軟體權限
                 val result = verifyAuthorization(
                     authorizationText,
                     deviceMac
@@ -229,12 +224,10 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    /**
-     * MEGA 公開檔案下載及解密。
-     *
-     * 分享連結格式：
-     * https://mega.nz/file/檔案ID#檔案金鑰
-     */
+    // =====================================================
+    // MEGA 授權檔下載及解密
+    // =====================================================
+
     private fun downloadMegaAuthorizationText(): String {
 
         val linkParts = MEGA_AUTH_URL
@@ -263,7 +256,6 @@ class MainActivity : Activity() {
             throw Exception("MEGA 授權金鑰格式錯誤")
         }
 
-        // 向 MEGA API 要求檔案下載網址
         val apiUrl =
             "https://g.api.mega.co.nz/cs?id=${System.currentTimeMillis()}"
 
@@ -311,22 +303,46 @@ class MainActivity : Activity() {
                 Pair(url, size)
             }
 
-        // 下載加密檔案
+        // 關鍵修正：MEGA 回傳 HTTP 網址時，優先改用 HTTPS
+        val originalDownloadUrl = downloadInfo.first
+
+        val secureDownloadUrl =
+            if (originalDownloadUrl.startsWith(
+                    "http://",
+                    ignoreCase = true
+                )
+            ) {
+                originalDownloadUrl.replaceFirst(
+                    Regex("^http://", RegexOption.IGNORE_CASE),
+                    "https://"
+                )
+            } else {
+                originalDownloadUrl
+            }
+
         val fileRequest = Request.Builder()
-            .url(downloadInfo.first)
+            .url(secureDownloadUrl)
             .get()
             .build()
 
-        val encryptedData = httpClient.newCall(fileRequest)
-            .execute().use { response ->
+        val encryptedData = try {
+            httpClient.newCall(fileRequest)
+                .execute().use { response ->
 
-                if (!response.isSuccessful) {
-                    throw Exception("MEGA 授權檔下載失敗，HTTP ${response.code}")
+                    if (!response.isSuccessful) {
+                        throw Exception(
+                            "MEGA 授權檔下載失敗，HTTP ${response.code}"
+                        )
+                    }
+
+                    response.body?.bytes()
+                        ?: throw Exception("授權檔內容為空")
                 }
-
-                response.body?.bytes()
-                    ?: throw Exception("授權檔內容為空")
-            }
+        } catch (e: Exception) {
+            throw Exception(
+                "MEGA 授權檔 HTTPS 下載失敗：${e.message}"
+            )
+        }
 
         if (encryptedData.size.toLong() != downloadInfo.second) {
             throw Exception(
@@ -335,7 +351,6 @@ class MainActivity : Activity() {
             )
         }
 
-        // MEGA 檔案金鑰共 8 個 32-bit 數值
         val words = ByteBuffer.wrap(fileKey)
             .order(ByteOrder.BIG_ENDIAN)
 
@@ -345,7 +360,6 @@ class MainActivity : Activity() {
             keyWords[i] = words.int
         }
 
-        // 計算 AES-128 金鑰
         val aesKey = ByteBuffer.allocate(16)
             .order(ByteOrder.BIG_ENDIAN)
             .putInt(keyWords[0] xor keyWords[4])
@@ -354,7 +368,6 @@ class MainActivity : Activity() {
             .putInt(keyWords[3] xor keyWords[7])
             .array()
 
-        // MEGA AES-CTR 初始計數器
         val iv = ByteBuffer.allocate(16)
             .order(ByteOrder.BIG_ENDIAN)
             .putInt(keyWords[4])
@@ -382,15 +395,10 @@ class MainActivity : Activity() {
         )
     }
 
-    /**
-     * 授權檔格式：
-     *
-     * 2027/12/31,ECF72BFBBE93,
-     * 2027/12/31,ECF72BFBBE94,S
-     *
-     * 日期當天有效。
-     * 隔日凌晨 00:00 起失效。
-     */
+    // =====================================================
+    // 授權比對
+    // =====================================================
+
     private fun verifyAuthorization(
         content: String,
         deviceMac: String
@@ -431,10 +439,8 @@ class MainActivity : Activity() {
             )
 
             if (macText.isBlank()) continue
-
             if (macText != normalizedDeviceMac) continue
 
-            // 日期格式必須正確
             if (!dateText.matches(
                     Regex("\\d{4}/\\d{2}/\\d{2}")
                 )
@@ -448,22 +454,15 @@ class MainActivity : Activity() {
                 null
             } ?: continue
 
-            // 到期日隔天 00:00 起失效
             val expiryCalendar = Calendar.getInstance()
             expiryCalendar.time = expiryDate
 
-            expiryCalendar.set(
-                Calendar.HOUR_OF_DAY,
-                0
-            )
+            expiryCalendar.set(Calendar.HOUR_OF_DAY, 0)
             expiryCalendar.set(Calendar.MINUTE, 0)
             expiryCalendar.set(Calendar.SECOND, 0)
             expiryCalendar.set(Calendar.MILLISECOND, 0)
 
-            expiryCalendar.add(
-                Calendar.DAY_OF_MONTH,
-                1
-            )
+            expiryCalendar.add(Calendar.DAY_OF_MONTH, 1)
 
             if (!now.before(expiryCalendar)) {
                 continue
@@ -509,7 +508,6 @@ class MainActivity : Activity() {
         return mac
     }
 
-    // 先讀取常見網卡，再自動搜尋其他網卡
     private fun readHardwareMac(): String {
 
         val preferredNames = listOf(
@@ -519,7 +517,6 @@ class MainActivity : Activity() {
             "en0"
         )
 
-        // 第一階段：優先讀取常見網卡
         for (name in preferredNames) {
             try {
                 val addressFile = File(
@@ -539,7 +536,6 @@ class MainActivity : Activity() {
             }
         }
 
-        // 第二階段：自動搜尋 sysfs 中其他網卡
         try {
             val netDirectory = File("/sys/class/net")
             val networkFiles = netDirectory.listFiles()
@@ -547,17 +543,9 @@ class MainActivity : Activity() {
             if (networkFiles != null) {
 
                 val excludedPrefixes = listOf(
-                    "lo",
-                    "dummy",
-                    "tun",
-                    "tap",
-                    "rmnet",
-                    "p2p",
-                    "sit",
-                    "ip6tnl",
-                    "veth",
-                    "docker",
-                    "br-"
+                    "lo", "dummy", "tun", "tap", "rmnet",
+                    "p2p", "sit", "ip6tnl", "veth",
+                    "docker", "br-"
                 )
 
                 val candidates = networkFiles
@@ -607,10 +595,9 @@ class MainActivity : Activity() {
             }
 
         } catch (e: Exception) {
-            // 繼續使用 NetworkInterface 搜尋
+            // 繼續使用 NetworkInterface
         }
 
-        // 第三階段：透過 Android NetworkInterface 搜尋
         try {
             val enumeration =
                 NetworkInterface.getNetworkInterfaces()
@@ -624,17 +611,9 @@ class MainActivity : Activity() {
                 }
 
                 val excludedPrefixes = listOf(
-                    "lo",
-                    "dummy",
-                    "tun",
-                    "tap",
-                    "rmnet",
-                    "p2p",
-                    "sit",
-                    "ip6tnl",
-                    "veth",
-                    "docker",
-                    "br-"
+                    "lo", "dummy", "tun", "tap", "rmnet",
+                    "p2p", "sit", "ip6tnl", "veth",
+                    "docker", "br-"
                 )
 
                 val candidates = allInterfaces
@@ -669,8 +648,7 @@ class MainActivity : Activity() {
                 for (networkInterface in candidates) {
                     try {
                         val hardwareAddress =
-                            networkInterface.hardwareAddress
-                                ?: continue
+                            networkInterface.hardwareAddress ?: continue
 
                         val rawMac = hardwareAddress.joinToString("") {
                             "%02X".format(it.toInt() and 0xFF)
@@ -792,14 +770,12 @@ class MainActivity : Activity() {
 
                 for (i in 0 until input.length()) {
 
-                    val item = input.optJSONObject(i)
-                        ?: continue
+                    val item = input.optJSONObject(i) ?: continue
 
                     val url = item.optString("url", "")
                     val fileName = item.optString("fileName", "")
                     val appName = item.optString("appName", "")
 
-                    // 原生端再次檢查特殊 APK 權限
                     if (isSpecialApk(fileName) &&
                         !specialAuthorized
                     ) {
@@ -863,8 +839,7 @@ class MainActivity : Activity() {
                                 ""
                             }
 
-                            val normalizedLabel =
-                                normalizeName(label)
+                            val normalizedLabel = normalizeName(label)
 
                             if (
                                 normalizedLabel.isNotBlank() &&
@@ -933,8 +908,7 @@ class MainActivity : Activity() {
 
             runOnUiThread {
 
-                val installed =
-                    isPackageInstalled(packageName)
+                val installed = isPackageInstalled(packageName)
 
                 val safeUrl = JSONObject.quote(url)
                 val safePackage = JSONObject.quote(packageName)
@@ -1042,9 +1016,7 @@ class MainActivity : Activity() {
     ) {
         try {
             val intent =
-                packageManager.getLaunchIntentForPackage(
-                    packageName
-                )
+                packageManager.getLaunchIntentForPackage(packageName)
 
             if (intent != null) {
                 startActivity(intent)
@@ -1133,9 +1105,7 @@ class MainActivity : Activity() {
 
             val safeName = File(fileName).name
 
-            val request = DownloadManager.Request(
-                Uri.parse(url)
-            )
+            val request = DownloadManager.Request(Uri.parse(url))
 
             request.setTitle(safeName)
             request.setDescription("正在下載 APK")
@@ -1164,11 +1134,7 @@ class MainActivity : Activity() {
                 Toast.LENGTH_SHORT
             ).show()
 
-            checkDownloadProgress(
-                id,
-                url,
-                safeName
-            )
+            checkDownloadProgress(id, url, safeName)
 
         } catch (e: Exception) {
             Toast.makeText(
@@ -1230,16 +1196,9 @@ class MainActivity : Activity() {
                                 0
                             }
 
-                            sendProgress(
-                                url,
-                                percent,
-                                "downloading"
-                            )
+                            sendProgress(url, percent, "downloading")
 
-                            handler.postDelayed(
-                                this,
-                                1000
-                            )
+                            handler.postDelayed(this, 1000)
                         }
 
                         DownloadManager.STATUS_SUCCESSFUL -> {
@@ -1248,11 +1207,7 @@ class MainActivity : Activity() {
 
                             saveApkPackageName(fileName)
 
-                            sendProgress(
-                                url,
-                                100,
-                                "complete"
-                            )
+                            sendProgress(url, 100, "complete")
 
                             val uri =
                                 manager.getUriForDownloadedFile(id)
@@ -1266,11 +1221,7 @@ class MainActivity : Activity() {
 
                             activeDownloads.remove(url)
 
-                            sendProgress(
-                                url,
-                                0,
-                                "failed"
-                            )
+                            sendProgress(url, 0, "failed")
 
                             Toast.makeText(
                                 this@MainActivity,
@@ -1309,10 +1260,7 @@ class MainActivity : Activity() {
 
             if (packageName.isNotBlank()) {
                 prefs.edit()
-                    .putString(
-                        "package_$fileName",
-                        packageName
-                    )
+                    .putString("package_$fileName", packageName)
                     .apply()
             }
 
