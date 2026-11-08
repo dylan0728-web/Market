@@ -374,50 +374,92 @@ function iconFor(fileName){
         : "";
 }
 
-function scrollPageToTop(){
-    document.documentElement.scrollTop=0;
-    document.body.scrollTop=0;
-    try{
-        window.scrollTo({top:0,left:0,behavior:"smooth"});
-    }catch(error){
-        window.scrollTo(0,0);
-    }
+/* 取得實際網頁捲動位置 */
+function getPageScroller(){
+    return document.scrollingElement ||
+        document.documentElement ||
+        document.body;
 }
 
-function scrollCardIntoView(card,index){
+/* 平滑捲動到指定位置 */
+function smoothPageScroll(target){
+    const scroller=getPageScroller();
+    const maxScroll=Math.max(
+        0,
+        scroller.scrollHeight-window.innerHeight
+    );
+
+    target=Math.max(0,Math.min(target,maxScroll));
+
+    window.scrollTo({
+        top:target,
+        left:0,
+        behavior:"smooth"
+    });
+}
+
+/* 回到 MAC 所在的最上方 */
+function scrollPageToTop(){
+    smoothPageScroll(0);
+}
+
+/*
+ * 上下移動時使用相同捲動方式。
+ * 選取框接近畫面上方或下方時，
+ * 畫面跟著逐排平滑移動。
+ */
+function scrollCardIntoView(card,index,direction){
     if(!card)return;
 
-    if(index===0){
-        scrollPageToTop();
-        return;
-    }
+    const scroller=getPageScroller();
+    const currentScroll=scroller.scrollTop||
+        window.pageYOffset||
+        document.documentElement.scrollTop||
+        document.body.scrollTop||0;
 
     const rect=card.getBoundingClientRect();
     const viewportHeight=window.innerHeight||
         document.documentElement.clientHeight;
+
     const header=document.querySelector("header");
-    const headerBottom=header?header.getBoundingClientRect().bottom:0;
-    const currentScroll=window.pageYOffset||
-        document.documentElement.scrollTop||
-        document.body.scrollTop||0;
+    const headerBottom=header?
+        header.getBoundingClientRect().bottom:0;
 
-    let targetScroll=currentScroll;
+    let target=currentScroll;
 
-    if(rect.top<headerBottom+12){
-        targetScroll=currentScroll+rect.top-headerBottom-16;
-    }else if(rect.bottom>viewportHeight-16){
-        targetScroll=currentScroll+rect.bottom-viewportHeight+24;
-    }else{
-        return;
+    if(direction==="up"){
+        if(index===0){
+            scrollPageToTop();
+            return;
+        }
+
+        /*
+         * 往上移動時，選取框接近上方就同步向上捲。
+         */
+        const upperLimit=Math.max(headerBottom+25,viewportHeight*0.25);
+
+        if(rect.top<upperLimit){
+            const rowStep=card.offsetHeight+
+                (parseFloat(getComputedStyle(appsElement).rowGap)||22);
+
+            target=currentScroll-rowStep;
+        }
+    }else if(direction==="down"){
+        /*
+         * 往下移動時，選取框接近下方就同步向下捲。
+         */
+        const lowerLimit=viewportHeight*0.75;
+
+        if(rect.bottom>lowerLimit){
+            const rowStep=card.offsetHeight+
+                (parseFloat(getComputedStyle(appsElement).rowGap)||22);
+
+            target=currentScroll+rowStep;
+        }
     }
 
-    targetScroll=Math.max(0,targetScroll);
-
-    try{
-        window.scrollTo({top:targetScroll,left:0,behavior:"smooth"});
-    }catch(error){
-        document.documentElement.scrollTop=targetScroll;
-        document.body.scrollTop=targetScroll;
+    if(target!==currentScroll){
+        smoothPageScroll(target);
     }
 }
 
@@ -566,10 +608,14 @@ function updateSelection(){
     });
 }
 
-function moveSelection(next){
+/* 移動選取框，並把移動方向傳給捲動畫 */
+function moveSelection(next,direction){
     if(!appList.length)return;
 
+    const oldIndex=selectedIndex;
+
     selectedIndex=Math.max(0,Math.min(next,appList.length-1));
+
     updateSelection();
 
     const cards=appsElement.querySelectorAll(".app");
@@ -581,7 +627,12 @@ function moveSelection(next){
         }catch(error){
             selectedCard.focus();
         }
-        scrollCardIntoView(selectedCard,selectedIndex);
+
+        if(selectedIndex!==oldIndex){
+            scrollCardIntoView(selectedCard,selectedIndex,direction);
+        }else if(direction==="up"&&selectedIndex===0){
+            scrollPageToTop();
+        }
     }
 }
 
@@ -875,6 +926,7 @@ async function loadApps(){
     }
 }
 
+/* Android TV 遙控器方向鍵及確認鍵 */
 document.addEventListener("keydown",function(event){
     if(dialog.style.display==="flex"){
         if(event.key==="Escape"||event.key==="Backspace"){
@@ -891,29 +943,25 @@ document.addEventListener("keydown",function(event){
 
     if(key==="ArrowRight"||keyCode===22){
         event.preventDefault();
-        moveSelection(selectedIndex+1);
+        moveSelection(selectedIndex+1,"right");
         return;
     }
 
     if(key==="ArrowLeft"||keyCode===21){
         event.preventDefault();
-        moveSelection(selectedIndex-1);
+        moveSelection(selectedIndex-1,"left");
         return;
     }
 
     if(key==="ArrowDown"||keyCode===20){
         event.preventDefault();
-        moveSelection(selectedIndex+3);
+        moveSelection(selectedIndex+3,"down");
         return;
     }
 
     if(key==="ArrowUp"||keyCode===19){
         event.preventDefault();
-        moveSelection(selectedIndex-3);
-
-        if(selectedIndex===0){
-            scrollPageToTop();
-        }
+        moveSelection(selectedIndex-3,"up");
         return;
     }
 
