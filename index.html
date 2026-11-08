@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -15,7 +16,7 @@ html{
 }
 body{
     margin:0;
-    padding:22px;
+    padding:24px 34px;
     color:#fff;
     font-family:Arial,"Microsoft JhengHei",sans-serif;
     background:linear-gradient(135deg,#101827,#303b4d);
@@ -29,41 +30,52 @@ header{
     display:flex;
     align-items:center;
     justify-content:space-between;
-    margin-bottom:22px;
-    gap:12px;
+    margin-bottom:26px;
+    gap:16px;
     flex-wrap:wrap;
 }
-h1{font-size:27px;margin:0;letter-spacing:1px}
+h1{
+    font-size:30px;
+    margin:0;
+    letter-spacing:1px;
+}
 #macInfo{
-    color:#c5d0df;
-    font-size:13px;
+    color:#e0e9f5;
+    font-size:19px;
+    font-weight:bold;
     white-space:nowrap;
     margin-left:auto;
+    margin-right:42px;
 }
 #status{
     color:#c5d0df;
-    font-size:14px;
-    margin-bottom:16px;
+    font-size:15px;
+    margin-bottom:18px;
 }
 #apps{
     display:grid;
     grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:15px;
-    padding-bottom:30px;
+    gap:22px;
+    padding-bottom:40px;
 }
 .app{
-    min-height:112px;
+    width:100%;
+    aspect-ratio:1 / 1;
+    min-width:0;
+    min-height:0;
     display:flex;
+    flex-direction:column;
     align-items:center;
-    gap:14px;
-    padding:16px;
+    justify-content:center;
+    gap:12px;
+    padding:18px;
     background:rgba(255,255,255,.10);
     border:2px solid rgba(255,255,255,.10);
-    border-radius:12px;
+    border-radius:18px;
     cursor:pointer;
     transition:transform .12s,border-color .12s;
     outline:none;
-    min-width:0;
+    overflow:hidden;
 }
 .app:focus,.app.selected{
     border-color:#fff;
@@ -71,16 +83,17 @@ h1{font-size:27px;margin:0;letter-spacing:1px}
     transform:scale(1.025);
 }
 .app-icon{
-    width:62px;
-    height:62px;
+    width:42%;
+    max-width:116px;
+    aspect-ratio:1 / 1;
     flex-shrink:0;
-    border-radius:13px;
+    border-radius:20px;
     background:linear-gradient(145deg,#647d9c,#273c58);
     display:flex;
     align-items:center;
     justify-content:center;
     overflow:hidden;
-    font-size:23px;
+    font-size:30px;
     font-weight:bold;
 }
 .app-icon img{
@@ -88,25 +101,30 @@ h1{font-size:27px;margin:0;letter-spacing:1px}
     height:100%;
     object-fit:contain;
 }
-.app-info{min-width:0;flex:1}
+.app-info{
+    width:100%;
+    min-width:0;
+    flex:0 1 auto;
+    text-align:center;
+}
 .app-name{
-    font-size:17px;
+    font-size:21px;
     font-weight:bold;
-    margin-bottom:7px;
+    margin-bottom:8px;
     overflow-wrap:anywhere;
 }
 .app-detail{
     color:#c1ccda;
-    font-size:12px;
-    line-height:1.7;
+    font-size:14px;
+    line-height:1.6;
     overflow-wrap:anywhere;
 }
 .installed,.not-installed{
     display:inline-block;
-    border-radius:5px;
-    padding:3px 8px;
-    font-size:12px;
-    margin-top:5px;
+    border-radius:6px;
+    padding:4px 10px;
+    font-size:13px;
+    margin-top:8px;
 }
 .installed{
     color:#8de6a3;
@@ -193,16 +211,23 @@ button:focus{outline:2px solid #fff}
 .dialog-actions button{min-width:85px}
 
 @media(max-width:700px){
-    #apps{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .app{padding:10px;gap:9px}
-    .app-icon{width:48px;height:48px}
-    #macInfo{margin-left:0}
+    body{padding:18px}
+    #apps{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .app{padding:12px;gap:8px}
+    .app-icon{width:42%;border-radius:14px}
+    .app-name{font-size:16px}
+    .app-detail{font-size:11px}
+    #macInfo{margin-right:0;font-size:15px}
 }
 @media(max-width:420px){
     body{padding:12px}
     header{align-items:flex-start;flex-direction:column}
-    .app{align-items:flex-start;flex-direction:column}
-    .app-icon{width:52px;height:52px}
+    #macInfo{margin-left:0}
+    .app{padding:9px;gap:6px}
+    .app-icon{width:45%;border-radius:12px}
+    .app-name{font-size:14px}
+    .app-detail{font-size:10px}
+    .installed,.not-installed{font-size:10px;padding:3px 6px}
 }
 </style>
 </head>
@@ -349,23 +374,16 @@ function iconFor(fileName){
         : "";
 }
 
-/* 將整個網頁捲回最頂端，包含 MAC 顯示位置 */
 function scrollPageToTop(){
     document.documentElement.scrollTop=0;
     document.body.scrollTop=0;
-
     try{
-        window.scrollTo({
-            top:0,
-            left:0,
-            behavior:"smooth"
-        });
+        window.scrollTo({top:0,left:0,behavior:"smooth"});
     }catch(error){
         window.scrollTo(0,0);
     }
 }
 
-/* 讓目前選取的 APP 保持在可視範圍內 */
 function scrollCardIntoView(card,index){
     if(!card)return;
 
@@ -377,12 +395,8 @@ function scrollCardIntoView(card,index){
     const rect=card.getBoundingClientRect();
     const viewportHeight=window.innerHeight||
         document.documentElement.clientHeight;
-
     const header=document.querySelector("header");
-    const headerBottom=header
-        ? header.getBoundingClientRect().bottom
-        : 0;
-
+    const headerBottom=header?header.getBoundingClientRect().bottom:0;
     const currentScroll=window.pageYOffset||
         document.documentElement.scrollTop||
         document.body.scrollTop||0;
@@ -400,11 +414,7 @@ function scrollCardIntoView(card,index){
     targetScroll=Math.max(0,targetScroll);
 
     try{
-        window.scrollTo({
-            top:targetScroll,
-            left:0,
-            behavior:"smooth"
-        });
+        window.scrollTo({top:targetScroll,left:0,behavior:"smooth"});
     }catch(error){
         document.documentElement.scrollTop=targetScroll;
         document.body.scrollTop=targetScroll;
@@ -413,9 +423,7 @@ function scrollCardIntoView(card,index){
 
 function updateProgressCard(app){
     const card=Array.from(appsElement.querySelectorAll(".app"))
-        .find(function(item){
-            return item.dataset.url===app.url;
-        });
+        .find(function(item){return item.dataset.url===app.url;});
 
     if(!card)return;
 
@@ -446,9 +454,7 @@ function updateProgressCard(app){
         ".download-progress-label span:first-child"
     );
 
-    if(label){
-        label.textContent="下載中";
-    }
+    if(label)label.textContent="下載中";
 }
 
 function renderApps(){
@@ -546,7 +552,6 @@ function renderApps(){
         });
 
         appsElement.appendChild(card);
-
         updateProgressCard(app);
     });
 
@@ -556,7 +561,6 @@ function renderApps(){
 
 function updateSelection(){
     const cards=appsElement.querySelectorAll(".app");
-
     cards.forEach(function(card,index){
         card.classList.toggle("selected",index===selectedIndex);
     });
@@ -565,13 +569,7 @@ function updateSelection(){
 function moveSelection(next){
     if(!appList.length)return;
 
-    const previousIndex=selectedIndex;
-
-    selectedIndex=Math.max(
-        0,
-        Math.min(next,appList.length-1)
-    );
-
+    selectedIndex=Math.max(0,Math.min(next,appList.length-1));
     updateSelection();
 
     const cards=appsElement.querySelectorAll(".app");
@@ -583,7 +581,6 @@ function moveSelection(next){
         }catch(error){
             selectedCard.focus();
         }
-
         scrollCardIntoView(selectedCard,selectedIndex);
     }
 }
@@ -614,7 +611,8 @@ function closeDialog(){
     const selectedCard=cards[selectedIndex];
 
     if(selectedCard){
-        selectedCard.focus({preventScroll:true});
+        try{selectedCard.focus({preventScroll:true});}
+        catch(error){selectedCard.focus();}
     }
 }
 
@@ -706,7 +704,6 @@ window.onApkDownloadProgress=function(url,percent,state){
         app.downloadPercent=0;
         app.downloadState="complete";
         app.downloadActive=false;
-
         updateProgressCard(app);
         setStatus("下載完成："+app.appName);
         return;
@@ -716,17 +713,12 @@ window.onApkDownloadProgress=function(url,percent,state){
         app.downloadPercent=0;
         app.downloadState="failed";
         app.downloadActive=false;
-
         updateProgressCard(app);
         setStatus("下載失敗："+app.appName);
         return;
     }
 
-    app.downloadPercent=Math.max(
-        0,
-        Math.min(100,Number(percent)||0)
-    );
-
+    app.downloadPercent=Math.max(0,Math.min(100,Number(percent)||0));
     app.downloadState="downloading";
     app.downloadActive=true;
 
@@ -883,7 +875,6 @@ async function loadApps(){
     }
 }
 
-/* Android TV 遙控器方向鍵及確認鍵 */
 document.addEventListener("keydown",function(event){
     if(dialog.style.display==="flex"){
         if(event.key==="Escape"||event.key==="Backspace"){
@@ -898,51 +889,31 @@ document.addEventListener("keydown",function(event){
     const key=event.key;
     const keyCode=event.keyCode;
 
-    if(
-        key==="ArrowRight"||
-        keyCode===22
-    ){
+    if(key==="ArrowRight"||keyCode===22){
         event.preventDefault();
         moveSelection(selectedIndex+1);
         return;
     }
 
-    if(
-        key==="ArrowLeft"||
-        keyCode===21
-    ){
+    if(key==="ArrowLeft"||keyCode===21){
         event.preventDefault();
         moveSelection(selectedIndex-1);
         return;
     }
 
-    if(
-        key==="ArrowDown"||
-        keyCode===20
-    ){
+    if(key==="ArrowDown"||keyCode===20){
         event.preventDefault();
         moveSelection(selectedIndex+3);
         return;
     }
 
-    if(
-        key==="ArrowUp"||
-        keyCode===19
-    ){
+    if(key==="ArrowUp"||keyCode===19){
         event.preventDefault();
-
-        /*
-         * 一直按上：
-         * 選取框逐排往上移動。
-         * 到達第一排後繼續按上，
-         * 畫面會持續回到 MAC 頂端。
-         */
         moveSelection(selectedIndex-3);
 
         if(selectedIndex===0){
             scrollPageToTop();
         }
-
         return;
     }
 
@@ -963,7 +934,6 @@ document.addEventListener("keydown",function(event){
     }
 },true);
 
-/* 啟動 */
 readDeviceMac();
 loadApps();
 
