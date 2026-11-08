@@ -32,8 +32,6 @@ import java.net.NetworkInterface
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
-import java.text.SimpleDateFormat
-import java.text.ParsePosition
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -149,8 +147,8 @@ class MainActivity : Activity() {
         }
 
         val detail = TextView(this).apply {
-            text = "機器 MAC：$mac\n\n錯誤原因：$authorizationErrorMessage\n\n雲端授權資料中的期限：2027/12/31"
-            textSize = 18f
+            text = "機器 MAC：$mac\n\n錯誤原因：\n$authorizationErrorMessage\n\n雲端授權資料中的期限：2027/12/31"
+            textSize = 16f
             setTextColor(0xFFFFFFFF.toInt())
             gravity = android.view.Gravity.CENTER
             setPadding(10, 15, 10, 15)
@@ -179,8 +177,7 @@ class MainActivity : Activity() {
 
                 authorizationErrorMessage = "正在連線 MEGA 下載授權檔"
 
-                val authorizationText =
-                    downloadMegaAuthorizationText()
+                val authorizationText = downloadMegaAuthorizationText()
 
                 if (authorizationText.isBlank()) {
                     throw Exception("MEGA 授權檔內容為空")
@@ -195,10 +192,9 @@ class MainActivity : Activity() {
 
                 if (!result.first) {
                     throw Exception(
-                        "授權檔已成功讀取，但找不到符合的有效授權。\n" +
-                            "目前機器 MAC：$deviceMac\n" +
-                            "請確認雲端授權檔內的 MAC 是否與此 MAC 完全相同，" +
-                            "以及日期格式是否正確。"
+                        authorizationErrorMessage.ifBlank {
+                            "授權檔已成功讀取，但找不到符合的有效授權。"
+                        }
                     )
                 }
 
@@ -303,7 +299,6 @@ class MainActivity : Activity() {
                 Pair(url, size)
             }
 
-        // MEGA 回傳 HTTP 時優先改用 HTTPS
         val originalDownloadUrl = downloadInfo.first
 
         val secureDownloadUrl =
@@ -396,7 +391,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 授權比對：修正 BOM、隱藏字元、日期及 MAC 比對
+    // 授權比對：逐欄驗證日期及 MAC，並輸出診斷資訊
     // =====================================================
 
     private fun verifyAuthorization(
@@ -404,103 +399,185 @@ class MainActivity : Activity() {
         deviceMac: String
     ): Pair<Boolean, Boolean> {
 
-        val normalizedDeviceMac =
-            normalizeMacAddress(deviceMac)
+        val normalizedDeviceMac = normalizeMacAddress(deviceMac)
 
         if (normalizedDeviceMac.isBlank()) {
+            authorizationErrorMessage =
+                "機器 MAC 標準化失敗。\n原始 MAC：${deviceMac.take(80)}"
+
             return Pair(false, false)
         }
 
-        val now = Calendar.getInstance()
+        val cleanContent = cleanAuthorizationText(content)
+
+        if (cleanContent.isBlank()) {
+            authorizationErrorMessage = "授權檔解密後內容為空。"
+            return Pair(false, false)
+        }
 
         var foundAuthorization = false
         var foundSpecialAuthorization = false
 
-        val dateFormat = SimpleDateFormat(
-            "yyyy/MM/dd",
-            Locale.US
-        ).apply {
-            isLenient = false
-        }
+        var matchingMacFound = false
+        var matchingMacDateError = ""
+        var matchingMacExpired = ""
+        var diagnosticRows = mutableListOf<String>()
 
-        // 清除 UTF-8 BOM、零寬字元及空字元
-        val cleanContent = content
-            .replace("\uFEFF", "")
-            .replace("\u200B", "")
-            .replace("\u0000", "")
-            .replace("\u00A0", " ")
+        val lines = cleanContent
+            .lineSequence()
+            .toList()
 
-        for (line in cleanContent.split("\n", "\r")) {
+        for ((index, line) in lines.withIndex()) {
 
-            val row = line.trim()
+            val row = cleanAuthorizationText(line).trim()
 
             if (row.isBlank()) continue
 
             val columns = row.split(",")
 
-            if (columns.size < 2) continue
-
-            val dateText = columns[0]
-                .trim()
-                .replace("\uFEFF", "")
-                .replace("\u200B", "")
-
-            val macText = normalizeMacAddress(
-                columns[1].trim()
-            )
-
-            if (macText.isBlank()) continue
-            if (macText != normalizedDeviceMac) continue
-
-            if (!dateText.matches(
-                    Regex("\\d{4}/\\d{2}/\\d{2}")
-                )
-            ) {
+            if (columns.size < 2) {
+                if (diagnosticRows.size < 4) {
+                    diagnosticRows.add(
+                        "第 ${index + 1} 行：欄位不足，內容=${row.take(100)}"
+                    )
+                }
                 continue
             }
 
-            // 嚴格解析日期，避免錯誤日期被接受
-            val parsePosition = ParsePosition(0)
+            val dateText = cleanAuthorizationText(
+                columns[0]
+            ).trim()
 
-            val expiryDate = dateFormat.parse(
-                dateText,
-                parsePosition
-            )
+            val rawMac = cleanAuthorizationText(
+                columns[1]
+            ).trim()
 
-            if (expiryDate == null) continue
-            if (parsePosition.index != dateText.length) continue
+            val macText = normalizeMacAddress(rawMac)
 
-            // 確認日期重新格式化後完全相同
-            if (dateFormat.format(expiryDate) != dateText) continue
+            if (macText.isBlank()) {
+                if (diagnosticRows.size < 4) {
+                    diagnosticRows.add(
+                        "第 ${index + 1} 行：MAC 格式無效，原始 MAC=${rawMac.take(60)}"
+                    )
+                }
+                continue
+            }
 
-            val expiryCalendar = Calendar.getInstance()
-            expiryCalendar.time = expiryDate
+            if (macText != normalizedDeviceMac) {
+                if (diagnosticRows.size < 4) {
+                    diagnosticRows.add(
+                        "第 ${index + 1} 行：MAC 不相符，" +
+                            "授權 MAC=$macText，機器 MAC=$normalizedDeviceMac"
+                    )
+                }
+                continue
+            }
 
-            expiryCalendar.set(Calendar.HOUR_OF_DAY, 0)
-            expiryCalendar.set(Calendar.MINUTE, 0)
-            expiryCalendar.set(Calendar.SECOND, 0)
-            expiryCalendar.set(Calendar.MILLISECOND, 0)
+            matchingMacFound = true
+
+            // 日期必須為 yyyy/MM/dd
+            if (!dateText.matches(Regex("\\d{4}/\\d{2}/\\d{2}"))) {
+                matchingMacDateError =
+                    "MAC 已相符，但日期格式錯誤：[$dateText]"
+                continue
+            }
+
+            val dateParts = dateText.split("/")
+
+            val year = dateParts[0].toIntOrNull()
+            val month = dateParts[1].toIntOrNull()
+            val day = dateParts[2].toIntOrNull()
+
+            if (year == null || month == null || day == null) {
+                matchingMacDateError =
+                    "MAC 已相符，但日期無法轉換成數字：[$dateText]"
+                continue
+            }
+
+            // 手動建立日期，禁止自動修正錯誤日期
+            val expiryCalendar = Calendar.getInstance().apply {
+                isLenient = false
+                clear()
+                set(
+                    year,
+                    month - 1,
+                    day,
+                    0,
+                    0,
+                    0
+                )
+                set(Calendar.MILLISECOND, 0)
+            }
+
+            try {
+                // 強制驗證日期是否真實存在
+                expiryCalendar.timeInMillis
+            } catch (e: Exception) {
+                matchingMacDateError =
+                    "MAC 已相符，但日期不是有效日曆日期：[$dateText]"
+                continue
+            }
 
             // 到期日當天 23:59:59 前有效
             expiryCalendar.add(Calendar.DAY_OF_MONTH, 1)
 
+            val now = Calendar.getInstance()
+
             if (!now.before(expiryCalendar)) {
+                matchingMacExpired =
+                    "MAC 已相符，但授權已到期：$dateText"
                 continue
             }
 
             foundAuthorization = true
 
             val flag = if (columns.size >= 3) {
-                columns[2]
-                    .trim()
-                    .replace("\uFEFF", "")
-                    .replace("\u200B", "")
+                cleanAuthorizationText(columns[2]).trim()
             } else {
                 ""
             }
 
             if (flag.equals("S", ignoreCase = true)) {
                 foundSpecialAuthorization = true
+            }
+        }
+
+        if (foundAuthorization) {
+            authorizationErrorMessage = ""
+        } else {
+
+            authorizationErrorMessage = buildString {
+
+                append("授權檔已成功下載及解密。")
+                append("\n目前機器 MAC：$normalizedDeviceMac")
+
+                if (!matchingMacFound) {
+                    append("\n\n診斷結果：找不到相同 MAC。")
+                    append("\n以下是實際讀取的授權資料：")
+
+                    if (diagnosticRows.isEmpty()) {
+                        append("\n授權檔沒有可解析的資料列。")
+                    } else {
+                        diagnosticRows.forEach {
+                            append("\n")
+                            append(it)
+                        }
+                    }
+
+                } else if (matchingMacDateError.isNotBlank()) {
+                    append("\n\n診斷結果：")
+                    append(matchingMacDateError)
+
+                } else if (matchingMacExpired.isNotBlank()) {
+                    append("\n\n診斷結果：")
+                    append(matchingMacExpired)
+
+                } else {
+                    append("\n\nMAC 已找到，但沒有通過日期及授權條件。")
+                    append("\n請檢查授權資料每一欄是否正確。")
+                }
+
+                append("\n\n授權資料行數：${lines.size}")
             }
         }
 
@@ -511,18 +588,39 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
+    // 授權文字清理
+    // =====================================================
+
+    private fun cleanAuthorizationText(value: String): String {
+        return value
+            .replace("\uFEFF", "")
+            .replace("\u200B", "")
+            .replace("\u200C", "")
+            .replace("\u200D", "")
+            .replace("\u2060", "")
+            .replace("\u0000", "")
+            .replace("\u00A0", " ")
+            .replace("\u3000", " ")
+    }
+
+    // =====================================================
     // MAC 讀取及標準化
     // =====================================================
 
     private fun normalizeMacAddress(value: String): String {
-        val mac = value.trim()
+
+        val cleaned = cleanAuthorizationText(value)
+            .trim()
+            .uppercase(Locale.ROOT)
+
+        val mac = cleaned
             .replace(":", "")
             .replace("-", "")
             .replace(".", "")
             .replace(" ", "")
-            .replace("\uFEFF", "")
-            .replace("\u200B", "")
-            .uppercase(Locale.ROOT)
+            .replace("\t", "")
+            .replace("\r", "")
+            .replace("\n", "")
 
         if (!mac.matches(Regex("[0-9A-F]{12}"))) {
             return ""
