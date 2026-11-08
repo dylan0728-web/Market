@@ -350,12 +350,13 @@ class MainActivity : Activity() {
             .putInt(keyWords[3] xor keyWords[7])
             .array()
 
-val iv = ByteBuffer.allocate(16)
-    .order(ByteOrder.BIG_ENDIAN)
-    .putInt(keyWords[4])
-    .putInt(keyWords[5])
-    .putLong(0L)
-    .array()
+        // 修正：還原原本正確的 MEGA AES IV
+        val iv = ByteBuffer.allocate(16)
+            .order(ByteOrder.BIG_ENDIAN)
+            .putInt(keyWords[4])
+            .putInt(keyWords[5])
+            .putLong(0L)
+            .array()
 
         val cipher = Cipher.getInstance("AES/CTR/NoPadding")
         cipher.init(
