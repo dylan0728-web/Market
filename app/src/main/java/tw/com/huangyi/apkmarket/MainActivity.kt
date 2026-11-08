@@ -1,4 +1,3 @@
-```kotlin
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -606,4 +605,3 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 }
-```
