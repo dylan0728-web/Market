@@ -1,7 +1,6 @@
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -74,8 +73,8 @@ class MainActivity : Activity() {
         private const val MARKET_URL =
             "https://dylan0728-web.github.io/Market/"
 
-        private const val MEGA_AUTH_URL =
-            "https://mega.nz/file/sksyEIJI#SlPBp24JhbRtlI02z12MSt2EEdYiYU84yLybZ6P4qaA"
+        private const val MEGA_AUTH_FOLDER_URL =
+            "https://mega.nz/folder/0lFhiRBT#QKMgWwfILTnEDGAqgxG8IQ"
 
         private const val AUTH_ERROR =
             "此機器MAC授權到期或是未授權"
@@ -93,14 +92,14 @@ class MainActivity : Activity() {
             .build()
     }
 
-    // 授權專用連線：MEGA API 與檔案下載各最多 5 秒。
-    // 與 APK 下載連線分開，避免影響大型 APK 下載。
+    // 授權專用連線：MEGA 資料夾清單及 USER.txt 下載使用獨立逾時設定。
+    // 與 APK 下載連線分開，完全不影響大型 APK 下載。
     private val authorizationHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(5, TimeUnit.SECONDS)
-            .writeTimeout(5, TimeUnit.SECONDS)
-            .callTimeout(5, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .followRedirects(true)
             .followSslRedirects(true)
             .retryOnConnectionFailure(false)
@@ -216,64 +215,15 @@ class MainActivity : Activity() {
                     )
                 }
 
-                // 只有雲端清單中找到完全相符且期限有效的 MAC，才可開啟市場。
-                // 授權狀態與畫面切換放在主執行緒同一段完成，避免中途狀態不一致。
-                // 暫時性診斷：授權成功時先顯示實際下載並解密的雲端資料摘要，
-                // 讓使用者確認程式真正拿來比對的 MAC；不改動 APK 下載流程。
-                val normalizedDeviceMac = normalizeMacAddress(deviceMac)
-                val cloudRows = authorizationText.lineSequence()
-                    .map { cleanAuthorizationText(it).trim() }
-                    .filter { it.isNotBlank() }
-                    .toList()
-
-                val matchingRows = cloudRows.filter { row ->
-                    val columns = row.split(",")
-                    columns.size >= 2 &&
-                        normalizeMacAddress(columns[1].trim()) == normalizedDeviceMac
-                }
-
-                val containsTestMac94 = cloudRows.any { row ->
-                    val columns = row.split(",")
-                    columns.size >= 2 &&
-                        normalizeMacAddress(columns[1].trim()) == "ECF72BFBBE94"
-                }
-                val containsTestMac92 = cloudRows.any { row ->
-                    val columns = row.split(",")
-                    columns.size >= 2 &&
-                        normalizeMacAddress(columns[1].trim()) == "ECF72BFBBE92"
-                }
-
-                val diagnosticMessage = buildString {
-                    append("機器實際讀取 MAC：$deviceMac")
-                    append("\n標準化 MAC：$normalizedDeviceMac")
-                    append("\n雲端解密資料筆數：${cloudRows.size}")
-                    append("\n\n雲端是否含 ECF72BFBBE94：${if (containsTestMac94) "有" else "沒有"}")
-                    append("\n雲端是否含 ECF72BFBBE92：${if (containsTestMac92) "有" else "沒有"}")
-                    append("\n\n實際符合機器 MAC 的資料列：")
-                    if (matchingRows.isEmpty()) {
-                        append("\n（沒有找到）")
-                    } else {
-                        matchingRows.take(5).forEach { append("\n$it") }
-                        if (matchingRows.size > 5) {
-                            append("\n...另有 ${matchingRows.size - 5} 筆符合資料")
-                        }
-                    }
-                    append("\n\n請截圖回傳這個診斷畫面。")
-                }
-
+                // 只有本次重新讀取的雲端清單授權成功，才可開啟市場。
+                // 雲端授權成功後直接進入市場，不顯示診斷視窗。
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
 
                     authorized = true
                     specialAuthorized = result.second
                     authorizationErrorMessage = ""
-
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("授權診斷（暫時測試）")
-                        .setMessage(diagnosticMessage)
-                        .setCancelable(false)
-                        .setPositiveButton("進入市場") { _, _ -> showMarket() }
-                        .show()
+                    showMarket()
                 }
 
             } catch (e: Exception) {
@@ -289,165 +239,172 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // MEGA 授權檔下載及解密
+    // MEGA 公開資料夾：尋找並下載最新 USER.txt
     // =====================================================
 
     private fun downloadMegaAuthorizationText(): String {
-        val linkParts = MEGA_AUTH_URL
-            .substringAfter("/file/")
-            .split("#")
+        val linkParts = MEGA_AUTH_FOLDER_URL
+            .substringAfter("/folder/", "")
+            .split("#", limit = 2)
 
-        if (linkParts.size != 2) {
-            throw Exception("MEGA 分享連結格式錯誤")
+        if (linkParts.size != 2 || linkParts[0].isBlank()) {
+            throw Exception("MEGA 權限資料夾連結格式錯誤")
         }
 
-        val fileHandle = linkParts[0]
-        val keyString = linkParts[1]
-
-        val fileKey = try {
-            Base64.decode(
-                keyString,
-                Base64.URL_SAFE or
-                    Base64.NO_WRAP or
-                    Base64.NO_PADDING
-            )
-        } catch (e: Exception) {
-            throw Exception("MEGA 授權金鑰解碼失敗：${e.message}")
+        val folderHandle = linkParts[0].trim()
+        val folderKey = decodeMegaBase64(linkParts[1].trim())
+        if (folderKey.size != 16) {
+            throw Exception("MEGA 資料夾金鑰格式錯誤")
         }
 
-        if (fileKey.size != 32) {
-            throw Exception("MEGA 授權金鑰格式錯誤")
-        }
-
-        val apiUrl =
-            "https://g.api.mega.co.nz/cs?id=${System.currentTimeMillis()}"
-
-        val command = JSONArray().put(
-            JSONObject()
-                .put("a", "g")
-                .put("g", 1)
-                .put("p", fileHandle)
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val listApiUrl = "https://g.api.mega.co.nz/cs?id=${System.currentTimeMillis()}&n=$folderHandle"
+        val listCommand = JSONArray().put(
+            JSONObject().put("a", "f").put("c", 1).put("r", 1).put("ca", 1)
         )
-
-        val mediaType =
-            "application/json; charset=utf-8".toMediaType()
-
-        val apiRequest = Request.Builder()
-            .url(apiUrl)
+        val listRequest = Request.Builder()
+            .url(listApiUrl)
             .header("Cache-Control", "no-cache, no-store")
             .header("Pragma", "no-cache")
             .header("User-Agent", "HY-App-Market-Authorization/1.0")
-            .post(command.toString().toRequestBody(mediaType))
+            .post(listCommand.toString().toRequestBody(mediaType))
             .build()
 
-        val downloadInfo = authorizationHttpClient.newCall(apiRequest)
-            .execute().use { response ->
-                if (!response.isSuccessful) {
-                    throw Exception("MEGA API 連線失敗，HTTP ${response.code}")
-                }
-
-                val body = response.body?.string()
-                    ?: throw Exception("MEGA API 沒有回應")
-
-                val array = try {
-                    JSONArray(body)
-                } catch (e: Exception) {
-                    throw Exception("MEGA API 回傳資料格式錯誤：${e.message}")
-                }
-
-                val item = array.optJSONObject(0)
-                    ?: throw Exception("MEGA 授權檔不存在或分享連結失效")
-
-                val url = item.optString("g", "")
-                val size = item.optLong("s", -1)
-
-                if (url.isBlank() || size < 0) {
-                    throw Exception("MEGA 授權檔資料錯誤，下載網址或檔案大小不存在")
-                }
-
-                Pair(url, size)
+        val nodes = authorizationHttpClient.newCall(listRequest).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw Exception("MEGA 權限資料夾讀取失敗，HTTP ${response.code}")
             }
-
-        val originalDownloadUrl = downloadInfo.first
-
-        val secureDownloadUrl =
-            if (originalDownloadUrl.startsWith("http://", true)) {
-                originalDownloadUrl.replaceFirst(
-                    Regex("^http://", RegexOption.IGNORE_CASE),
-                    "https://"
-                )
-            } else {
-                originalDownloadUrl
+            val body = response.body?.string() ?: throw Exception("MEGA 權限資料夾沒有回應")
+            val result = try { JSONArray(body) } catch (e: Exception) {
+                throw Exception("MEGA 資料夾清單格式錯誤：${e.message}")
             }
+            val first = result.opt(0)
+            if (first is Number) throw Exception("MEGA 資料夾讀取錯誤，代碼：${first.toInt()}")
+            val root = result.optJSONObject(0) ?: throw Exception("MEGA 沒有回傳權限資料夾內容")
+            root.optJSONArray("f") ?: throw Exception("MEGA 權限資料夾檔案清單不存在")
+        }
 
+        var userNode: JSONObject? = null
+        var userNodeKey: ByteArray? = null
+
+        for (i in 0 until nodes.length()) {
+            val node = nodes.optJSONObject(i) ?: continue
+            if (node.optInt("t", -1) != 0) continue
+            val encryptedAttributes = node.optString("a", "")
+            val compoundKey = node.optString("k", "")
+            if (encryptedAttributes.isBlank() || compoundKey.isBlank()) continue
+
+            val encryptedNodeKey = try {
+                decodeMegaBase64(compoundKey.substringAfterLast(":", compoundKey))
+            } catch (e: Exception) { continue }
+
+            val decryptedNodeKey = try {
+                val cipher = Cipher.getInstance("AES/ECB/NoPadding")
+                cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(folderKey, "AES"))
+                cipher.doFinal(encryptedNodeKey)
+            } catch (e: Exception) { continue }
+            if (decryptedNodeKey.size != 32) continue
+
+            val words = ByteBuffer.wrap(decryptedNodeKey).order(ByteOrder.BIG_ENDIAN)
+            val keyWords = IntArray(8) { words.int }
+            val fileAesKey = ByteBuffer.allocate(16).order(ByteOrder.BIG_ENDIAN)
+                .putInt(keyWords[0] xor keyWords[4])
+                .putInt(keyWords[1] xor keyWords[5])
+                .putInt(keyWords[2] xor keyWords[6])
+                .putInt(keyWords[3] xor keyWords[7])
+                .array()
+
+            val attributes = try {
+                val encrypted = decodeMegaBase64(encryptedAttributes)
+                if (encrypted.isEmpty() || encrypted.size % 16 != 0) continue
+                val cipher = Cipher.getInstance("AES/CBC/NoPadding")
+                cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(fileAesKey, "AES"), IvParameterSpec(ByteArray(16)))
+                String(cipher.doFinal(encrypted), StandardCharsets.UTF_8)
+            } catch (e: Exception) { continue }
+
+            if (!attributes.startsWith("MEGA")) continue
+            val fileName = try {
+                JSONObject(attributes.substring(4).trimEnd('\u0000')).optString("n", "")
+            } catch (e: Exception) { "" }
+            if (fileName == "USER.txt") {
+                userNode = node
+                userNodeKey = decryptedNodeKey
+                break
+            }
+        }
+
+        val targetNode = userNode ?: throw Exception("MEGA 權限資料夾內找不到 USER.txt")
+        val nodeKey = userNodeKey ?: throw Exception("USER.txt 金鑰不存在，無法解密")
+        val nodeHandle = targetNode.optString("h", "")
+        if (nodeHandle.isBlank()) throw Exception("USER.txt 節點代碼不存在")
+
+        val downloadCommand = JSONArray().put(
+            JSONObject().put("a", "g").put("g", 1).put("n", nodeHandle)
+        )
+        val downloadApiUrl = "https://g.api.mega.co.nz/cs?id=${System.currentTimeMillis()}&n=$folderHandle"
+        val downloadApiRequest = Request.Builder()
+            .url(downloadApiUrl)
+            .header("Cache-Control", "no-cache, no-store")
+            .header("Pragma", "no-cache")
+            .header("User-Agent", "HY-App-Market-Authorization/1.0")
+            .post(downloadCommand.toString().toRequestBody(mediaType))
+            .build()
+
+        val downloadInfo = authorizationHttpClient.newCall(downloadApiRequest).execute().use { response ->
+            if (!response.isSuccessful) throw Exception("MEGA USER.txt 下載資訊取得失敗，HTTP ${response.code}")
+            val body = response.body?.string() ?: throw Exception("MEGA USER.txt 下載資訊沒有回應")
+            val array = try { JSONArray(body) } catch (e: Exception) {
+                throw Exception("MEGA USER.txt 下載資訊格式錯誤：${e.message}")
+            }
+            val item = array.optJSONObject(0) ?: throw Exception("MEGA USER.txt 不存在或無法存取")
+            val url = item.optString("g", "")
+            val size = item.optLong("s", -1L)
+            if (url.isBlank() || size < 0) throw Exception("MEGA USER.txt 下載網址或檔案大小無效")
+            Pair(url, size)
+        }
+
+        val secureUrl = if (downloadInfo.first.startsWith("http://", true)) {
+            downloadInfo.first.replaceFirst(Regex("^http://", RegexOption.IGNORE_CASE), "https://")
+        } else downloadInfo.first
         val fileRequest = Request.Builder()
-            .url(secureDownloadUrl)
+            .url(secureUrl)
             .header("Cache-Control", "no-cache, no-store")
             .header("Pragma", "no-cache")
             .header("User-Agent", "HY-App-Market-Authorization/1.0")
             .get()
             .build()
-
-        val encryptedData = try {
-            authorizationHttpClient.newCall(fileRequest)
-                .execute().use { response ->
-                    if (!response.isSuccessful) {
-                        throw Exception(
-                            "MEGA 授權檔下載失敗，HTTP ${response.code}"
-                        )
-                    }
-
-                    response.body?.bytes()
-                        ?: throw Exception("授權檔內容為空")
-                }
-        } catch (e: Exception) {
-            throw Exception("MEGA 授權檔 HTTPS 下載失敗：${e.message}")
+        val encryptedData = authorizationHttpClient.newCall(fileRequest).execute().use { response ->
+            if (!response.isSuccessful) throw Exception("MEGA USER.txt 下載失敗，HTTP ${response.code}")
+            response.body?.bytes() ?: throw Exception("MEGA USER.txt 內容為空")
         }
-
         if (encryptedData.size.toLong() != downloadInfo.second) {
-            throw Exception(
-                "MEGA 授權檔大小不正確，預期 ${downloadInfo.second} bytes，實際 ${encryptedData.size} bytes"
-            )
+            throw Exception("MEGA USER.txt 檔案大小不符，預期 ${downloadInfo.second} bytes，實際 ${encryptedData.size} bytes")
         }
 
-        val words = ByteBuffer.wrap(fileKey)
-            .order(ByteOrder.BIG_ENDIAN)
-
-        val keyWords = IntArray(8)
-        for (i in 0 until 8) {
-            keyWords[i] = words.int
-        }
-
-        val aesKey = ByteBuffer.allocate(16)
-            .order(ByteOrder.BIG_ENDIAN)
+        val words = ByteBuffer.wrap(nodeKey).order(ByteOrder.BIG_ENDIAN)
+        val keyWords = IntArray(8) { words.int }
+        val aesKey = ByteBuffer.allocate(16).order(ByteOrder.BIG_ENDIAN)
             .putInt(keyWords[0] xor keyWords[4])
             .putInt(keyWords[1] xor keyWords[5])
             .putInt(keyWords[2] xor keyWords[6])
             .putInt(keyWords[3] xor keyWords[7])
             .array()
-
-        // 修正：還原原本正確的 MEGA AES IV
-        val iv = ByteBuffer.allocate(16)
-            .order(ByteOrder.BIG_ENDIAN)
-            .putInt(keyWords[4])
-            .putInt(keyWords[5])
-            .putLong(0L)
-            .array()
-
-        val cipher = Cipher.getInstance("AES/CTR/NoPadding")
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            SecretKeySpec(aesKey, "AES"),
-            IvParameterSpec(iv)
-        )
-
-        val decryptedData = try {
-            cipher.doFinal(encryptedData)
-        } catch (e: Exception) {
-            throw Exception("MEGA 授權檔解密失敗：${e.message}")
+        val iv = ByteBuffer.allocate(16).order(ByteOrder.BIG_ENDIAN)
+            .putInt(keyWords[4]).putInt(keyWords[5]).putLong(0L).array()
+        val contentCipher = Cipher.getInstance("AES/CTR/NoPadding")
+        contentCipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(aesKey, "AES"), IvParameterSpec(iv))
+        val plainBytes = try { contentCipher.doFinal(encryptedData) } catch (e: Exception) {
+            throw Exception("MEGA USER.txt 內容解密失敗：${e.message}")
         }
+        return String(plainBytes, StandardCharsets.UTF_8)
+    }
 
-        return String(decryptedData, StandardCharsets.UTF_8)
+    private fun decodeMegaBase64(value: String): ByteArray {
+        return try {
+            Base64.decode(value, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+        } catch (e: Exception) {
+            throw Exception("MEGA 金鑰或資料解碼失敗：${e.message}")
+        }
     }
 
     // =====================================================
