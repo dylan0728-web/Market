@@ -92,6 +92,20 @@ class MainActivity : Activity() {
             .build()
     }
 
+    // 授權專用連線：MEGA API 與檔案下載各最多 5 秒。
+    // 與 APK 下載連線分開，避免影響大型 APK 下載。
+    private val authorizationHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .writeTimeout(5, TimeUnit.SECONDS)
+            .callTimeout(5, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .retryOnConnectionFailure(false)
+            .build()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -140,33 +154,24 @@ class MainActivity : Activity() {
 
         val title = TextView(this).apply {
             text = "此機器Mac未授權"
-            textSize = 23f
+            textSize = 32f
             setTextColor(0xFFFF6666.toInt())
+            setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
             setPadding(10, 10, 10, 25)
         }
 
         val detail = TextView(this).apply {
             text = "機器Mac：$mac"
-            textSize = 16f
+            textSize = 26f
             setTextColor(0xFFFFFFFF.toInt())
+            setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
             setPadding(10, 10, 10, 15)
         }
 
-        val reason = TextView(this).apply {
-            text = authorizationErrorMessage.ifBlank {
-                "未取得授權檢查結果"
-            }
-            textSize = 15f
-            setTextColor(0xFFFFCC66.toInt())
-            gravity = android.view.Gravity.CENTER
-            setPadding(15, 15, 15, 15)
-        }
-
         layout.addView(title)
         layout.addView(detail)
-        layout.addView(reason)
 
         setContentView(layout)
     }
@@ -276,10 +281,13 @@ class MainActivity : Activity() {
 
         val apiRequest = Request.Builder()
             .url(apiUrl)
+            .header("Cache-Control", "no-cache, no-store")
+            .header("Pragma", "no-cache")
+            .header("User-Agent", "HY-App-Market-Authorization/1.0")
             .post(command.toString().toRequestBody(mediaType))
             .build()
 
-        val downloadInfo = httpClient.newCall(apiRequest)
+        val downloadInfo = authorizationHttpClient.newCall(apiRequest)
             .execute().use { response ->
                 if (!response.isSuccessful) {
                     throw Exception("MEGA API 連線失敗，HTTP ${response.code}")
@@ -321,11 +329,14 @@ class MainActivity : Activity() {
 
         val fileRequest = Request.Builder()
             .url(secureDownloadUrl)
+            .header("Cache-Control", "no-cache, no-store")
+            .header("Pragma", "no-cache")
+            .header("User-Agent", "HY-App-Market-Authorization/1.0")
             .get()
             .build()
 
         val encryptedData = try {
-            httpClient.newCall(fileRequest)
+            authorizationHttpClient.newCall(fileRequest)
                 .execute().use { response ->
                     if (!response.isSuccessful) {
                         throw Exception(
@@ -765,8 +776,6 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun inspectApks(jsonText: String) {
-            if (!authorized) return
-
             try {
                 val input = JSONArray(jsonText)
                 val installedPackages = packageManager.getInstalledPackages(0)
@@ -866,8 +875,6 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun checkInstalled(packageName: String, url: String) {
-            if (!authorized) return
-
             runOnUiThread {
                 val installed = isPackageInstalled(packageName)
                 val safeUrl = JSONObject.quote(url)
@@ -883,15 +890,6 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun startDownload(url: String, fileName: String) {
             runOnUiThread {
-                if (!authorized) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        AUTH_ERROR,
-                        Toast.LENGTH_LONG
-                    ).show()
-                    return@runOnUiThread
-                }
-
                 if (isSpecialApk(fileName) && !specialAuthorized) {
                     Toast.makeText(
                         this@MainActivity,
@@ -907,13 +905,11 @@ class MainActivity : Activity() {
 
         @JavascriptInterface
         fun launchApp(packageName: String) {
-            if (!authorized) return
             runOnUiThread { launchInstalledApp(packageName) }
         }
 
         @JavascriptInterface
         fun uninstallApp(packageName: String) {
-            if (!authorized) return
             runOnUiThread { uninstallInstalledApp(packageName) }
         }
     }
@@ -987,8 +983,6 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun downloadApk(url: String, fileName: String) {
-        if (!authorized) return
-
         if (isSpecialApk(fileName) && !specialAuthorized) {
             Toast.makeText(
                 this,
@@ -1040,10 +1034,6 @@ class MainActivity : Activity() {
 
             try {
                 downloadWithRetry(url, tempFile, safeName)
-
-                if (!authorized) {
-                    throw IOException("授權狀態已失效")
-                }
 
                 if (tempFile.length() <= 0L) {
                     throw IOException("下載檔案是空的")
