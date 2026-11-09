@@ -1,6 +1,7 @@
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -217,13 +218,62 @@ class MainActivity : Activity() {
 
                 // 只有雲端清單中找到完全相符且期限有效的 MAC，才可開啟市場。
                 // 授權狀態與畫面切換放在主執行緒同一段完成，避免中途狀態不一致。
+                // 暫時性診斷：授權成功時先顯示實際下載並解密的雲端資料摘要，
+                // 讓使用者確認程式真正拿來比對的 MAC；不改動 APK 下載流程。
+                val normalizedDeviceMac = normalizeMacAddress(deviceMac)
+                val cloudRows = authorizationText.lineSequence()
+                    .map { cleanAuthorizationText(it).trim() }
+                    .filter { it.isNotBlank() }
+                    .toList()
+
+                val matchingRows = cloudRows.filter { row ->
+                    val columns = row.split(",")
+                    columns.size >= 2 &&
+                        normalizeMacAddress(columns[1].trim()) == normalizedDeviceMac
+                }
+
+                val containsTestMac94 = cloudRows.any { row ->
+                    val columns = row.split(",")
+                    columns.size >= 2 &&
+                        normalizeMacAddress(columns[1].trim()) == "ECF72BFBBE94"
+                }
+                val containsTestMac92 = cloudRows.any { row ->
+                    val columns = row.split(",")
+                    columns.size >= 2 &&
+                        normalizeMacAddress(columns[1].trim()) == "ECF72BFBBE92"
+                }
+
+                val diagnosticMessage = buildString {
+                    append("機器實際讀取 MAC：$deviceMac")
+                    append("\n標準化 MAC：$normalizedDeviceMac")
+                    append("\n雲端解密資料筆數：${cloudRows.size}")
+                    append("\n\n雲端是否含 ECF72BFBBE94：${if (containsTestMac94) "有" else "沒有"}")
+                    append("\n雲端是否含 ECF72BFBBE92：${if (containsTestMac92) "有" else "沒有"}")
+                    append("\n\n實際符合機器 MAC 的資料列：")
+                    if (matchingRows.isEmpty()) {
+                        append("\n（沒有找到）")
+                    } else {
+                        matchingRows.take(5).forEach { append("\n$it") }
+                        if (matchingRows.size > 5) {
+                            append("\n...另有 ${matchingRows.size - 5} 筆符合資料")
+                        }
+                    }
+                    append("\n\n請截圖回傳這個診斷畫面。")
+                }
+
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
 
                     authorized = true
                     specialAuthorized = result.second
                     authorizationErrorMessage = ""
-                    showMarket()
+
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("授權診斷（暫時測試）")
+                        .setMessage(diagnosticMessage)
+                        .setCancelable(false)
+                        .setPositiveButton("進入市場") { _, _ -> showMarket() }
+                        .show()
                 }
 
             } catch (e: Exception) {
