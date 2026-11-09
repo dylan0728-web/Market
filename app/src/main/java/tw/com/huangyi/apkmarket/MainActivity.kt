@@ -575,19 +575,13 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun normalizeMacAddress(value: String): String {
-        val cleaned = cleanAuthorizationText(value)
-            .trim()
+        // 機器 MAC 與雲端 USER MAC 使用完全相同的標準化規則：
+        // 先轉大寫，再只保留 0-9、A-F，最後必須剛好 12 碼。
+        val mac = cleanAuthorizationText(value)
             .uppercase(Locale.ROOT)
+            .filter { it in '0'..'9' || it in 'A'..'F' }
 
-        val mac = cleaned
-            .replace(":", "")
-            .replace("-", "")
-            .replace(".", "")
-            .replace(" ", "")
-            .replace("\t", "")
-            .replace("\r", "")
-            .replace("\n", "")
-
+        if (mac.length != 12) return ""
         if (!mac.matches(Regex("[0-9A-F]{12}"))) return ""
         if (mac == "000000000000") return ""
         if (mac == "020000000000") return ""
