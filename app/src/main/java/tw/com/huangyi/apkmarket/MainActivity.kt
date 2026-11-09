@@ -215,11 +215,14 @@ class MainActivity : Activity() {
                     )
                 }
 
-                authorized = true
-                specialAuthorized = result.second
-                authorizationErrorMessage = ""
-
+                // 只有雲端清單中找到完全相符且期限有效的 MAC，才可開啟市場。
+                // 授權狀態與畫面切換放在主執行緒同一段完成，避免中途狀態不一致。
                 runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+
+                    authorized = true
+                    specialAuthorized = result.second
+                    authorizationErrorMessage = ""
                     showMarket()
                 }
 
@@ -576,10 +579,23 @@ class MainActivity : Activity() {
 
     private fun normalizeMacAddress(value: String): String {
         // 機器 MAC 與雲端 USER MAC 使用完全相同的標準化規則：
-        // 先轉大寫，再只保留 0-9、A-F，最後必須剛好 12 碼。
-        val mac = cleanAuthorizationText(value)
+        // 轉大寫；只允許十六進位字元及常見分隔符號。
+        // 遇到其他字元直接判定格式錯誤，不能把不合法文字刪掉後誤認成有效 MAC。
+        val cleaned = cleanAuthorizationText(value)
+            .trim()
             .uppercase(Locale.ROOT)
-            .filter { it in '0'..'9' || it in 'A'..'F' }
+
+        val macBuilder = StringBuilder(12)
+
+        for (char in cleaned) {
+            when {
+                char in '0'..'9' || char in 'A'..'F' -> macBuilder.append(char)
+                char == ':' || char == '-' || char == '.' || char.isWhitespace() -> Unit
+                else -> return ""
+            }
+        }
+
+        val mac = macBuilder.toString()
 
         if (mac.length != 12) return ""
         if (!mac.matches(Regex("[0-9A-F]{12}"))) return ""
@@ -706,7 +722,10 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun showMarket() {
-        if (!authorized) {
+        // 市場唯一入口：沒有通過本次雲端授權檢查，一律停留在未授權畫面。
+        if (!authorized || normalizeMacAddress(authorizationDeviceMac).isBlank()) {
+            authorized = false
+            specialAuthorized = false
             showAuthorizationDenied()
             return
         }
