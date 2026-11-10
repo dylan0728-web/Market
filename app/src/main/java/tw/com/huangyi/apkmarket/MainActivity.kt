@@ -94,6 +94,11 @@ class MainActivity : Activity() {
         private const val MARKET_UPDATE_PREFIX =
             "https://github.com/dylan0728-web/Market/releases/download/"
 
+        // GitHub Release 實際上傳的 APK 檔名
+        private const val MARKET_UPDATE_ASSET =
+            "HY.apk"
+
+        // 電視盒下載後儲存的本機檔名
         private const val MARKET_UPDATE_FILE =
             "HY應用市場.apk"
     }
@@ -234,7 +239,6 @@ class MainActivity : Activity() {
                 }
 
                 // 只有本次重新讀取的雲端清單授權成功，才可開啟市場。
-                // 雲端授權成功後直接進入市場，不顯示診斷視窗。
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
 
@@ -603,9 +607,6 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun normalizeMacAddress(value: String): String {
-        // 機器 MAC 與雲端 USER MAC 使用完全相同的標準化規則：
-        // 轉大寫；只允許十六進位字元及常見分隔符號。
-        // 遇到其他字元直接判定格式錯誤，不能把不合法文字刪掉後誤認成有效 MAC。
         val cleaned = cleanAuthorizationText(value)
             .trim()
             .uppercase(Locale.ROOT)
@@ -747,7 +748,6 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun showMarket() {
-        // 市場唯一入口：沒有通過本次雲端授權檢查，一律停留在未授權畫面。
         if (!authorized || normalizeMacAddress(authorizationDeviceMac).isBlank()) {
             authorized = false
             specialAuthorized = false
@@ -794,7 +794,6 @@ class MainActivity : Activity() {
         setContentView(layout)
         webView.loadUrl(MARKET_URL)
 
-        // 進入市場後才檢查更新，不影響前面的 MAC 授權流程。
         checkMarketUpdate()
     }
 
@@ -869,10 +868,11 @@ class MainActivity : Activity() {
 
                     var apkUrl = ""
 
+                    // 修正重點：GitHub Release 的實際檔名是 HY.apk
                     for (i in 0 until assets.length()) {
                         val asset = assets.optJSONObject(i) ?: continue
 
-                        if (asset.optString("name") == MARKET_UPDATE_FILE) {
+                        if (asset.optString("name") == MARKET_UPDATE_ASSET) {
                             apkUrl = asset.optString("browser_download_url", "")
                             break
                         }
@@ -915,7 +915,7 @@ class MainActivity : Activity() {
                 }
 
             } catch (e: Exception) {
-                // 更新檢查失敗不影響市場正常使用，也不顯示錯誤視窗。
+                // 更新檢查失敗不影響市場正常使用。
             }
         }.start()
     }
