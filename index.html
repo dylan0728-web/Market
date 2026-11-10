@@ -296,8 +296,8 @@ function readMarketVersion(){
 
     try{
         if(window.AndroidMarket &&
-           typeof window.AndroidMarket.getMarketVersionName==="function"){
-            const version=window.AndroidMarket.getMarketVersionName();
+           typeof window.AndroidMarket.getAppVersionName==="function"){
+            const version=window.AndroidMarket.getAppVersionName();
             versionElement.textContent="市場版本："+(version||"未知");
         }else{
             versionElement.textContent="市場版本：無法讀取";
