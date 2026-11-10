@@ -288,6 +288,26 @@ function setStatus(message){
     statusElement.textContent=message;
 }
 
+/* 判斷是否為市場自己的更新 APK */
+function isMarketUpdateAsset(fileName){
+    const name=String(fileName||"").trim().toLowerCase();
+
+    const excludedNames=[
+        "hy.apk",
+        "hyupdate.apk",
+        "hy_update.apk",
+        "hy應用市場.apk",
+        "hy應用市場更新.apk"
+    ];
+
+    if(excludedNames.includes(name))return true;
+
+    if(/^hyupdate[-_].*\.apk$/i.test(name))return true;
+    if(/^hy應用市場[-_].*\.apk$/i.test(name))return true;
+
+    return false;
+}
+
 function readDeviceMac(){
     const macElement=document.getElementById("macInfo");
     if(!macElement)return;
@@ -878,8 +898,8 @@ async function loadApps(){
                 if(typeof asset.browser_download_url!=="string")return;
                 if(asset.browser_download_url.indexOf(RELEASE_PREFIX)!==0)return;
 
-                /* 排除市場本身的更新安裝檔 */
-                if(asset.name==="HY應用市場.apk")return;
+                /* 排除 HY 市場本身的自動更新 APK */
+                if(isMarketUpdateAsset(asset.name))return;
 
                 if(asset.name==="File.Manager.+_3.2.8.apk")return;
                 if(seenFiles.has(asset.name))return;
