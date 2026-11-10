@@ -285,10 +285,6 @@ let selectedIndex=0;
 let currentApp=null;
 let loading=false;
 
-function setStatus(message){
-    statusElement.textContent=message;
-}
-
 /* 讀取目前安裝的市場版本 */
 function readMarketVersion(){
     const versionElement=document.getElementById("marketVersion");
@@ -327,6 +323,39 @@ function isMarketUpdateAsset(fileName){
     return false;
 }
 
+/* 取得雲端授權等級，不在畫面顯示 */
+function getSpecialAccessLevel(){
+    try{
+        if(window.AndroidMarket &&
+           typeof window.AndroidMarket.getSpecialAccessLevel==="function"){
+            const level=String(
+                window.AndroidMarket.getSpecialAccessLevel()||""
+            ).trim().toUpperCase();
+
+            if(level==="SSS")return "SSS";
+            if(level==="S")return "S";
+        }
+    }catch(error){
+    }
+
+    return "";
+}
+
+/* 判斷 APK 是否符合目前授權 */
+function canShowSpecialApk(fileName,level){
+    const name=String(fileName||"").trim();
+
+    if(name.endsWith("_SSS.apk")||name.toLowerCase().endsWith("_sss.apk")){
+        return level==="SSS";
+    }
+
+    if(name.endsWith("_S.apk")||name.toLowerCase().endsWith("_s.apk")){
+        return level==="S"||level==="SSS";
+    }
+
+    return true;
+}
+
 function readDeviceMac(){
     const macElement=document.getElementById("macInfo");
     if(!macElement)return;
@@ -342,6 +371,10 @@ function readDeviceMac(){
     }catch(error){
         macElement.textContent="MAC：讀取失敗";
     }
+}
+
+function setStatus(message){
+    statusElement.textContent=message;
 }
 
 function formatSize(bytes){
@@ -905,6 +938,7 @@ async function loadApps(){
         }
 
         const seenFiles=new Set();
+        const specialLevel=getSpecialAccessLevel();
 
         releases.forEach(function(release){
             if(!release||release.draft||release.prerelease)return;
@@ -919,6 +953,9 @@ async function loadApps(){
 
                 /* 排除 HY 市場本身的自動更新 APK */
                 if(isMarketUpdateAsset(asset.name))return;
+
+                /* 依照雲端 S／SSS 權限篩選特殊 APK */
+                if(!canShowSpecialApk(asset.name,specialLevel))return;
 
                 if(asset.name==="File.Manager.+_3.2.8.apk")return;
                 if(seenFiles.has(asset.name))return;
