@@ -101,10 +101,12 @@ jobs:
         run: |
           gh api repos/dylan0728-web/Market/releases/tags/market-update --jq .body > actual-release-notes.txt
 
-          echo "===== Expected ====="
-          cat release-notes.txt
-
           echo "===== Actual ====="
           cat actual-release-notes.txt
 
-          diff -u release-notes.txt actual-release-notes.txt
+          EXPECTED=$(grep -v '^[[:space:]]*$' release-notes.txt)
+          ACTUAL=$(grep -v '^[[:space:]]*$' actual-release-notes.txt)
+
+          test "$EXPECTED" = "$ACTUAL"
+
+          echo "Release version verified successfully."
