@@ -59,7 +59,7 @@ h1{
 }
 #apps{
     display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-columns:repeat(4,minmax(0,1fr));
     gap:22px;
     padding-bottom:40px;
 }
@@ -88,8 +88,8 @@ h1{
     transform:scale(1.025);
 }
 .app-icon{
-    width:42%;
-    max-width:116px;
+    width:40%;
+    max-width:110px;
     aspect-ratio:1 / 1;
     flex-shrink:0;
     border-radius:20px;
@@ -382,14 +382,12 @@ function iconFor(fileName){
         : "";
 }
 
-/* 取得實際網頁捲動位置 */
 function getPageScroller(){
     return document.scrollingElement ||
         document.documentElement ||
         document.body;
 }
 
-/* 平滑捲動到指定位置 */
 function smoothPageScroll(target){
     const scroller=getPageScroller();
     const maxScroll=Math.max(
@@ -406,16 +404,10 @@ function smoothPageScroll(target){
     });
 }
 
-/* 回到 MAC 所在的最上方 */
 function scrollPageToTop(){
     smoothPageScroll(0);
 }
 
-/*
- * 上下移動時使用相同捲動方式。
- * 選取框接近畫面上方或下方時，
- * 畫面跟著逐排平滑移動。
- */
 function scrollCardIntoView(card,index,direction){
     if(!card)return;
 
@@ -960,13 +952,13 @@ document.addEventListener("keydown",function(event){
 
     if(key==="ArrowDown"||keyCode===20){
         event.preventDefault();
-        moveSelection(selectedIndex+3,"down");
+        moveSelection(selectedIndex+4,"down");
         return;
     }
 
     if(key==="ArrowUp"||keyCode===19){
         event.preventDefault();
-        moveSelection(selectedIndex-3,"up");
+        moveSelection(selectedIndex-4,"up");
         return;
     }
 
