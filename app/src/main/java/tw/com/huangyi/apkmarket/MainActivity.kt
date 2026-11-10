@@ -68,6 +68,9 @@ class MainActivity : Activity() {
     private var specialAuthorized = false
 
     @Volatile
+    private var specialAccessLevel = ""
+
+    @Volatile
     private var authorizationDeviceMac = ""
 
     @Volatile
@@ -129,6 +132,7 @@ class MainActivity : Activity() {
 
         authorized = false
         specialAuthorized = false
+        specialAccessLevel = ""
         authorizationDeviceMac = ""
         authorizationErrorMessage = "正在檢查授權"
 
@@ -158,6 +162,7 @@ class MainActivity : Activity() {
     private fun showAuthorizationDenied() {
         authorized = false
         specialAuthorized = false
+        specialAccessLevel = ""
 
         val mac = authorizationDeviceMac.ifBlank {
             "無法讀取 MAC"
@@ -237,7 +242,8 @@ class MainActivity : Activity() {
                     if (isFinishing || isDestroyed) return@runOnUiThread
 
                     authorized = true
-                    specialAuthorized = result.second
+                    specialAccessLevel = result.second
+                    specialAuthorized = specialAccessLevel.isNotBlank()
                     authorizationErrorMessage = ""
                     showMarket()
                 }
@@ -245,6 +251,7 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 authorized = false
                 specialAuthorized = false
+                specialAccessLevel = ""
                 authorizationErrorMessage = e.message ?: "未知授權錯誤"
 
                 runOnUiThread {
@@ -521,31 +528,31 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 授權比對
+    // 授權比對：第三欄支援空白、S、SSS
     // =====================================================
 
     private fun verifyAuthorization(
         content: String,
         deviceMac: String
-    ): Pair<Boolean, Boolean> {
+    ): Pair<Boolean, String> {
 
         val normalizedDeviceMac = normalizeMacAddress(deviceMac)
 
         if (normalizedDeviceMac.isBlank()) {
             authorizationErrorMessage =
                 "機器 MAC 標準化失敗。\n原始 MAC：${deviceMac.take(80)}"
-            return Pair(false, false)
+            return Pair(false, "")
         }
 
         val cleanContent = cleanAuthorizationText(content)
 
         if (cleanContent.isBlank()) {
             authorizationErrorMessage = "授權檔解密後內容為空。"
-            return Pair(false, false)
+            return Pair(false, "")
         }
 
         var foundAuthorization = false
-        var foundSpecialAuthorization = false
+        var foundSpecialLevel = ""
         var matchingMacFound = false
         var matchingMacDateError = ""
         var matchingMacExpired = ""
@@ -634,13 +641,18 @@ class MainActivity : Activity() {
             foundAuthorization = true
 
             val flag = if (columns.size >= 3) {
-                cleanAuthorizationText(columns[2]).trim()
+                cleanAuthorizationText(columns[2]).trim().uppercase(Locale.ROOT)
             } else {
                 ""
             }
 
-            if (flag.equals("S", ignoreCase = true)) {
-                foundSpecialAuthorization = true
+            when (flag) {
+                "SSS" -> foundSpecialLevel = "SSS"
+                "S" -> {
+                    if (foundSpecialLevel != "SSS") {
+                        foundSpecialLevel = "S"
+                    }
+                }
             }
         }
 
@@ -678,7 +690,7 @@ class MainActivity : Activity() {
             }
         }
 
-        return Pair(foundAuthorization, foundSpecialAuthorization)
+        return Pair(foundAuthorization, foundSpecialLevel)
     }
 
     private fun cleanAuthorizationText(value: String): String {
@@ -844,6 +856,7 @@ class MainActivity : Activity() {
         if (!authorized || normalizeMacAddress(authorizationDeviceMac).isBlank()) {
             authorized = false
             specialAuthorized = false
+            specialAccessLevel = ""
             showAuthorizationDenied()
             return
         }
@@ -1144,14 +1157,18 @@ class MainActivity : Activity() {
         fun isAuthorized(): Boolean = authorized
 
         @JavascriptInterface
-        fun hasSpecialAccess(): Boolean = authorized && specialAuthorized
+        fun hasSpecialAccess(): Boolean = authorized && specialAccessLevel.isNotBlank()
+
+        @JavascriptInterface
+        fun getSpecialAccessLevel(): String {
+            return if (authorized) specialAccessLevel else ""
+        }
 
         @JavascriptInterface
         fun getDeviceMac(): String {
             return authorizationDeviceMac.ifBlank { readHardwareMac() }
         }
 
-        // 提供目前實際安裝的市場版本給首頁顯示
         @JavascriptInterface
         fun getAppVersionName(): String {
             return try {
@@ -1175,7 +1192,7 @@ class MainActivity : Activity() {
                     val fileName = item.optString("fileName", "")
                     val appName = item.optString("appName", "")
 
-                    if (isSpecialApk(fileName) && !specialAuthorized) continue
+                    if (!canAccessApk(fileName)) continue
 
                     var packageName = prefs.getString("package_$fileName", "") ?: ""
                     var installed = false
@@ -1277,10 +1294,10 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun startDownload(url: String, fileName: String) {
             runOnUiThread {
-                if (isSpecialApk(fileName) && !specialAuthorized) {
+                if (!canAccessApk(fileName)) {
                     Toast.makeText(
                         this@MainActivity,
-                        "此軟體尚未取得特殊軟體授權",
+                        "無法下載此應用程式",
                         Toast.LENGTH_LONG
                     ).show()
                     return@runOnUiThread
@@ -1302,11 +1319,27 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // APK 名稱及特殊軟體判斷
+    // APK 權限判斷
     // =====================================================
 
-    private fun isSpecialApk(fileName: String): Boolean {
-        return fileName.trim().endsWith("_S.apk", ignoreCase = true)
+    private fun requiredSpecialLevel(fileName: String): String {
+        val name = fileName.trim()
+
+        return when {
+            name.endsWith("_SSS.apk", ignoreCase = true) -> "SSS"
+            name.endsWith("_S.apk", ignoreCase = true) -> "S"
+            else -> ""
+        }
+    }
+
+    private fun canAccessApk(fileName: String): Boolean {
+        if (!authorized) return false
+
+        return when (requiredSpecialLevel(fileName)) {
+            "SSS" -> specialAccessLevel == "SSS"
+            "S" -> specialAccessLevel == "S" || specialAccessLevel == "SSS"
+            else -> true
+        }
     }
 
     private fun normalizeName(value: String): String {
@@ -1370,10 +1403,10 @@ class MainActivity : Activity() {
     // =====================================================
 
     private fun downloadApk(url: String, fileName: String) {
-        if (isSpecialApk(fileName) && !specialAuthorized) {
+        if (!canAccessApk(fileName)) {
             Toast.makeText(
                 this,
-                "此軟體尚未取得特殊軟體授權",
+                "無法下載此應用程式",
                 Toast.LENGTH_LONG
             ).show()
             return
@@ -1400,6 +1433,11 @@ class MainActivity : Activity() {
 
         if (safeName.isBlank() || !safeName.endsWith(".apk", true)) {
             Toast.makeText(this, "APK 檔名不正確", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        if (!canAccessApk(safeName)) {
+            Toast.makeText(this, "無法下載此應用程式", Toast.LENGTH_LONG).show()
             return
         }
 
@@ -1779,6 +1817,7 @@ class MainActivity : Activity() {
 
         authorized = false
         specialAuthorized = false
+        specialAccessLevel = ""
 
         if (::webView.isInitialized) {
             webView.destroy()
