@@ -1,6 +1,8 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -53,6 +55,13 @@ class MainActivity : Activity() {
 
     private val activeDownloads = mutableSetOf<String>()
 
+    // 市場自動更新狀態
+    @Volatile
+    private var marketUpdateCheckStarted = false
+
+    @Volatile
+    private var marketUpdateDownloading = false
+
     @Volatile
     private var authorized = false
 
@@ -78,6 +87,16 @@ class MainActivity : Activity() {
 
         private const val AUTH_ERROR =
             "此機器MAC授權到期或是未授權"
+
+        // HY 市場專用更新 Release
+        private const val MARKET_UPDATE_API =
+            "https://api.github.com/repos/dylan0728-web/Market/releases/tags/market-update"
+
+        private const val MARKET_UPDATE_PREFIX =
+            "https://github.com/dylan0728-web/Market/releases/download/"
+
+        private const val MARKET_UPDATE_FILE =
+            "HY應用市場.apk"
     }
 
     private val httpClient by lazy {
@@ -775,6 +794,253 @@ class MainActivity : Activity() {
 
         setContentView(layout)
         webView.loadUrl(MARKET_URL)
+
+        // 進入市場後才檢查更新，不影響前面的 MAC 授權流程。
+        checkMarketUpdate()
+    }
+
+    // =====================================================
+    // HY 市場自動更新檢查
+    // =====================================================
+
+    private fun getInstalledMarketVersionCode(): Long {
+        val info = packageManager.getPackageInfo(packageName, 0)
+
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+    }
+
+    private fun checkMarketUpdate() {
+        if (!authorized || marketUpdateCheckStarted) return
+
+        marketUpdateCheckStarted = true
+
+        Thread {
+            try {
+                val request = Request.Builder()
+                    .url(MARKET_UPDATE_API)
+                    .get()
+                    .header("Accept", "application/vnd.github+json")
+                    .header("X-GitHub-Api-Version", "2022-11-28")
+                    .header("Cache-Control", "no-cache")
+                    .header("User-Agent", "HY-App-Market")
+                    .build()
+
+                val updateInfo = httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        throw IOException("GitHub 更新資訊 HTTP ${response.code}")
+                    }
+
+                    val body = response.body?.string()
+                        ?: throw IOException("GitHub 沒有回傳更新資訊")
+
+                    val release = JSONObject(body)
+                    val releaseBody = release.optString("body", "")
+
+                    val versionCodeMatch = Regex(
+                        "(?m)^versionCode\\s*=\\s*(\\d+)\\s*$"
+                    ).find(releaseBody)
+
+                    val versionNameMatch = Regex(
+                        "(?m)^versionName\\s*=\\s*(.+?)\\s*$"
+                    ).find(releaseBody)
+
+                    val dateMatch = Regex(
+                        "(?m)^date\\s*=\\s*(\\d{4}/\\d{2}/\\d{2})\\s*$"
+                    ).find(releaseBody)
+
+                    val remoteVersionCode =
+                        versionCodeMatch?.groupValues?.get(1)?.toLongOrNull()
+                            ?: throw IOException("更新版本號格式錯誤")
+
+                    val remoteVersionName =
+                        versionNameMatch?.groupValues?.get(1)?.trim()
+                            ?: throw IOException("更新版本名稱不存在")
+
+                    val remoteDate =
+                        dateMatch?.groupValues?.get(1)
+                            ?: "版本日期未提供"
+
+                    val assets = release.optJSONArray("assets")
+                        ?: throw IOException("更新 APK 檔案清單不存在")
+
+                    var apkUrl = ""
+
+                    for (i in 0 until assets.length()) {
+                        val asset = assets.optJSONObject(i) ?: continue
+
+                        if (asset.optString("name") == MARKET_UPDATE_FILE) {
+                            apkUrl = asset.optString("browser_download_url", "")
+                            break
+                        }
+                    }
+
+                    if (
+                        apkUrl.isBlank() ||
+                        !apkUrl.startsWith(MARKET_UPDATE_PREFIX)
+                    ) {
+                        throw IOException("找不到正確的市場更新 APK")
+                    }
+
+                    val installedVersionCode = getInstalledMarketVersionCode()
+
+                    if (remoteVersionCode > installedVersionCode) {
+                        Triple(
+                            remoteVersionName,
+                            remoteDate,
+                            apkUrl
+                        )
+                    } else {
+                        null
+                    }
+                }
+
+                if (updateInfo != null) {
+                    runOnUiThread {
+                        if (
+                            isFinishing ||
+                            isDestroyed ||
+                            !authorized
+                        ) return@runOnUiThread
+
+                        showMarketUpdateDialog(
+                            updateInfo.first,
+                            updateInfo.second,
+                            updateInfo.third
+                        )
+                    }
+                }
+
+            } catch (e: Exception) {
+                // 更新檢查失敗不影響市場正常使用，也不顯示錯誤視窗。
+            }
+        }.start()
+    }
+
+    private fun showMarketUpdateDialog(
+        versionName: String,
+        versionDate: String,
+        apkUrl: String
+    ) {
+        if (!authorized || isFinishing || isDestroyed) return
+
+        AlertDialog.Builder(this)
+            .setTitle("發現應用市場新版")
+            .setMessage(
+                "最新版本：$versionName\n" +
+                    "版本日期：$versionDate\n\n" +
+                    "是否立即更新應用市場？"
+            )
+            .setPositiveButton("立即更新") { _, _ ->
+                downloadMarketUpdate(apkUrl)
+            }
+            .setNegativeButton("稍後更新") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun downloadMarketUpdate(apkUrl: String) {
+        if (!authorized) return
+
+        if (!apkUrl.startsWith(MARKET_UPDATE_PREFIX)) {
+            Toast.makeText(
+                this,
+                "市場更新網址不正確",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        if (marketUpdateDownloading) return
+
+        marketUpdateDownloading = true
+
+        Toast.makeText(
+            this,
+            "正在下載應用市場更新，請稍候...",
+            Toast.LENGTH_LONG
+        ).show()
+
+        Thread {
+            val downloadDirectory =
+                getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
+
+            val apkFile = File(downloadDirectory, MARKET_UPDATE_FILE)
+            val tempFile = File(downloadDirectory, "$MARKET_UPDATE_FILE.part")
+
+            try {
+                downloadWithRetry(
+                    apkUrl,
+                    tempFile,
+                    MARKET_UPDATE_FILE
+                )
+
+                if (tempFile.length() <= 0L) {
+                    throw IOException("市場更新檔案是空的")
+                }
+
+                if (apkFile.exists() && !apkFile.delete()) {
+                    throw IOException("無法覆蓋舊的市場更新檔")
+                }
+
+                if (!tempFile.renameTo(apkFile)) {
+                    tempFile.copyTo(apkFile, overwrite = true)
+                    tempFile.delete()
+                }
+
+                if (!apkFile.exists() || apkFile.length() <= 0L) {
+                    throw IOException("市場更新檔儲存失敗")
+                }
+
+                val archiveInfo = packageManager.getPackageArchiveInfo(
+                    apkFile.absolutePath,
+                    0
+                ) ?: throw IOException("下載檔案不是有效的 APK")
+
+                if (archiveInfo.packageName != packageName) {
+                    throw IOException("更新 APK 套件名稱不符，已停止安裝")
+                }
+
+                val uri = FileProvider.getUriForFile(
+                    this,
+                    "$packageName.fileprovider",
+                    apkFile
+                )
+
+                runOnUiThread {
+                    marketUpdateDownloading = false
+
+                    if (!authorized || isFinishing || isDestroyed) return@runOnUiThread
+
+                    Toast.makeText(
+                        this,
+                        "市場更新檔下載完成，準備安裝",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    openApkInstaller(uri)
+                }
+
+            } catch (e: Exception) {
+                tempFile.delete()
+
+                runOnUiThread {
+                    marketUpdateDownloading = false
+
+                    Toast.makeText(
+                        this,
+                        "市場更新下載失敗：${e.message ?: "未知錯誤"}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }.start()
     }
 
     // =====================================================
