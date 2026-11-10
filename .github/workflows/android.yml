@@ -13,7 +13,7 @@ jobs:
 
     env:
       HY_KEYSTORE_BASE64: ${{ secrets.HY_KEYSTORE_BASE64 }}
-      HY_KEYSTORE_PATH: ${{ runner.temp }}/hy-market.jks
+      HY_KEYSTORE_PATH: hy-market.jks
       HY_KEYSTORE_PASSWORD: ${{ secrets.HY_KEYSTORE_PASSWORD }}
       HY_KEY_ALIAS: ${{ secrets.HY_KEY_ALIAS }}
       HY_KEY_PASSWORD: ${{ secrets.HY_KEY_PASSWORD }}
@@ -42,8 +42,7 @@ jobs:
         run: gradle assembleDebug
 
       - name: Rename APK
-        run: |
-          cp app/build/outputs/apk/debug/app-debug.apk HY應用市場.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HY應用市場.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
