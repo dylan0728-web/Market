@@ -39,6 +39,11 @@ h1{
     margin:0;
     letter-spacing:1px;
 }
+#versionDate{
+    color:#aebed2;
+    font-size:15px;
+    margin-top:6px;
+}
 #macInfo{
     color:#e0e9f5;
     font-size:19px;
@@ -234,7 +239,10 @@ button:focus{outline:2px solid #fff}
 <body>
 
 <header>
+<div>
 <h1>HY應用市場</h1>
+<div id="versionDate">版本日期：2026/11/10</div>
+</div>
 <div id="macInfo">MAC：讀取中...</div>
 </header>
 
@@ -433,9 +441,6 @@ function scrollCardIntoView(card,index,direction){
             return;
         }
 
-        /*
-         * 往上移動時，選取框接近上方就同步向上捲。
-         */
         const upperLimit=Math.max(headerBottom+25,viewportHeight*0.25);
 
         if(rect.top<upperLimit){
@@ -445,9 +450,6 @@ function scrollCardIntoView(card,index,direction){
             target=currentScroll-rowStep;
         }
     }else if(direction==="down"){
-        /*
-         * 往下移動時，選取框接近下方就同步向下捲。
-         */
         const lowerLimit=viewportHeight*0.75;
 
         if(rect.bottom>lowerLimit){
@@ -608,7 +610,6 @@ function updateSelection(){
     });
 }
 
-/* 移動選取框，並把移動方向傳給捲動畫 */
 function moveSelection(next,direction){
     if(!appList.length)return;
 
@@ -884,6 +885,10 @@ async function loadApps(){
                 if(!asset.name.toLowerCase().endsWith(".apk"))return;
                 if(typeof asset.browser_download_url!=="string")return;
                 if(asset.browser_download_url.indexOf(RELEASE_PREFIX)!==0)return;
+
+                /* 排除市場本身的更新安裝檔 */
+                if(asset.name==="HY應用市場.apk")return;
+
                 if(asset.name==="File.Manager.+_3.2.8.apk")return;
                 if(seenFiles.has(asset.name))return;
 
