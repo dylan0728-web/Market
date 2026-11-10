@@ -7,6 +7,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -50,3 +53,27 @@ jobs:
           name: HY應用市場
           path: HY應用市場.apk
           if-no-files-found: error
+
+      - name: Prepare market release notes
+        run: |
+          VERSION_CODE=$(sed -n 's/^[[:space:]]*versionCode[[:space:]]*\([0-9][0-9]*\).*/\1/p' app/build.gradle | head -n 1)
+          VERSION_NAME=$(sed -n "s/^[[:space:]]*versionName[[:space:]]*'\([^']*\)'.*/\1/p" app/build.gradle | head -n 1)
+          DATE=$(TZ=Asia/Taipei date +'%Y/%m/%d')
+
+          test -n "$VERSION_CODE"
+          test -n "$VERSION_NAME"
+
+          printf 'versionCode=%s\nversionName=%s\ndate=%s\n' \
+            "$VERSION_CODE" "$VERSION_NAME" "$DATE" > release-notes.txt
+
+      - name: Publish market update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: market-update
+          name: HY應用市場更新
+          body_path: release-notes.txt
+          files: HY應用市場.apk
+          overwrite_files: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
