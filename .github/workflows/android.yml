@@ -68,6 +68,8 @@ jobs:
           printf 'versionCode=%s\nversionName=%s\ndate=%s\n' \
             "$VERSION_CODE" "$VERSION_NAME" "$DATE" > release-notes.txt
 
+          cat release-notes.txt
+
       - name: Publish market update release
         uses: softprops/action-gh-release@v2
         with:
@@ -79,3 +81,11 @@ jobs:
           make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Force update release information
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit market-update \
+            --title "HY應用市場更新" \
+            --notes-file release-notes.txt
