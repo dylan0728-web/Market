@@ -45,7 +45,9 @@ jobs:
         run: gradle assembleDebug
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HY應用市場.apk
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk HY應用市場.apk
+          cp app/build/outputs/apk/debug/app-debug.apk HY.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -72,7 +74,7 @@ jobs:
           tag_name: market-update
           name: HY應用市場更新
           body_path: release-notes.txt
-          files: HY應用市場.apk
+          files: HY.apk
           overwrite_files: true
           make_latest: false
         env:
