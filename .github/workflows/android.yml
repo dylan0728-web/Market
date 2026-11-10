@@ -11,6 +11,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      HY_KEYSTORE_BASE64: ${{ secrets.HY_KEYSTORE_BASE64 }}
+      HY_KEYSTORE_PATH: ${{ runner.temp }}/hy-market.jks
+      HY_KEYSTORE_PASSWORD: ${{ secrets.HY_KEYSTORE_PASSWORD }}
+      HY_KEY_ALIAS: ${{ secrets.HY_KEY_ALIAS }}
+      HY_KEY_PASSWORD: ${{ secrets.HY_KEY_PASSWORD }}
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -26,12 +33,21 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Prepare signing key
+        run: |
+          printf '%s' "$HY_KEYSTORE_BASE64" | base64 --decode > "$HY_KEYSTORE_PATH"
+          test -s "$HY_KEYSTORE_PATH"
+
+      - name: Build signed APK
         run: gradle assembleDebug
+
+      - name: Rename APK
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk HY應用市場.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HuangYi-ApkMarket
-          path: app/build/outputs/apk/debug/*.apk
+          name: HY應用市場
+          path: HY應用市場.apk
           if-no-files-found: error
