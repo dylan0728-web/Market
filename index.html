@@ -39,7 +39,7 @@ h1{
     margin:0;
     letter-spacing:1px;
 }
-#versionDate{
+#versionDate,#marketVersion{
     color:#aebed2;
     font-size:15px;
     margin-top:6px;
@@ -242,6 +242,7 @@ button:focus{outline:2px solid #fff}
 <div>
 <h1>HY應用市場</h1>
 <div id="versionDate">版本日期：2026/11/10</div>
+<div id="marketVersion">市場版本：讀取中...</div>
 </div>
 <div id="macInfo">MAC：讀取中...</div>
 </header>
@@ -286,6 +287,24 @@ let loading=false;
 
 function setStatus(message){
     statusElement.textContent=message;
+}
+
+/* 讀取目前安裝的市場版本 */
+function readMarketVersion(){
+    const versionElement=document.getElementById("marketVersion");
+    if(!versionElement)return;
+
+    try{
+        if(window.AndroidMarket &&
+           typeof window.AndroidMarket.getMarketVersionName==="function"){
+            const version=window.AndroidMarket.getMarketVersionName();
+            versionElement.textContent="市場版本："+(version||"未知");
+        }else{
+            versionElement.textContent="市場版本：無法讀取";
+        }
+    }catch(error){
+        versionElement.textContent="市場版本：讀取失敗";
+    }
 }
 
 /* 判斷是否為市場自己的更新 APK */
@@ -1000,6 +1019,7 @@ document.addEventListener("keydown",function(event){
 },true);
 
 readDeviceMac();
+readMarketVersion();
 loadApps();
 
 })();
