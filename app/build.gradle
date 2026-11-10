@@ -4,6 +4,8 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+def keystorePath = System.getenv("HY_KEYSTORE_PATH")
+
 android {
     namespace 'tw.com.huangyi.apkmarket'
     compileSdk 35
@@ -14,6 +16,25 @@ android {
         targetSdk 28
         versionCode 2
         versionName '0.2-download-fix'
+    }
+
+    signingConfigs {
+        if (keystorePath) {
+            release {
+                storeFile file(keystorePath)
+                storePassword System.getenv("HY_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("HY_KEY_ALIAS")
+                keyPassword System.getenv("HY_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (keystorePath) {
+                signingConfig signingConfigs.release
+            }
+        }
     }
 
     compileOptions {
