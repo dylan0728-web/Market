@@ -82,10 +82,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Force update release information
+      - name: Update release information directly
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release edit market-update \
-            --title "HY應用市場更新" \
-            --notes-file release-notes.txt
+          RELEASE_ID=$(gh api repos/dylan0728-web/Market/releases/tags/market-update --jq .id)
+          test -n "$RELEASE_ID"
+
+          gh api "repos/dylan0728-web/Market/releases/$RELEASE_ID" \
+            --method PATCH \
+            -F body="$(cat release-notes.txt)"
+
+          echo "Release information updated."
