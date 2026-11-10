@@ -89,8 +89,22 @@ jobs:
           RELEASE_ID=$(gh api repos/dylan0728-web/Market/releases/tags/market-update --jq .id)
           test -n "$RELEASE_ID"
 
+          jq -n --rawfile body release-notes.txt '{body: $body}' > release-update.json
+
           gh api "repos/dylan0728-web/Market/releases/$RELEASE_ID" \
             --method PATCH \
-            -F body="$(cat release-notes.txt)"
+            --input release-update.json
 
-          echo "Release information updated."
+      - name: Verify release information
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/dylan0728-web/Market/releases/tags/market-update --jq .body > actual-release-notes.txt
+
+          echo "===== Expected ====="
+          cat release-notes.txt
+
+          echo "===== Actual ====="
+          cat actual-release-notes.txt
+
+          diff -u release-notes.txt actual-release-notes.txt
