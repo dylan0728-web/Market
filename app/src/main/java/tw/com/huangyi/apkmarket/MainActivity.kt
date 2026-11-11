@@ -246,7 +246,6 @@ class MainActivity : Activity() {
                     specialAuthorized = specialAccessLevel.isNotBlank()
                     authorizationErrorMessage = ""
 
-                    // 暫時診斷：顯示實際讀取到的特殊權限
                     val diagnosticLevel =
                         specialAccessLevel.ifBlank { "空白" }
 
@@ -334,8 +333,10 @@ class MainActivity : Activity() {
                 ?: throw Exception("MEGA 權限資料夾檔案清單不存在")
         }
 
-        var userNode: JSONObject? = null
-        var userNodeKey: ByteArray? = null
+        // 收集所有 USER.txt，不再遇到第一個就停止。
+        // MEGA 節點 ts 是檔案修改時間，選擇修改時間最新的檔案。
+        val userCandidates =
+            mutableListOf<Triple<Long, JSONObject, ByteArray>>()
 
         for (i in 0 until nodes.length()) {
             val node = nodes.optJSONObject(i) ?: continue
@@ -401,18 +402,38 @@ class MainActivity : Activity() {
                 ""
             }
 
-            if (fileName == "USER.txt") {
-                userNode = node
-                userNodeKey = decryptedNodeKey
-                break
+            if (fileName.equals("USER.txt", ignoreCase = true)) {
+                val modifiedTime = node.optLong("ts", 0L)
+
+                userCandidates.add(
+                    Triple(
+                        modifiedTime,
+                        node,
+                        decryptedNodeKey
+                    )
+                )
             }
         }
 
-        val targetNode = userNode
-            ?: throw Exception("MEGA 權限資料夾內找不到 USER.txt")
+        if (userCandidates.isEmpty()) {
+            throw Exception("MEGA 權限資料夾內找不到 USER.txt")
+        }
 
-        val nodeKey = userNodeKey
-            ?: throw Exception("USER.txt 金鑰不存在，無法解密")
+        // 取 MEGA 修改時間最新的 USER.txt。
+        // 若時間相同，使用清單中最後出現的檔案。
+        val newestCandidate = userCandidates
+            .withIndex()
+            .maxWithOrNull(
+                compareBy<IndexedValue<Triple<Long, JSONObject, ByteArray>>> {
+                    it.value.first
+                }.thenBy {
+                    it.index
+                }
+            )?.value
+            ?: throw Exception("無法選擇最新的 USER.txt")
+
+        val targetNode = newestCandidate.second
+        val nodeKey = newestCandidate.third
 
         val nodeHandle = targetNode.optString("h", "")
 
