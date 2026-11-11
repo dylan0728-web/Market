@@ -185,10 +185,9 @@ class MainActivity : Activity() {
         }
 
         val detail = TextView(this).apply {
-            text = "機器Mac：$mac"
-            textSize = 26f
+            text = "機器Mac：$mac\n\n授權檢查：\n$authorizationErrorMessage"
+            textSize = 20f
             setTextColor(0xFFFFFFFF.toInt())
-            setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
             setPadding(10, 10, 10, 15)
         }
@@ -200,7 +199,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 雲端授權檢查
+    // 雲端授權檢查：逐一比對所有網卡 MAC
     // =====================================================
 
     private fun checkCloudAuthorization() {
@@ -208,12 +207,13 @@ class MainActivity : Activity() {
             try {
                 authorizationErrorMessage = "正在讀取機器 MAC"
 
-                val deviceMac = readHardwareMac()
-                authorizationDeviceMac = deviceMac
+                val deviceMacCandidates = readHardwareMacCandidates()
 
-                if (deviceMac.isBlank()) {
-                    throw Exception("無法讀取機器 MAC，請確認電視盒網卡")
+                if (deviceMacCandidates.isEmpty()) {
+                    throw Exception("無法讀取任何有效網卡 MAC，請確認電視盒網卡")
                 }
+
+                authorizationDeviceMac = deviceMacCandidates.first()
 
                 authorizationErrorMessage = "正在連線 MEGA 下載授權檔"
 
@@ -223,18 +223,35 @@ class MainActivity : Activity() {
                     throw Exception("MEGA 授權檔內容為空")
                 }
 
-                authorizationErrorMessage = "授權檔已下載，正在比對 MAC 與期限"
+                authorizationErrorMessage = "授權檔已下載，正在逐一比對網卡 MAC 與期限"
 
-                val result = verifyAuthorization(
-                    authorizationText,
-                    deviceMac
-                )
+                var matchedMac = ""
+                var matchedSpecialLevel = ""
+                var lastAuthorizationError = ""
 
-                if (!result.first) {
+                for (candidateMac in deviceMacCandidates) {
+                    val result = verifyAuthorization(
+                        authorizationText,
+                        candidateMac
+                    )
+
+                    if (result.first) {
+                        matchedMac = candidateMac
+                        matchedSpecialLevel = result.second
+                        break
+                    }
+
+                    lastAuthorizationError = authorizationErrorMessage
+                }
+
+                if (matchedMac.isBlank()) {
+                    authorizationDeviceMac = deviceMacCandidates.joinToString("\n")
                     throw Exception(
-                        authorizationErrorMessage.ifBlank {
-                            "授權檔已成功讀取，但找不到符合的有效授權。"
-                        }
+                        "已讀取所有網卡 MAC，但沒有任何一組通過授權。\n" +
+                            "讀取到的 MAC：\n" +
+                            deviceMacCandidates.joinToString("\n") +
+                            "\n\n比對結果：\n" +
+                            lastAuthorizationError
                     )
                 }
 
@@ -242,7 +259,8 @@ class MainActivity : Activity() {
                     if (isFinishing || isDestroyed) return@runOnUiThread
 
                     authorized = true
-                    specialAccessLevel = result.second
+                    authorizationDeviceMac = matchedMac
+                    specialAccessLevel = matchedSpecialLevel
                     specialAuthorized = specialAccessLevel.isNotBlank()
                     authorizationErrorMessage = ""
 
@@ -265,7 +283,9 @@ class MainActivity : Activity() {
                 authorizationErrorMessage = e.message ?: "未知授權錯誤"
 
                 runOnUiThread {
-                    showAuthorizationDenied()
+                    if (!isFinishing && !isDestroyed) {
+                        showAuthorizationDenied()
+                    }
                 }
             }
         }.start()
@@ -333,8 +353,6 @@ class MainActivity : Activity() {
                 ?: throw Exception("MEGA 權限資料夾檔案清單不存在")
         }
 
-        // 收集所有 USER.txt，不再遇到第一個就停止。
-        // MEGA 節點 ts 是檔案修改時間，選擇修改時間最新的檔案。
         val userCandidates =
             mutableListOf<Triple<Long, JSONObject, ByteArray>>()
 
@@ -419,8 +437,6 @@ class MainActivity : Activity() {
             throw Exception("MEGA 權限資料夾內找不到 USER.txt")
         }
 
-        // 取 MEGA 修改時間最新的 USER.txt。
-        // 若時間相同，使用清單中最後出現的檔案。
         val newestCandidate = userCandidates
             .withIndex()
             .maxWithOrNull(
@@ -694,7 +710,7 @@ class MainActivity : Activity() {
         } else {
             authorizationErrorMessage = buildString {
                 append("授權檔已成功下載及解密。")
-                append("\n目前機器 MAC：$normalizedDeviceMac")
+                append("\n目前比對 MAC：$normalizedDeviceMac")
 
                 if (!matchingMacFound) {
                     append("\n\n診斷結果：找不到相同 MAC。")
@@ -767,21 +783,26 @@ class MainActivity : Activity() {
         return mac
     }
 
-    private fun readHardwareMac(): String {
+    // 收集所有可讀取的實體網卡 MAC，不只使用 eth0。
+    private fun readHardwareMacCandidates(): List<String> {
+        val results = linkedSetOf<String>()
+
         val preferredNames = listOf("eth0", "wlan0", "wlan1", "en0")
 
+        // 先讀取常見網卡名稱。
         for (name in preferredNames) {
             try {
                 val addressFile = File("/sys/class/net/$name/address")
 
                 if (addressFile.exists() && addressFile.canRead()) {
                     val mac = normalizeMacAddress(addressFile.readText().trim())
-                    if (mac.isNotBlank()) return mac
+                    if (mac.isNotBlank()) results.add(mac)
                 }
             } catch (e: Exception) {
             }
         }
 
+        // 再讀取系統內其他網卡。
         try {
             val networkFiles = File("/sys/class/net").listFiles()
 
@@ -814,7 +835,7 @@ class MainActivity : Activity() {
                         if (!addressFile.exists() || !addressFile.canRead()) continue
 
                         val mac = normalizeMacAddress(addressFile.readText().trim())
-                        if (mac.isNotBlank()) return mac
+                        if (mac.isNotBlank()) results.add(mac)
                     } catch (e: Exception) {
                     }
                 }
@@ -822,46 +843,30 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
         }
 
+        // 最後使用 Android NetworkInterface 再補讀一次。
         try {
             val enumeration = NetworkInterface.getNetworkInterfaces()
 
             if (enumeration != null) {
-                val allInterfaces = mutableListOf<NetworkInterface>()
-
                 while (enumeration.hasMoreElements()) {
-                    allInterfaces.add(enumeration.nextElement())
-                }
+                    val networkInterface = enumeration.nextElement()
 
-                val excludedPrefixes = listOf(
-                    "lo", "dummy", "tun", "tap", "rmnet",
-                    "p2p", "sit", "ip6tnl", "veth", "docker", "br-"
-                )
-
-                val candidates = allInterfaces
-                    .filter { networkInterface ->
-                        val name = networkInterface.name.lowercase(Locale.ROOT)
-
-                        try {
-                            !networkInterface.isLoopback &&
-                                !networkInterface.isVirtual &&
-                                excludedPrefixes.none { name.startsWith(it) }
-                        } catch (e: Exception) {
-                            false
-                        }
-                    }
-                    .sortedBy { networkInterface ->
-                        val name = networkInterface.name.lowercase(Locale.ROOT)
-                        when {
-                            name.startsWith("eth") -> 0
-                            name.startsWith("en") -> 1
-                            name.startsWith("wlan") -> 2
-                            name.startsWith("wifi") -> 3
-                            else -> 4
-                        }
-                    }
-
-                for (networkInterface in candidates) {
                     try {
+                        val name = networkInterface.name.lowercase(Locale.ROOT)
+
+                        val excludedPrefixes = listOf(
+                            "lo", "dummy", "tun", "tap", "rmnet",
+                            "p2p", "sit", "ip6tnl", "veth", "docker", "br-"
+                        )
+
+                        if (
+                            networkInterface.isLoopback ||
+                            networkInterface.isVirtual ||
+                            excludedPrefixes.any { name.startsWith(it) }
+                        ) {
+                            continue
+                        }
+
                         val hardwareAddress =
                             networkInterface.hardwareAddress ?: continue
 
@@ -870,7 +875,7 @@ class MainActivity : Activity() {
                         }
 
                         val mac = normalizeMacAddress(rawMac)
-                        if (mac.isNotBlank()) return mac
+                        if (mac.isNotBlank()) results.add(mac)
                     } catch (e: Exception) {
                     }
                 }
@@ -878,7 +883,12 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
         }
 
-        return ""
+        return results.toList()
+    }
+
+    // 保留原本呼叫介面，其他功能不需要更動。
+    private fun readHardwareMac(): String {
+        return readHardwareMacCandidates().firstOrNull() ?: ""
     }
 
     // =====================================================
