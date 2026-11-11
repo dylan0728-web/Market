@@ -245,6 +245,17 @@ class MainActivity : Activity() {
                     specialAccessLevel = result.second
                     specialAuthorized = specialAccessLevel.isNotBlank()
                     authorizationErrorMessage = ""
+
+                    // 暫時診斷：顯示實際讀取到的特殊權限
+                    val diagnosticLevel =
+                        specialAccessLevel.ifBlank { "空白" }
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        "授權成功\n機器 MAC：$authorizationDeviceMac\n特殊權限：$diagnosticLevel",
+                        Toast.LENGTH_LONG
+                    ).show()
+
                     showMarket()
                 }
 
@@ -497,7 +508,8 @@ class MainActivity : Activity() {
             .order(ByteOrder.BIG_ENDIAN)
             .putInt(keyWords[4])
             .putInt(keyWords[5])
-            .putLong(0L)
+            .putInt(keyWords[6])
+            .putInt(keyWords[7])
             .array()
 
         val contentCipher = Cipher.getInstance("AES/CTR/NoPadding")
