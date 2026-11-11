@@ -187,7 +187,7 @@ class MainActivity : Activity() {
 
         val title = TextView(this).apply {
             text = "此機器Mac未授權"
-            textSize = 136f
+            textSize = 32f
             setTextColor(0xFFFF3333.toInt())
             setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
@@ -196,7 +196,7 @@ class MainActivity : Activity() {
 
         val detail = TextView(this).apply {
             text = "機器Mac：$mac"
-            textSize = 34f
+            textSize = 26f
             setTextColor(0xFFFFFFFF.toInt())
             setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
