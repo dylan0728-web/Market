@@ -541,12 +541,14 @@ class MainActivity : Activity() {
             .putInt(keyWords[3] xor keyWords[7])
             .array()
 
+        // MEGA CTR IV 正確格式：
+        // 前 8 bytes 為 nonce（keyWords[4]、keyWords[5]）
+        // 後 8 bytes 必須補 0，不可使用 keyWords[6]、keyWords[7]。
         val iv = ByteBuffer.allocate(16)
             .order(ByteOrder.BIG_ENDIAN)
             .putInt(keyWords[4])
             .putInt(keyWords[5])
-            .putInt(keyWords[6])
-            .putInt(keyWords[7])
+            .putLong(0L)
             .array()
 
         val contentCipher = Cipher.getInstance("AES/CTR/NoPadding")
