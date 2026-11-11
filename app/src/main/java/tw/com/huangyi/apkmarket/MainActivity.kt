@@ -159,6 +159,7 @@ class MainActivity : Activity() {
         setContentView(layout)
     }
 
+    // MAC 未授權畫面：只顯示標題及機器 MAC，不顯示診斷資訊。
     private fun showAuthorizationDenied() {
         authorized = false
         specialAuthorized = false
@@ -185,9 +186,10 @@ class MainActivity : Activity() {
         }
 
         val detail = TextView(this).apply {
-            text = "機器Mac：$mac\n\n授權檢查：\n$authorizationErrorMessage"
-            textSize = 20f
+            text = "機器Mac：$mac"
+            textSize = 26f
             setTextColor(0xFFFFFFFF.toInt())
+            setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
             setPadding(10, 10, 10, 15)
         }
@@ -264,15 +266,7 @@ class MainActivity : Activity() {
                     specialAuthorized = specialAccessLevel.isNotBlank()
                     authorizationErrorMessage = ""
 
-                    val diagnosticLevel =
-                        specialAccessLevel.ifBlank { "空白" }
-
-                    Toast.makeText(
-                        this@MainActivity,
-                        "授權成功\n機器 MAC：$authorizationDeviceMac\n特殊權限：$diagnosticLevel",
-                        Toast.LENGTH_LONG
-                    ).show()
-
+                    // 授權成功不顯示 Toast，直接進入市場。
                     showMarket()
                 }
 
