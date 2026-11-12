@@ -88,7 +88,7 @@ header{align-items:flex-start;flex-direction:column}
 const API="https://api.github.com/repos/dylan0728-web/Market/releases";
 const RELEASE_PREFIX="https://github.com/dylan0728-web/Market/releases/download/";
 const ICON_BASE="https://dylan0728-web.github.io/Market/icons/";
-const ICON_VERSION="20261112";
+const ICON_VERSION="20261113";
 
 const appsElement=document.getElementById("apps");
 const statusElement=document.getElementById("status");
@@ -228,18 +228,18 @@ if(NAME_MAP[fileName])return NAME_MAP[fileName];
 return fileName.replace(/\.apk$/i,"").replace(/[_-]\d[\w.-]*$/,"");
 }
 
-/* 直接依照已上傳的圖片檔名載入，不再呼叫 GitHub icons API */
+/* 依照圖片實際副檔名載入；六張新圖片會依序嘗試 PNG、WEBP、JPG、JPEG */
 function iconFor(fileName){
 const imageName=ICON_MAP[fileName];
 if(!imageName)return "";
 const encoded=encodeURIComponent(imageName);
-const extension=/\\.(png|webp|jpe?g)$/i.test(imageName)?"":".png";
-return ICON_BASE+encoded+extension+"?v="+ICON_VERSION;
+const hasExtension=/\.(png|webp|jpe?g)$/i.test(imageName);
+return ICON_BASE+encoded+(hasExtension?"":".png")+"?v="+ICON_VERSION;
 }
 
 function iconAlternatesFor(fileName){
 const imageName=ICON_MAP[fileName];
-if(!imageName||/\\.(png|webp|jpe?g)$/i.test(imageName))return [];
+if(!imageName||/\.(png|webp|jpe?g)$/i.test(imageName))return [];
 const encoded=encodeURIComponent(imageName);
 return ["webp","jpg","jpeg"].map(function(extension){
 return ICON_BASE+encoded+"."+extension+"?v="+ICON_VERSION;
