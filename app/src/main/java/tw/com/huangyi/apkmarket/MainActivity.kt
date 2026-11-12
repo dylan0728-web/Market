@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -14,7 +13,6 @@ import android.os.Build
 import android.provider.Settings
 import android.util.Base64
 import android.view.KeyEvent
-import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -46,8 +44,6 @@ import javax.crypto.spec.SecretKeySpec
 class MainActivity : Activity() {
 
     private lateinit var webView: WebView
-    private lateinit var loadingText: TextView
-    private var authorizationLoadingText: TextView? = null
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -141,6 +137,7 @@ class MainActivity : Activity() {
         checkCloudAuthorization()
     }
 
+    // 開啟時只顯示深色背景，不顯示任何載入或授權文字
     private fun showAuthorizationLoading() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -148,25 +145,12 @@ class MainActivity : Activity() {
             setBackgroundColor(0xFF101820.toInt())
         }
 
-        val text = TextView(this).apply {
-            text = "正在讀取機器 MAC"
-            textSize = 20f
-            setTextColor(0xFFFFFFFF.toInt())
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            gravity = android.view.Gravity.CENTER
-            setPadding(30, 30, 30, 30)
-        }
-        authorizationLoadingText = text
-
-        layout.addView(text)
         setContentView(layout)
     }
 
+    // 背景授權檢查，不顯示進度文字
     private fun updateAuthorizationLoading(message: String) {
-        runOnUiThread {
-            if (isFinishing || isDestroyed) return@runOnUiThread
-            authorizationLoadingText?.text = message
-        }
+        // 保留呼叫位置，避免影響原有授權檢查流程
     }
 
     private fun showAuthorizationDenied() {
@@ -217,7 +201,6 @@ class MainActivity : Activity() {
         Thread {
             try {
                 authorizationErrorMessage = "正在讀取機器 MAC"
-                updateAuthorizationLoading("正在讀取機器 MAC")
 
                 val deviceMac = readHardwareMac()
                 authorizationDeviceMac = deviceMac
@@ -227,7 +210,6 @@ class MainActivity : Activity() {
                 }
 
                 authorizationErrorMessage = "正在連線 MEGA 下載授權檔"
-                updateAuthorizationLoading("正在連線 MEGA 下載授權檔")
 
                 val authorizationText = downloadMegaAuthorizationText()
 
@@ -236,7 +218,6 @@ class MainActivity : Activity() {
                 }
 
                 authorizationErrorMessage = "授權檔已下載，正在比對 MAC 與期限"
-                updateAuthorizationLoading("授權檔已下載，正在比對 MAC 與期限")
 
                 val result = verifyAuthorization(
                     authorizationText,
@@ -268,7 +249,9 @@ class MainActivity : Activity() {
                 authorizationErrorMessage = e.message ?: "未知授權錯誤"
 
                 runOnUiThread {
-                    showAuthorizationDenied()
+                    if (!isFinishing && !isDestroyed) {
+                        showAuthorizationDenied()
+                    }
                 }
             }
         }.start()
@@ -862,7 +845,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 建立應用市場
+    // 建立應用市場：不顯示載入文字，直接載入網頁
     // =====================================================
 
     private fun showMarket() {
@@ -879,13 +862,6 @@ class MainActivity : Activity() {
             setBackgroundColor(0xFF101820.toInt())
         }
 
-        loadingText = TextView(this).apply {
-            text = "正在開啟應用市場..."
-            textSize = 18f
-            setTextColor(0xFFFFFFFF.toInt())
-            setPadding(24, 20, 24, 20)
-        }
-
         webView = WebView(this)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -893,19 +869,13 @@ class MainActivity : Activity() {
 
         webView.addJavascriptInterface(AndroidMarketBridge(), "AndroidMarket")
         webView.webChromeClient = WebChromeClient()
+        webView.webViewClient = WebViewClient()
 
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                loadingText.visibility = View.GONE
-            }
-        }
-
-        layout.addView(loadingText)
         layout.addView(
             webView,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
+                LinearLayout.LayoutParams.MATCH_PARENT,
                 1f
             )
         )
@@ -938,12 +908,17 @@ class MainActivity : Activity() {
 
         Thread {
             try {
+                // 加入時間參數，避免讀取到舊的 GitHub 更新資訊快取
+                val freshApiUrl =
+                    "$MARKET_UPDATE_API?check=${System.currentTimeMillis()}"
+
                 val request = Request.Builder()
-                    .url(MARKET_UPDATE_API)
+                    .url(freshApiUrl)
                     .get()
                     .header("Accept", "application/vnd.github+json")
                     .header("X-GitHub-Api-Version", "2022-11-28")
-                    .header("Cache-Control", "no-cache")
+                    .header("Cache-Control", "no-cache, no-store")
+                    .header("Pragma", "no-cache")
                     .header("User-Agent", "HY-App-Market")
                     .build()
 
@@ -956,18 +931,23 @@ class MainActivity : Activity() {
                         ?: throw IOException("GitHub 沒有回傳更新資訊")
 
                     val release = JSONObject(body)
+
+                    if (release.optBoolean("draft", false)) {
+                        throw IOException("更新版本尚未正式發布")
+                    }
+
                     val releaseBody = release.optString("body", "")
 
                     val versionCodeMatch = Regex(
-                        "(?m)^versionCode\\s*=\\s*(\\d+)\\s*$"
+                        "(?im)^\\s*versionCode\\s*=\\s*(\\d+)\\s*$"
                     ).find(releaseBody)
 
                     val versionNameMatch = Regex(
-                        "(?m)^versionName\\s*=\\s*(.+?)\\s*$"
+                        "(?im)^\\s*versionName\\s*=\\s*(.+?)\\s*$"
                     ).find(releaseBody)
 
                     val dateMatch = Regex(
-                        "(?m)^date\\s*=\\s*(\\d{4}/\\d{2}/\\d{2})\\s*$"
+                        "(?im)^\\s*date\\s*=\\s*(\\d{4}/\\d{2}/\\d{2})\\s*$"
                     ).find(releaseBody)
 
                     val remoteVersionCode =
@@ -990,7 +970,10 @@ class MainActivity : Activity() {
                     for (i in 0 until assets.length()) {
                         val asset = assets.optJSONObject(i) ?: continue
 
-                        if (asset.optString("name") == MARKET_UPDATE_ASSET) {
+                        if (
+                            asset.optString("name") == MARKET_UPDATE_ASSET &&
+                            asset.optLong("size", 0L) > 0L
+                        ) {
                             apkUrl = asset.optString("browser_download_url", "")
                             break
                         }
@@ -1005,6 +988,7 @@ class MainActivity : Activity() {
 
                     val installedVersionCode = getInstalledMarketVersionCode()
 
+                    // 只有雲端版本號大於目前安裝版本才提示更新
                     if (remoteVersionCode > installedVersionCode) {
                         Triple(
                             remoteVersionName,
@@ -1033,7 +1017,7 @@ class MainActivity : Activity() {
                 }
 
             } catch (e: Exception) {
-                // 更新檢查失敗不影響市場正常使用。
+                // 更新檢查失敗不影響市場正常使用
             }
         }.start()
     }
