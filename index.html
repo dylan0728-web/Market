@@ -76,6 +76,7 @@ header{align-items:flex-start;flex-direction:column}
 <p id="dialogText">請選擇操作</p>
 <div class="dialog-actions">
 <button type="button" id="openBtn">開啟</button>
+<button type="button" id="reinstallBtn">重裝</button>
 <button type="button" id="uninstallBtn">卸載</button>
 <button type="button" id="cancelBtn">取消</button>
 </div>
@@ -96,6 +97,7 @@ const dialog=document.getElementById("dialog");
 const dialogTitle=document.getElementById("dialogTitle");
 const dialogText=document.getElementById("dialogText");
 const openButton=document.getElementById("openBtn");
+const reinstallButton=document.getElementById("reinstallBtn");
 const uninstallButton=document.getElementById("uninstallBtn");
 const cancelButton=document.getElementById("cancelBtn");
 
@@ -419,6 +421,20 @@ try{
 if(window.AndroidMarket&&typeof window.AndroidMarket.launchApp==="function")window.AndroidMarket.launchApp(packageName);
 else setStatus("無法呼叫 Android 開啟功能。");
 }catch(e){setStatus("開啟應用程式失敗："+e.message)}
+});
+
+reinstallButton.addEventListener("click",function(){
+if(!currentApp)return;
+const packageName=currentApp.packageName;
+const fileName=currentApp.fileName;
+const name=currentApp.appName||currentApp.name;
+closeDialog();
+if(!confirm("確定要重裝「"+name+"」嗎？\n系統會先要求卸載舊版，卸載完成後自動開啟新版安裝。"))return;
+try{
+if(window.AndroidMarket&&typeof window.AndroidMarket.reinstallApp==="function"){
+window.AndroidMarket.reinstallApp(packageName,fileName,currentApp.url);
+}else{setStatus("無法呼叫 Android 重裝功能。");}
+}catch(e){setStatus("重裝功能呼叫失敗："+e.message)}
 });
 
 uninstallButton.addEventListener("click",function(){
