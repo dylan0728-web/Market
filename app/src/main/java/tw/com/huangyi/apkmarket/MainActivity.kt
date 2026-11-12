@@ -1,3 +1,4 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -15,6 +16,7 @@ import android.util.Base64
 import android.view.KeyEvent
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.LinearLayout
@@ -847,7 +849,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 建立應用市場：不顯示載入文字，直接載入網頁
+    // 建立應用市場：強制載入最新網頁
     // =====================================================
 
     private fun showMarket() {
@@ -869,6 +871,10 @@ class MainActivity : Activity() {
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = false
 
+        // 關閉 WebView 快取，避免電視盒讀取舊版市場網頁
+        webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        webView.clearCache(true)
+
         webView.addJavascriptInterface(AndroidMarketBridge(), "AndroidMarket")
         webView.webChromeClient = WebChromeClient()
         webView.webViewClient = WebViewClient()
@@ -883,7 +889,9 @@ class MainActivity : Activity() {
         )
 
         setContentView(layout)
-        webView.loadUrl(MARKET_URL)
+
+        // 加入時間參數，確保每次開啟都重新讀取最新版
+        webView.loadUrl("$MARKET_URL?v=${System.currentTimeMillis()}")
 
         checkMarketUpdate()
     }
@@ -910,7 +918,6 @@ class MainActivity : Activity() {
 
         Thread {
             try {
-                // 加入時間參數，避免讀取到舊的 GitHub 更新資訊快取
                 val freshApiUrl =
                     "$MARKET_UPDATE_API?check=${System.currentTimeMillis()}"
 
@@ -990,7 +997,6 @@ class MainActivity : Activity() {
 
                     val installedVersionCode = getInstalledMarketVersionCode()
 
-                    // 只有雲端版本號大於目前安裝版本才提示更新
                     if (remoteVersionCode > installedVersionCode) {
                         Triple(
                             remoteVersionName,
@@ -1193,14 +1199,21 @@ class MainActivity : Activity() {
 
                     if (!canAccessApk(fileName)) continue
 
-                    var packageName = prefs.getString("package_$fileName", "") ?: ""
+                    var matchedPackageName =
+                        prefs.getString("package_$fileName", "") ?: ""
+
                     var installed = false
                     var installedLabel = appName
                     var installedVersion = item.optString("versionName", "")
 
-                    if (packageName.isNotBlank()) {
+                    // 第一優先：使用先前下載 APK 時記錄的套件名稱
+                    if (matchedPackageName.isNotBlank()) {
                         try {
-                            val info = packageManager.getPackageInfo(packageName, 0)
+                            val info = packageManager.getPackageInfo(
+                                matchedPackageName,
+                                0
+                            )
+
                             installed = true
                             installedVersion = info.versionName ?: installedVersion
 
@@ -1213,14 +1226,21 @@ class MainActivity : Activity() {
                             }
                         } catch (e: Exception) {
                             installed = false
+                            matchedPackageName = ""
                         }
                     }
 
+                    // 第二優先：比對已安裝 App 的名稱及套件名稱
                     if (!installed) {
-                        val candidates = listOf(
+                        val normalizedCandidates = listOf(
                             appName,
                             fileName.substringBeforeLast(".")
-                        ).map { normalizeName(it) }.filter { it.isNotBlank() }
+                        )
+                            .map { normalizeName(it) }
+                            .filter { it.isNotBlank() }
+                            .distinct()
+
+                        val matches = mutableListOf<Triple<String, String, String>>()
 
                         for (info in installedPackages) {
                             val label = try {
@@ -1231,27 +1251,53 @@ class MainActivity : Activity() {
                                 ""
                             }
 
-                            if (
-                                normalizeName(label).isNotBlank() &&
-                                candidates.contains(normalizeName(label))
-                            ) {
-                                packageName = info.packageName
-                                installed = true
-                                installedLabel = label
-                                installedVersion = info.versionName ?: installedVersion
+                            val normalizedLabel = normalizeName(label)
+                            val normalizedPackage = normalizeName(info.packageName)
 
-                                prefs.edit()
-                                    .putString("package_$fileName", packageName)
-                                    .apply()
-                                break
+                            val exactLabelMatch =
+                                normalizedCandidates.any {
+                                    it == normalizedLabel
+                                }
+
+                            val exactPackageMatch =
+                                normalizedCandidates.any {
+                                    it == normalizedPackage ||
+                                        normalizedPackage.endsWith(it)
+                                }
+
+                            if (exactLabelMatch || exactPackageMatch) {
+                                matches.add(
+                                    Triple(
+                                        info.packageName,
+                                        label,
+                                        info.versionName ?: installedVersion
+                                    )
+                                )
                             }
+                        }
+
+                        // 只有唯一符合才自動判定，避免把其他 App 誤認成已安裝
+                        if (matches.size == 1) {
+                            val match = matches.first()
+
+                            matchedPackageName = match.first
+                            installedLabel = match.second
+                            installedVersion = match.third
+                            installed = true
+
+                            prefs.edit()
+                                .putString("package_$fileName", matchedPackageName)
+                                .apply()
                         }
                     }
 
                     val result = JSONObject()
                     result.put("url", url)
                     result.put("appName", installedLabel)
-                    result.put("packageName", if (installed) packageName else "")
+                    result.put(
+                        "packageName",
+                        if (installed) matchedPackageName else ""
+                    )
                     result.put("versionName", installedVersion)
                     result.put("installed", installed)
                     output.put(result)
@@ -1547,11 +1593,7 @@ class MainActivity : Activity() {
         activeDownloads.add(url)
         sendProgress(url, 0, "downloading")
 
-        Toast.makeText(
-            this,
-            "開始下載：$safeName",
-            Toast.LENGTH_SHORT
-        ).show()
+        // 已移除「開始下載」Toast，保留卡片自己的下載進度顯示
 
         Thread {
             val downloadDirectory =
