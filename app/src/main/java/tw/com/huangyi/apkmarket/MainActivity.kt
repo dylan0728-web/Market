@@ -494,13 +494,13 @@ class MainActivity : Activity() {
             .putInt(keyWords[3] xor keyWords[7])
             .array()
 
-        val iv = ByteBuffer.allocate(16)
-            .order(ByteOrder.BIG_ENDIAN)
-            .putInt(keyWords[4])
-            .putInt(keyWords[5])
-            .putInt(keyWords[6])
-            .putInt(keyWords[7])
-            .array()
+val iv = ByteBuffer.allocate(16)
+    .order(ByteOrder.BIG_ENDIAN)
+    .putInt(keyWords[4])
+    .putInt(keyWords[5])
+    .putInt(0)
+    .putInt(0)
+    .array()
 
         val contentCipher = Cipher.getInstance("AES/CTR/NoPadding")
         contentCipher.init(
