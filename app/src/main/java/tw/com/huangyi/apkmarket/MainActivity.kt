@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -141,7 +140,6 @@ class MainActivity : Activity() {
         checkCloudAuthorization()
     }
 
-    // 開啟時只顯示深色背景，不顯示任何載入或授權文字
     private fun showAuthorizationLoading() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -152,9 +150,8 @@ class MainActivity : Activity() {
         setContentView(layout)
     }
 
-    // 背景授權檢查，不顯示進度文字
     private fun updateAuthorizationLoading(message: String) {
-        // 保留呼叫位置，避免影響原有授權檢查流程
+        // 保留原有呼叫位置
     }
 
     private fun showAuthorizationDenied() {
@@ -871,7 +868,6 @@ class MainActivity : Activity() {
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = false
 
-        // 關閉 WebView 快取，避免電視盒讀取舊版市場網頁
         webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
         webView.clearCache(true)
 
@@ -890,7 +886,6 @@ class MainActivity : Activity() {
 
         setContentView(layout)
 
-        // 加入時間參數，確保每次開啟都重新讀取最新版
         webView.loadUrl("$MARKET_URL?v=${System.currentTimeMillis()}")
 
         checkMarketUpdate()
@@ -1206,7 +1201,6 @@ class MainActivity : Activity() {
                     var installedLabel = appName
                     var installedVersion = item.optString("versionName", "")
 
-                    // 第一優先：使用先前下載 APK 時記錄的套件名稱
                     if (matchedPackageName.isNotBlank()) {
                         try {
                             val info = packageManager.getPackageInfo(
@@ -1230,7 +1224,6 @@ class MainActivity : Activity() {
                         }
                     }
 
-                    // 第二優先：比對已安裝 App 的名稱及套件名稱
                     if (!installed) {
                         val normalizedCandidates = listOf(
                             appName,
@@ -1276,7 +1269,6 @@ class MainActivity : Activity() {
                             }
                         }
 
-                        // 只有唯一符合才自動判定，避免把其他 App 誤認成已安裝
                         if (matches.size == 1) {
                             val match = matches.first()
 
@@ -1365,6 +1357,73 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun reinstallApp(packageName: String, fileName: String, url: String) {
             runOnUiThread { reinstallInstalledApp(packageName, fileName, url) }
+        }
+
+        // 新增：已安裝 APP 使用 Android 原生操作選單
+        @JavascriptInterface
+        fun showInstalledActions(
+            packageName: String,
+            fileName: String,
+            url: String,
+            appName: String
+        ) {
+            runOnUiThread {
+                if (!authorized || packageName.isBlank()) return@runOnUiThread
+
+                if (!isPackageInstalled(packageName)) {
+                    if (::webView.isInitialized) {
+                        webView.evaluateJavascript(
+                            "window.refreshInstalledState && window.refreshInstalledState();",
+                            null
+                        )
+                    }
+                    return@runOnUiThread
+                }
+
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(appName.ifBlank { "應用程式" })
+                    .setItems(arrayOf("開啟", "重裝", "卸載")) { _, which ->
+                        when (which) {
+                            0 -> {
+                                launchInstalledApp(packageName)
+                            }
+
+                            1 -> {
+                                AlertDialog.Builder(this@MainActivity)
+                                    .setTitle("確認重裝")
+                                    .setMessage(
+                                        "確定要重裝「${appName.ifBlank { "應用程式" }}」嗎？\n" +
+                                            "系統會先要求卸載舊版，再開啟新版安裝畫面。"
+                                    )
+                                    .setPositiveButton("確定") { _, _ ->
+                                        reinstallInstalledApp(
+                                            packageName,
+                                            fileName,
+                                            url
+                                        )
+                                    }
+                                    .setNegativeButton("取消", null)
+                                    .show()
+                            }
+
+                            2 -> {
+                                AlertDialog.Builder(this@MainActivity)
+                                    .setTitle("確認卸載")
+                                    .setMessage(
+                                        "確定要卸載「${appName.ifBlank { "應用程式" }}」嗎？"
+                                    )
+                                    .setPositiveButton("確定") { _, _ ->
+                                        pendingInstallCheck = true
+                                        uninstallInstalledApp(packageName)
+                                    }
+                                    .setNegativeButton("取消", null)
+                                    .show()
+                            }
+                        }
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
+            }
         }
     }
 
@@ -1592,8 +1651,6 @@ class MainActivity : Activity() {
 
         activeDownloads.add(url)
         sendProgress(url, 0, "downloading")
-
-        // 已移除「開始下載」Toast，保留卡片自己的下載進度顯示
 
         Thread {
             val downloadDirectory =
