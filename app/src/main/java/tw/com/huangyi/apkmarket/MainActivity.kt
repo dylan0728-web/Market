@@ -1,3 +1,4 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -101,6 +102,9 @@ class MainActivity : Activity() {
 
         private const val MARKET_UPDATE_FILE =
             "HY應用市場.apk"
+
+        private const val REQUEST_UNINSTALL_APP = 4101
+        private const val REQUEST_REINSTALL_APP = 4102
     }
 
     private val httpClient by lazy {
@@ -494,7 +498,8 @@ class MainActivity : Activity() {
             .order(ByteOrder.BIG_ENDIAN)
             .putInt(keyWords[4])
             .putInt(keyWords[5])
-            .putLong(0L)
+            .putInt(keyWords[6])
+            .putInt(keyWords[7])
             .array()
 
         val contentCipher = Cipher.getInstance("AES/CTR/NoPadding")
@@ -1359,7 +1364,6 @@ class MainActivity : Activity() {
             runOnUiThread { reinstallInstalledApp(packageName, fileName, url) }
         }
 
-        // 新增：已安裝 APP 使用 Android 原生操作選單
         @JavascriptInterface
         fun showInstalledActions(
             packageName: String,
@@ -1371,12 +1375,7 @@ class MainActivity : Activity() {
                 if (!authorized || packageName.isBlank()) return@runOnUiThread
 
                 if (!isPackageInstalled(packageName)) {
-                    if (::webView.isInitialized) {
-                        webView.evaluateJavascript(
-                            "window.refreshInstalledState && window.refreshInstalledState();",
-                            null
-                        )
-                    }
+                    refreshInstalledState()
                     return@runOnUiThread
                 }
 
@@ -1413,7 +1412,6 @@ class MainActivity : Activity() {
                                         "確定要卸載「${appName.ifBlank { "應用程式" }}」嗎？"
                                     )
                                     .setPositiveButton("確定") { _, _ ->
-                                        pendingInstallCheck = true
                                         uninstallInstalledApp(packageName)
                                     }
                                     .setNegativeButton("取消", null)
@@ -1491,31 +1489,49 @@ class MainActivity : Activity() {
     private fun uninstallInstalledApp(packageName: String) {
         if (packageName.isBlank()) return
 
+        if (!isPackageInstalled(packageName)) {
+            Toast.makeText(this, "此應用程式已經卸載", Toast.LENGTH_SHORT).show()
+            refreshInstalledState()
+            return
+        }
+
         try {
-            startActivity(
-                Intent(
-                    Intent.ACTION_DELETE,
-                    Uri.parse("package:$packageName")
-                )
-            )
+            val intent = Intent(
+                Intent.ACTION_UNINSTALL_PACKAGE,
+                Uri.parse("package:$packageName")
+            ).apply {
+                putExtra(Intent.EXTRA_RETURN_RESULT, true)
+            }
+
+            startActivityForResult(intent, REQUEST_UNINSTALL_APP)
+
         } catch (e: Exception) {
             Toast.makeText(
                 this,
-                "無法開啟卸載畫面",
-                Toast.LENGTH_SHORT
+                "無法開啟系統卸載畫面：${e.message}",
+                Toast.LENGTH_LONG
             ).show()
         }
     }
 
-    private fun reinstallInstalledApp(packageName: String, fileName: String, url: String) {
+    private fun reinstallInstalledApp(
+        packageName: String,
+        fileName: String,
+        url: String
+    ) {
         if (packageName.isBlank() || fileName.isBlank()) return
 
         if (!canAccessApk(fileName)) {
-            Toast.makeText(this, "目前設備沒有此 APK 的使用權限", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                this,
+                "目前設備沒有此 APK 的使用權限",
+                Toast.LENGTH_LONG
+            ).show()
             return
         }
 
         val safeName = File(fileName).name
+
         if (!safeName.endsWith(".apk", true)) {
             Toast.makeText(this, "APK 檔名不正確", Toast.LENGTH_LONG).show()
             return
@@ -1523,6 +1539,7 @@ class MainActivity : Activity() {
 
         val downloadDirectory =
             getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
+
         val apkFile = File(downloadDirectory, safeName)
 
         if (apkFile.exists() && apkFile.length() > 0L) {
@@ -1547,29 +1564,52 @@ class MainActivity : Activity() {
 
         Thread {
             val tempFile = File(downloadDirectory, "$safeName.part")
+
             try {
                 downloadWithRetry(url, tempFile, safeName)
-                if (tempFile.length() <= 0L) throw IOException("下載檔案是空的")
+
+                if (tempFile.length() <= 0L) {
+                    throw IOException("下載檔案是空的")
+                }
+
                 if (apkFile.exists() && !apkFile.delete()) {
                     throw IOException("無法覆蓋舊 APK 檔案")
                 }
+
                 if (!tempFile.renameTo(apkFile)) {
                     tempFile.copyTo(apkFile, overwrite = true)
                     tempFile.delete()
                 }
+
                 if (!apkFile.exists() || apkFile.length() <= 0L) {
                     throw IOException("APK 儲存失敗")
                 }
+
+                val archiveInfo = packageManager.getPackageArchiveInfo(
+                    apkFile.absolutePath,
+                    0
+                ) ?: throw IOException("下載檔案不是有效的 APK")
+
+                if (archiveInfo.packageName != packageName) {
+                    throw IOException("新版 APK 套件名稱與舊版不一致")
+                }
+
                 saveApkPackageName(safeName)
 
                 runOnUiThread {
                     activeDownloads.remove(url)
+
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+
                     beginReinstall(packageName, apkFile)
                 }
+
             } catch (e: Exception) {
                 tempFile.delete()
+
                 runOnUiThread {
                     activeDownloads.remove(url)
+
                     Toast.makeText(
                         this,
                         "重裝檔案下載失敗：${e.message ?: "未知錯誤"}",
@@ -1581,23 +1621,47 @@ class MainActivity : Activity() {
     }
 
     private fun beginReinstall(packageName: String, apkFile: File) {
+        if (!apkFile.exists() || apkFile.length() <= 0L) {
+            Toast.makeText(
+                this,
+                "重裝 APK 檔案不存在或內容為空",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
         try {
+            val archiveInfo = packageManager.getPackageArchiveInfo(
+                apkFile.absolutePath,
+                0
+            ) ?: throw IOException("不是有效的 APK 檔案")
+
+            if (archiveInfo.packageName != packageName) {
+                throw IOException("新版 APK 套件名稱與舊版不一致")
+            }
+
             val apkUri = FileProvider.getUriForFile(
                 this,
-                "${this.packageName}.fileprovider",
+                "$packageName.fileprovider",
                 apkFile
             )
+
             pendingReinstallUri = apkUri
             pendingReinstallPackage = packageName
-            startActivity(
-                Intent(
-                    Intent.ACTION_DELETE,
-                    Uri.parse("package:$packageName")
-                )
-            )
+
+            val intent = Intent(
+                Intent.ACTION_UNINSTALL_PACKAGE,
+                Uri.parse("package:$packageName")
+            ).apply {
+                putExtra(Intent.EXTRA_RETURN_RESULT, true)
+            }
+
+            startActivityForResult(intent, REQUEST_REINSTALL_APP)
+
         } catch (e: Exception) {
             pendingReinstallUri = null
             pendingReinstallPackage = null
+
             Toast.makeText(
                 this,
                 "無法啟動重裝流程：${e.message ?: "未知錯誤"}",
@@ -1663,7 +1727,7 @@ class MainActivity : Activity() {
                 downloadWithRetry(url, tempFile, safeName)
 
                 if (tempFile.length() <= 0L) {
-                    throw IOException("下載檔案是空的")
+                    throw IOException("APK 檔案是空的")
                 }
 
                 if (apkFile.exists() && !apkFile.delete()) {
@@ -1957,26 +2021,92 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
+    // 卸載及重裝結果回傳
+    // =====================================================
+
+    private fun refreshInstalledState() {
+        if (!::webView.isInitialized || !authorized) return
+
+        webView.evaluateJavascript(
+            "window.refreshInstalledState && window.refreshInstalledState();",
+            null
+        )
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        when (requestCode) {
+            REQUEST_UNINSTALL_APP -> {
+                handler.postDelayed({
+                    if (isFinishing || isDestroyed) return@postDelayed
+
+                    if (resultCode == Activity.RESULT_OK) {
+                        Toast.makeText(
+                            this,
+                            "卸載完成",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        Toast.makeText(
+                            this,
+                            "卸載已取消或未完成",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+
+                    refreshInstalledState()
+                }, 800)
+            }
+
+            REQUEST_REINSTALL_APP -> {
+                val apkUri = pendingReinstallUri
+                val targetPackage = pendingReinstallPackage
+
+                pendingReinstallUri = null
+                pendingReinstallPackage = null
+
+                handler.postDelayed({
+                    if (isFinishing || isDestroyed) return@postDelayed
+
+                    if (
+                        resultCode == Activity.RESULT_OK &&
+                        !targetPackage.isNullOrBlank() &&
+                        !isPackageInstalled(targetPackage) &&
+                        apkUri != null
+                    ) {
+                        Toast.makeText(
+                            this,
+                            "舊版已卸載，準備安裝新版",
+                            Toast.LENGTH_LONG
+                        ).show()
+
+                        openApkInstaller(apkUri)
+                    } else {
+                        Toast.makeText(
+                            this,
+                            "卸載未完成，保留原本應用程式",
+                            Toast.LENGTH_SHORT
+                        ).show()
+
+                        refreshInstalledState()
+                    }
+                }, 800)
+            }
+        }
+    }
+
+    // =====================================================
     // 返回應用市場
     // =====================================================
 
     override fun onResume() {
         super.onResume()
-
-        val reinstallUri = pendingReinstallUri
-        val reinstallPackage = pendingReinstallPackage
-        if (reinstallUri != null && !reinstallPackage.isNullOrBlank()) {
-            pendingReinstallUri = null
-            pendingReinstallPackage = null
-
-            if (!isPackageInstalled(reinstallPackage)) {
-                Toast.makeText(this, "舊版已卸載，正在開啟新版安裝畫面", Toast.LENGTH_LONG).show()
-                openApkInstaller(reinstallUri)
-            } else {
-                Toast.makeText(this, "已取消卸載，保留原本應用程式", Toast.LENGTH_SHORT).show()
-            }
-            return
-        }
 
         val uri = pendingInstallUri
 
@@ -1995,11 +2125,7 @@ class MainActivity : Activity() {
 
             handler.postDelayed({
                 if (::webView.isInitialized && authorized) {
-                    webView.evaluateJavascript(
-                        "window.refreshInstalledState && " +
-                            "window.refreshInstalledState();",
-                        null
-                    )
+                    refreshInstalledState()
                 }
             }, 1500)
         }
