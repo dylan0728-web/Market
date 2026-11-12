@@ -88,7 +88,7 @@ header{align-items:flex-start;flex-direction:column}
 const API="https://api.github.com/repos/dylan0728-web/Market/releases";
 const RELEASE_PREFIX="https://github.com/dylan0728-web/Market/releases/download/";
 const ICON_BASE="https://dylan0728-web.github.io/Market/icons/";
-const ICON_VERSION="20261111";
+const ICON_VERSION="20261112";
 
 const appsElement=document.getElementById("apps");
 const statusElement=document.getElementById("status");
@@ -164,12 +164,12 @@ appsElement.appendChild(empty);
 }
 
 const ICON_MAP={
-"H_S.apk":"紅果TV.png",
-"G_SSS.apk":"今日影視.png",
-"K_SSS.apk":"可可影视.png",
-"W_SSS.apk":"網飛貓.png",
-"I_SSS.apk":"愛壹帆.png",
-"D_SSS.apk":"獨播庫.png",
+"H_S.apk":"紅果TV",
+"G_SSS.apk":"今日影視",
+"K_SSS.apk":"可可影视",
+"W_SSS.apk":"网飞猫",
+"I_SSS.apk":"愛壹帆",
+"D_SSS.apk":"獨播庫",
 "AirScreen_2.3.1.apk":"AirScreen_2.3.1.png",
 "APKPure_3.17.58.apk":"APKPure_3.17.58.png",
 "Emotn.Store_1.0.40.apk":"EmotnStore_1.0.40.png",
@@ -232,7 +232,18 @@ return fileName.replace(/\.apk$/i,"").replace(/[_-]\d[\w.-]*$/,"");
 function iconFor(fileName){
 const imageName=ICON_MAP[fileName];
 if(!imageName)return "";
-return ICON_BASE+encodeURIComponent(imageName)+"?v="+ICON_VERSION;
+const encoded=encodeURIComponent(imageName);
+const extension=/\\.(png|webp|jpe?g)$/i.test(imageName)?"":".png";
+return ICON_BASE+encoded+extension+"?v="+ICON_VERSION;
+}
+
+function iconAlternatesFor(fileName){
+const imageName=ICON_MAP[fileName];
+if(!imageName||/\\.(png|webp|jpe?g)$/i.test(imageName))return [];
+const encoded=encodeURIComponent(imageName);
+return ["webp","jpg","jpeg"].map(function(extension){
+return ICON_BASE+encoded+"."+extension+"?v="+ICON_VERSION;
+});
 }
 
 function getPageScroller(){
@@ -302,9 +313,16 @@ const icon=document.createElement("div");
 icon.className="app-icon";
 if(app.icon){
 const img=document.createElement("img");
-img.src=app.icon;
 img.alt="應用程式圖示";
-img.onerror=function(){img.remove();icon.textContent=(app.appName||app.name).substring(0,2)};
+const iconCandidates=[app.icon].concat(iconAlternatesFor(app.fileName));
+let iconTry=0;
+img.onerror=function(){
+iconTry++;
+if(iconTry<iconCandidates.length){img.src=iconCandidates[iconTry];return}
+img.remove();
+icon.textContent=(app.appName||app.name).substring(0,2);
+};
+img.src=iconCandidates[0];
 icon.appendChild(img);
 }else{icon.textContent=(app.appName||app.name).substring(0,2)}
 
