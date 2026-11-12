@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -16,7 +15,6 @@ import android.util.Base64
 import android.view.KeyEvent
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.LinearLayout
@@ -102,9 +100,6 @@ class MainActivity : Activity() {
 
         private const val MARKET_UPDATE_FILE =
             "HY應用市場.apk"
-
-        private const val REQUEST_UNINSTALL_APP = 4101
-        private const val REQUEST_REINSTALL_APP = 4102
     }
 
     private val httpClient by lazy {
@@ -144,6 +139,7 @@ class MainActivity : Activity() {
         checkCloudAuthorization()
     }
 
+    // 開啟時只顯示深色背景，不顯示任何載入或授權文字
     private fun showAuthorizationLoading() {
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -154,8 +150,9 @@ class MainActivity : Activity() {
         setContentView(layout)
     }
 
+    // 背景授權檢查，不顯示進度文字
     private fun updateAuthorizationLoading(message: String) {
-        // 保留原有呼叫位置
+        // 保留呼叫位置，避免影響原有授權檢查流程
     }
 
     private fun showAuthorizationDenied() {
@@ -324,8 +321,12 @@ class MainActivity : Activity() {
                 ?: throw Exception("MEGA 權限資料夾檔案清單不存在")
         }
 
+        // 同一資料夾可能同時存在多份 USER.txt。
+        // 必須完整檢查所有 USER.txt，選取 MEGA ts 最新的一份，
+        // 不可遇到第一份就 break，否則可能讀到舊授權資料。
         var userNode: JSONObject? = null
         var userNodeKey: ByteArray? = null
+        var newestUserTimestamp = Long.MIN_VALUE
 
         for (i in 0 until nodes.length()) {
             val node = nodes.optJSONObject(i) ?: continue
@@ -391,10 +392,14 @@ class MainActivity : Activity() {
                 ""
             }
 
-            if (fileName == "USER.txt") {
-                userNode = node
-                userNodeKey = decryptedNodeKey
-                break
+            if (fileName.equals("USER.txt", ignoreCase = true)) {
+                val nodeTimestamp = node.optLong("ts", 0L)
+
+                if (userNode == null || nodeTimestamp > newestUserTimestamp) {
+                    userNode = node
+                    userNodeKey = decryptedNodeKey
+                    newestUserTimestamp = nodeTimestamp
+                }
             }
         }
 
@@ -494,13 +499,12 @@ class MainActivity : Activity() {
             .putInt(keyWords[3] xor keyWords[7])
             .array()
 
-val iv = ByteBuffer.allocate(16)
-    .order(ByteOrder.BIG_ENDIAN)
-    .putInt(keyWords[4])
-    .putInt(keyWords[5])
-    .putInt(0)
-    .putInt(0)
-    .array()
+        val iv = ByteBuffer.allocate(16)
+            .order(ByteOrder.BIG_ENDIAN)
+            .putInt(keyWords[4])
+            .putInt(keyWords[5])
+            .putLong(0L)
+            .array()
 
         val contentCipher = Cipher.getInstance("AES/CTR/NoPadding")
         contentCipher.init(
@@ -851,7 +855,7 @@ val iv = ByteBuffer.allocate(16)
     }
 
     // =====================================================
-    // 建立應用市場：強制載入最新網頁
+    // 建立應用市場：不顯示載入文字，直接載入網頁
     // =====================================================
 
     private fun showMarket() {
@@ -873,9 +877,6 @@ val iv = ByteBuffer.allocate(16)
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = false
 
-        webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
-        webView.clearCache(true)
-
         webView.addJavascriptInterface(AndroidMarketBridge(), "AndroidMarket")
         webView.webChromeClient = WebChromeClient()
         webView.webViewClient = WebViewClient()
@@ -890,8 +891,7 @@ val iv = ByteBuffer.allocate(16)
         )
 
         setContentView(layout)
-
-        webView.loadUrl("$MARKET_URL?v=${System.currentTimeMillis()}")
+        webView.loadUrl(MARKET_URL)
 
         checkMarketUpdate()
     }
@@ -918,6 +918,7 @@ val iv = ByteBuffer.allocate(16)
 
         Thread {
             try {
+                // 加入時間參數，避免讀取到舊的 GitHub 更新資訊快取
                 val freshApiUrl =
                     "$MARKET_UPDATE_API?check=${System.currentTimeMillis()}"
 
@@ -997,6 +998,7 @@ val iv = ByteBuffer.allocate(16)
 
                     val installedVersionCode = getInstalledMarketVersionCode()
 
+                    // 只有雲端版本號大於目前安裝版本才提示更新
                     if (remoteVersionCode > installedVersionCode) {
                         Triple(
                             remoteVersionName,
@@ -1199,20 +1201,14 @@ val iv = ByteBuffer.allocate(16)
 
                     if (!canAccessApk(fileName)) continue
 
-                    var matchedPackageName =
-                        prefs.getString("package_$fileName", "") ?: ""
-
+                    var packageName = prefs.getString("package_$fileName", "") ?: ""
                     var installed = false
                     var installedLabel = appName
                     var installedVersion = item.optString("versionName", "")
 
-                    if (matchedPackageName.isNotBlank()) {
+                    if (packageName.isNotBlank()) {
                         try {
-                            val info = packageManager.getPackageInfo(
-                                matchedPackageName,
-                                0
-                            )
-
+                            val info = packageManager.getPackageInfo(packageName, 0)
                             installed = true
                             installedVersion = info.versionName ?: installedVersion
 
@@ -1225,20 +1221,14 @@ val iv = ByteBuffer.allocate(16)
                             }
                         } catch (e: Exception) {
                             installed = false
-                            matchedPackageName = ""
                         }
                     }
 
                     if (!installed) {
-                        val normalizedCandidates = listOf(
+                        val candidates = listOf(
                             appName,
                             fileName.substringBeforeLast(".")
-                        )
-                            .map { normalizeName(it) }
-                            .filter { it.isNotBlank() }
-                            .distinct()
-
-                        val matches = mutableListOf<Triple<String, String, String>>()
+                        ).map { normalizeName(it) }.filter { it.isNotBlank() }
 
                         for (info in installedPackages) {
                             val label = try {
@@ -1249,52 +1239,27 @@ val iv = ByteBuffer.allocate(16)
                                 ""
                             }
 
-                            val normalizedLabel = normalizeName(label)
-                            val normalizedPackage = normalizeName(info.packageName)
+                            if (
+                                normalizeName(label).isNotBlank() &&
+                                candidates.contains(normalizeName(label))
+                            ) {
+                                packageName = info.packageName
+                                installed = true
+                                installedLabel = label
+                                installedVersion = info.versionName ?: installedVersion
 
-                            val exactLabelMatch =
-                                normalizedCandidates.any {
-                                    it == normalizedLabel
-                                }
-
-                            val exactPackageMatch =
-                                normalizedCandidates.any {
-                                    it == normalizedPackage ||
-                                        normalizedPackage.endsWith(it)
-                                }
-
-                            if (exactLabelMatch || exactPackageMatch) {
-                                matches.add(
-                                    Triple(
-                                        info.packageName,
-                                        label,
-                                        info.versionName ?: installedVersion
-                                    )
-                                )
+                                prefs.edit()
+                                    .putString("package_$fileName", packageName)
+                                    .apply()
+                                break
                             }
-                        }
-
-                        if (matches.size == 1) {
-                            val match = matches.first()
-
-                            matchedPackageName = match.first
-                            installedLabel = match.second
-                            installedVersion = match.third
-                            installed = true
-
-                            prefs.edit()
-                                .putString("package_$fileName", matchedPackageName)
-                                .apply()
                         }
                     }
 
                     val result = JSONObject()
                     result.put("url", url)
                     result.put("appName", installedLabel)
-                    result.put(
-                        "packageName",
-                        if (installed) matchedPackageName else ""
-                    )
+                    result.put("packageName", if (installed) packageName else "")
                     result.put("versionName", installedVersion)
                     result.put("installed", installed)
                     output.put(result)
@@ -1363,66 +1328,6 @@ val iv = ByteBuffer.allocate(16)
         fun reinstallApp(packageName: String, fileName: String, url: String) {
             runOnUiThread { reinstallInstalledApp(packageName, fileName, url) }
         }
-
-        @JavascriptInterface
-        fun showInstalledActions(
-            packageName: String,
-            fileName: String,
-            url: String,
-            appName: String
-        ) {
-            runOnUiThread {
-                if (!authorized || packageName.isBlank()) return@runOnUiThread
-
-                if (!isPackageInstalled(packageName)) {
-                    refreshInstalledState()
-                    return@runOnUiThread
-                }
-
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle(appName.ifBlank { "應用程式" })
-                    .setItems(arrayOf("開啟", "重裝", "卸載")) { _, which ->
-                        when (which) {
-                            0 -> {
-                                launchInstalledApp(packageName)
-                            }
-
-                            1 -> {
-                                AlertDialog.Builder(this@MainActivity)
-                                    .setTitle("確認重裝")
-                                    .setMessage(
-                                        "確定要重裝「${appName.ifBlank { "應用程式" }}」嗎？\n" +
-                                            "系統會先要求卸載舊版，再開啟新版安裝畫面。"
-                                    )
-                                    .setPositiveButton("確定") { _, _ ->
-                                        reinstallInstalledApp(
-                                            packageName,
-                                            fileName,
-                                            url
-                                        )
-                                    }
-                                    .setNegativeButton("取消", null)
-                                    .show()
-                            }
-
-                            2 -> {
-                                AlertDialog.Builder(this@MainActivity)
-                                    .setTitle("確認卸載")
-                                    .setMessage(
-                                        "確定要卸載「${appName.ifBlank { "應用程式" }}」嗎？"
-                                    )
-                                    .setPositiveButton("確定") { _, _ ->
-                                        uninstallInstalledApp(packageName)
-                                    }
-                                    .setNegativeButton("取消", null)
-                                    .show()
-                            }
-                        }
-                    }
-                    .setNegativeButton("取消", null)
-                    .show()
-            }
-        }
     }
 
     // =====================================================
@@ -1489,49 +1394,31 @@ val iv = ByteBuffer.allocate(16)
     private fun uninstallInstalledApp(packageName: String) {
         if (packageName.isBlank()) return
 
-        if (!isPackageInstalled(packageName)) {
-            Toast.makeText(this, "此應用程式已經卸載", Toast.LENGTH_SHORT).show()
-            refreshInstalledState()
-            return
-        }
-
         try {
-            val intent = Intent(
-                Intent.ACTION_UNINSTALL_PACKAGE,
-                Uri.parse("package:$packageName")
-            ).apply {
-                putExtra(Intent.EXTRA_RETURN_RESULT, true)
-            }
-
-            startActivityForResult(intent, REQUEST_UNINSTALL_APP)
-
+            startActivity(
+                Intent(
+                    Intent.ACTION_DELETE,
+                    Uri.parse("package:$packageName")
+                )
+            )
         } catch (e: Exception) {
             Toast.makeText(
                 this,
-                "無法開啟系統卸載畫面：${e.message}",
-                Toast.LENGTH_LONG
+                "無法開啟卸載畫面",
+                Toast.LENGTH_SHORT
             ).show()
         }
     }
 
-    private fun reinstallInstalledApp(
-        packageName: String,
-        fileName: String,
-        url: String
-    ) {
+    private fun reinstallInstalledApp(packageName: String, fileName: String, url: String) {
         if (packageName.isBlank() || fileName.isBlank()) return
 
         if (!canAccessApk(fileName)) {
-            Toast.makeText(
-                this,
-                "目前設備沒有此 APK 的使用權限",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "目前設備沒有此 APK 的使用權限", Toast.LENGTH_LONG).show()
             return
         }
 
         val safeName = File(fileName).name
-
         if (!safeName.endsWith(".apk", true)) {
             Toast.makeText(this, "APK 檔名不正確", Toast.LENGTH_LONG).show()
             return
@@ -1539,7 +1426,6 @@ val iv = ByteBuffer.allocate(16)
 
         val downloadDirectory =
             getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
-
         val apkFile = File(downloadDirectory, safeName)
 
         if (apkFile.exists() && apkFile.length() > 0L) {
@@ -1564,52 +1450,29 @@ val iv = ByteBuffer.allocate(16)
 
         Thread {
             val tempFile = File(downloadDirectory, "$safeName.part")
-
             try {
                 downloadWithRetry(url, tempFile, safeName)
-
-                if (tempFile.length() <= 0L) {
-                    throw IOException("下載檔案是空的")
-                }
-
+                if (tempFile.length() <= 0L) throw IOException("下載檔案是空的")
                 if (apkFile.exists() && !apkFile.delete()) {
                     throw IOException("無法覆蓋舊 APK 檔案")
                 }
-
                 if (!tempFile.renameTo(apkFile)) {
                     tempFile.copyTo(apkFile, overwrite = true)
                     tempFile.delete()
                 }
-
                 if (!apkFile.exists() || apkFile.length() <= 0L) {
                     throw IOException("APK 儲存失敗")
                 }
-
-                val archiveInfo = packageManager.getPackageArchiveInfo(
-                    apkFile.absolutePath,
-                    0
-                ) ?: throw IOException("下載檔案不是有效的 APK")
-
-                if (archiveInfo.packageName != packageName) {
-                    throw IOException("新版 APK 套件名稱與舊版不一致")
-                }
-
                 saveApkPackageName(safeName)
 
                 runOnUiThread {
                     activeDownloads.remove(url)
-
-                    if (isFinishing || isDestroyed) return@runOnUiThread
-
                     beginReinstall(packageName, apkFile)
                 }
-
             } catch (e: Exception) {
                 tempFile.delete()
-
                 runOnUiThread {
                     activeDownloads.remove(url)
-
                     Toast.makeText(
                         this,
                         "重裝檔案下載失敗：${e.message ?: "未知錯誤"}",
@@ -1621,47 +1484,23 @@ val iv = ByteBuffer.allocate(16)
     }
 
     private fun beginReinstall(packageName: String, apkFile: File) {
-        if (!apkFile.exists() || apkFile.length() <= 0L) {
-            Toast.makeText(
-                this,
-                "重裝 APK 檔案不存在或內容為空",
-                Toast.LENGTH_LONG
-            ).show()
-            return
-        }
-
         try {
-            val archiveInfo = packageManager.getPackageArchiveInfo(
-                apkFile.absolutePath,
-                0
-            ) ?: throw IOException("不是有效的 APK 檔案")
-
-            if (archiveInfo.packageName != packageName) {
-                throw IOException("新版 APK 套件名稱與舊版不一致")
-            }
-
             val apkUri = FileProvider.getUriForFile(
                 this,
-                "$packageName.fileprovider",
+                "${this.packageName}.fileprovider",
                 apkFile
             )
-
             pendingReinstallUri = apkUri
             pendingReinstallPackage = packageName
-
-            val intent = Intent(
-                Intent.ACTION_UNINSTALL_PACKAGE,
-                Uri.parse("package:$packageName")
-            ).apply {
-                putExtra(Intent.EXTRA_RETURN_RESULT, true)
-            }
-
-            startActivityForResult(intent, REQUEST_REINSTALL_APP)
-
+            startActivity(
+                Intent(
+                    Intent.ACTION_DELETE,
+                    Uri.parse("package:$packageName")
+                )
+            )
         } catch (e: Exception) {
             pendingReinstallUri = null
             pendingReinstallPackage = null
-
             Toast.makeText(
                 this,
                 "無法啟動重裝流程：${e.message ?: "未知錯誤"}",
@@ -1716,6 +1555,12 @@ val iv = ByteBuffer.allocate(16)
         activeDownloads.add(url)
         sendProgress(url, 0, "downloading")
 
+        Toast.makeText(
+            this,
+            "開始下載：$safeName",
+            Toast.LENGTH_SHORT
+        ).show()
+
         Thread {
             val downloadDirectory =
                 getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
@@ -1727,7 +1572,7 @@ val iv = ByteBuffer.allocate(16)
                 downloadWithRetry(url, tempFile, safeName)
 
                 if (tempFile.length() <= 0L) {
-                    throw IOException("APK 檔案是空的")
+                    throw IOException("下載檔案是空的")
                 }
 
                 if (apkFile.exists() && !apkFile.delete()) {
@@ -2021,92 +1866,26 @@ val iv = ByteBuffer.allocate(16)
     }
 
     // =====================================================
-    // 卸載及重裝結果回傳
-    // =====================================================
-
-    private fun refreshInstalledState() {
-        if (!::webView.isInitialized || !authorized) return
-
-        webView.evaluateJavascript(
-            "window.refreshInstalledState && window.refreshInstalledState();",
-            null
-        )
-    }
-
-    @Suppress("DEPRECATION")
-    override fun onActivityResult(
-        requestCode: Int,
-        resultCode: Int,
-        data: Intent?
-    ) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        when (requestCode) {
-            REQUEST_UNINSTALL_APP -> {
-                handler.postDelayed({
-                    if (isFinishing || isDestroyed) return@postDelayed
-
-                    if (resultCode == Activity.RESULT_OK) {
-                        Toast.makeText(
-                            this,
-                            "卸載完成",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        Toast.makeText(
-                            this,
-                            "卸載已取消或未完成",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-
-                    refreshInstalledState()
-                }, 800)
-            }
-
-            REQUEST_REINSTALL_APP -> {
-                val apkUri = pendingReinstallUri
-                val targetPackage = pendingReinstallPackage
-
-                pendingReinstallUri = null
-                pendingReinstallPackage = null
-
-                handler.postDelayed({
-                    if (isFinishing || isDestroyed) return@postDelayed
-
-                    if (
-                        resultCode == Activity.RESULT_OK &&
-                        !targetPackage.isNullOrBlank() &&
-                        !isPackageInstalled(targetPackage) &&
-                        apkUri != null
-                    ) {
-                        Toast.makeText(
-                            this,
-                            "舊版已卸載，準備安裝新版",
-                            Toast.LENGTH_LONG
-                        ).show()
-
-                        openApkInstaller(apkUri)
-                    } else {
-                        Toast.makeText(
-                            this,
-                            "卸載未完成，保留原本應用程式",
-                            Toast.LENGTH_SHORT
-                        ).show()
-
-                        refreshInstalledState()
-                    }
-                }, 800)
-            }
-        }
-    }
-
-    // =====================================================
     // 返回應用市場
     // =====================================================
 
     override fun onResume() {
         super.onResume()
+
+        val reinstallUri = pendingReinstallUri
+        val reinstallPackage = pendingReinstallPackage
+        if (reinstallUri != null && !reinstallPackage.isNullOrBlank()) {
+            pendingReinstallUri = null
+            pendingReinstallPackage = null
+
+            if (!isPackageInstalled(reinstallPackage)) {
+                Toast.makeText(this, "舊版已卸載，正在開啟新版安裝畫面", Toast.LENGTH_LONG).show()
+                openApkInstaller(reinstallUri)
+            } else {
+                Toast.makeText(this, "已取消卸載，保留原本應用程式", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
 
         val uri = pendingInstallUri
 
@@ -2125,7 +1904,11 @@ val iv = ByteBuffer.allocate(16)
 
             handler.postDelayed({
                 if (::webView.isInitialized && authorized) {
-                    refreshInstalledState()
+                    webView.evaluateJavascript(
+                        "window.refreshInstalledState && " +
+                            "window.refreshInstalledState();",
+                        null
+                    )
                 }
             }, 1500)
         }
