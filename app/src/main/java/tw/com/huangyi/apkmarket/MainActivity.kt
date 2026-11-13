@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -104,6 +103,9 @@ class MainActivity : Activity() {
 
         private const val ACTION_UNINSTALL_RESULT =
             "tw.com.huangyi.apkmarket.UNINSTALL_RESULT"
+
+        private const val ACTION_INSTALL_RESULT =
+            "tw.com.huangyi.apkmarket.INSTALL_RESULT"
     }
 
     private val httpClient by lazy {
@@ -134,6 +136,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         handleUninstallResult(intent)
+        handleInstallResult(intent)
 
         authorized = false
         specialAuthorized = false
@@ -1375,9 +1378,8 @@ class MainActivity : Activity() {
     private fun normalizeName(value: String): String {
         return value.lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
     }
-
-    // =====================================================
-    // 已安裝軟體
+        // =====================================================
+    // 已安裝軟體：美化操作視窗
     // =====================================================
 
     private fun showInstalledActions(
@@ -1423,38 +1425,166 @@ class MainActivity : Activity() {
             return
         }
 
-        val options = arrayOf(
-            "開啟",
-            "重裝",
-            "卸載"
-        )
+        val density = resources.displayMetrics.density
 
-        AlertDialog.Builder(this)
-            .setTitle(appName.ifBlank { "應用程式操作" })
-            .setItems(options) { _, which ->
-                if (!authorized) {
-                    Toast.makeText(
-                        this,
-                        "目前設備尚未取得市場授權",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return@setItems
+        fun dp(value: Int): Int {
+            return (value * density).toInt()
+        }
+
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(18), dp(24), dp(18))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xFF17232F.toInt())
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(1), 0xFF34495E.toInt())
+            }
+        }
+
+        val title = TextView(this).apply {
+            text = appName.ifBlank { "應用程式操作" }
+            textSize = 23f
+            setTextColor(0xFFFFFFFF.toInt())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = android.view.Gravity.CENTER
+            setPadding(dp(8), dp(8), dp(8), dp(5))
+        }
+
+        val subtitle = TextView(this).apply {
+            text = "請選擇要執行的操作"
+            textSize = 15f
+            setTextColor(0xFF9EADB9.toInt())
+            gravity = android.view.Gravity.CENTER
+            setPadding(dp(8), dp(3), dp(8), dp(18))
+        }
+
+        layout.addView(title)
+        layout.addView(subtitle)
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(layout)
+            .setCancelable(true)
+            .create()
+
+        fun addAction(
+            text: String,
+            color: Int,
+            action: () -> Unit
+        ) {
+            val button = TextView(this).apply {
+                this.text = text
+                textSize = 19f
+                setTextColor(0xFFFFFFFF.toInt())
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                gravity = android.view.Gravity.CENTER
+                isFocusable = true
+                isFocusableInTouchMode = true
+                minimumHeight = dp(54)
+                setPadding(dp(12), dp(8), dp(12), dp(8))
+
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(color)
+                    cornerRadius = dp(10).toFloat()
+                    setStroke(dp(1), 0xFF526779.toInt())
                 }
 
-                when (which) {
-                    0 -> launchInstalledApp(packageName)
+                setOnFocusChangeListener { view, hasFocus ->
+                    view.scaleX = if (hasFocus) 1.03f else 1f
+                    view.scaleY = if (hasFocus) 1.03f else 1f
 
-                    1 -> reinstallInstalledApp(
-                        packageName,
-                        fileName,
-                        url
-                    )
+                    view.background =
+                        android.graphics.drawable.GradientDrawable().apply {
+                            setColor(
+                                if (hasFocus) {
+                                    0xFF36536B.toInt()
+                                } else {
+                                    color
+                                }
+                            )
+                            cornerRadius = dp(10).toFloat()
+                            setStroke(
+                                dp(if (hasFocus) 2 else 1),
+                                if (hasFocus) {
+                                    0xFF65C8FF.toInt()
+                                } else {
+                                    0xFF526779.toInt()
+                                }
+                            )
+                        }
+                }
 
-                    2 -> uninstallInstalledApp(packageName)
+                setOnClickListener {
+                    dialog.dismiss()
+                    action()
                 }
             }
-            .setCancelable(true)
-            .show()
+
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(54)
+            ).apply {
+                bottomMargin = dp(10)
+            }
+
+            layout.addView(button, params)
+        }
+
+        addAction("▶   開啟應用程式", 0xFF245B80.toInt()) {
+            launchInstalledApp(packageName)
+        }
+
+        addAction("↻   重新安裝應用程式", 0xFF286B55.toInt()) {
+            reinstallInstalledApp(packageName, fileName, url)
+        }
+
+        addAction("✕   解除安裝應用程式", 0xFF853C42.toInt()) {
+            uninstallInstalledApp(packageName)
+        }
+
+        val cancel = TextView(this).apply {
+            text = "取消"
+            textSize = 17f
+            setTextColor(0xFFB8C5D0.toInt())
+            gravity = android.view.Gravity.CENTER
+            isFocusable = true
+            isFocusableInTouchMode = true
+            minimumHeight = dp(44)
+
+            setOnClickListener {
+                dialog.dismiss()
+            }
+        }
+
+        layout.addView(
+            cancel,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(44)
+            )
+        )
+
+        dialog.show()
+
+        dialog.window?.apply {
+            setBackgroundDrawable(
+                android.graphics.drawable.GradientDrawable().apply {
+                    setColor(0xFF17232F.toInt())
+                    cornerRadius = dp(18).toFloat()
+                    setStroke(dp(1), 0xFF34495E.toInt())
+                }
+            )
+
+            setLayout(
+                dp(420),
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        handler.post {
+            if (dialog.isShowing && layout.childCount > 2) {
+                layout.getChildAt(2).requestFocus()
+            }
+        }
     }
 
     private fun isPackageInstalled(packageName: String): Boolean {
@@ -1661,12 +1791,7 @@ class MainActivity : Activity() {
             )
 
             if (!isPackageInstalled(packageName)) {
-                Toast.makeText(
-                    this,
-                    "舊版已不存在，正在開啟新版安裝畫面",
-                    Toast.LENGTH_LONG
-                ).show()
-                openApkInstaller(apkUri)
+                installApkWithoutOpenScreen(apkUri)
                 return
             }
 
@@ -1703,7 +1828,6 @@ class MainActivity : Activity() {
             PackageInstaller.STATUS_FAILURE
         )
 
-        // 系統要求使用者確認卸載
         if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
             val confirmIntent = if (Build.VERSION.SDK_INT >= 33) {
                 intent.getParcelableExtra(
@@ -1729,11 +1853,6 @@ class MainActivity : Activity() {
             return
         }
 
-        val targetPackage = prefs.getString(
-            "pending_uninstall_package",
-            ""
-        ) ?: ""
-
         val reinstall = prefs.getBoolean(
             "pending_is_reinstall",
             false
@@ -1747,18 +1866,26 @@ class MainActivity : Activity() {
         clearPendingUninstall()
 
         if (status == PackageInstaller.STATUS_SUCCESS) {
-            Toast.makeText(
-                this,
-                "卸載成功",
-                Toast.LENGTH_SHORT
-            ).show()
-
             if (reinstall && reinstallUriText.isNotBlank()) {
+                Toast.makeText(
+                    this,
+                    "舊版卸載完成，正在安裝新版",
+                    Toast.LENGTH_SHORT
+                ).show()
+
                 handler.postDelayed({
                     if (!isFinishing && !isDestroyed) {
-                        openApkInstaller(Uri.parse(reinstallUriText))
+                        installApkWithoutOpenScreen(
+                            Uri.parse(reinstallUriText)
+                        )
                     }
                 }, 500L)
+            } else {
+                Toast.makeText(
+                    this,
+                    "卸載成功",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
 
             refreshInstalledState()
@@ -1777,10 +1904,145 @@ class MainActivity : Activity() {
         }
     }
 
+    // =====================================================
+    // 重裝專用安裝流程：完成後不啟動目標 APP
+    // =====================================================
+
+    private fun installApkWithoutOpenScreen(uri: Uri) {
+        Thread {
+            var sessionId = -1
+
+            try {
+                val params = PackageInstaller.SessionParams(
+                    PackageInstaller.SessionParams.MODE_FULL_INSTALL
+                )
+
+                val session = packageManager.packageInstaller
+                sessionId = session.createSession(params)
+
+                session.openSession(sessionId).use { installSession ->
+                    val input = contentResolver.openInputStream(uri)
+                        ?: throw IOException("無法讀取重裝 APK")
+
+                    input.use { source ->
+                        installSession.openWrite(
+                            "HY_REINSTALL.apk",
+                            0,
+                            -1
+                        ).use { output ->
+                            source.copyTo(output)
+                            installSession.fsync(output)
+                        }
+                    }
+
+                    val callbackIntent = Intent(
+                        this,
+                        MainActivity::class.java
+                    ).apply {
+                        action = ACTION_INSTALL_RESULT
+                        addFlags(
+                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        )
+                    }
+
+                    val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            PendingIntent.FLAG_MUTABLE
+                        } else {
+                            0
+                        }
+
+                    val callback = PendingIntent.getActivity(
+                        this,
+                        (System.currentTimeMillis() and 0x7FFFFFFF).toInt(),
+                        callbackIntent,
+                        flags
+                    )
+
+                    installSession.commit(callback.intentSender)
+                }
+
+            } catch (e: Exception) {
+                if (sessionId >= 0) {
+                    try {
+                        packageManager.packageInstaller.abandonSession(sessionId)
+                    } catch (ignored: Exception) {
+                    }
+                }
+
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        Toast.makeText(
+                            this,
+                            "新版安裝失敗：${e.message ?: "未知錯誤"}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        refreshInstalledState()
+                    }
+                }
+            }
+        }.start()
+    }
+
+    private fun handleInstallResult(intent: Intent?) {
+        if (intent?.action != ACTION_INSTALL_RESULT) return
+
+        val status = intent.getIntExtra(
+            PackageInstaller.EXTRA_STATUS,
+            PackageInstaller.STATUS_FAILURE
+        )
+
+        if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            val confirmIntent = if (Build.VERSION.SDK_INT >= 33) {
+                intent.getParcelableExtra(
+                    Intent.EXTRA_INTENT,
+                    Intent::class.java
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_INTENT) as? Intent
+            }
+
+            if (confirmIntent != null) {
+                confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(confirmIntent)
+            } else {
+                Toast.makeText(
+                    this,
+                    "無法開啟系統安裝確認畫面",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            return
+        }
+
+        if (status == PackageInstaller.STATUS_SUCCESS) {
+            Toast.makeText(
+                this,
+                "重新安裝完成",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            val message = intent.getStringExtra(
+                PackageInstaller.EXTRA_STATUS_MESSAGE
+            ) ?: "系統無法完成安裝"
+
+            Toast.makeText(
+                this,
+                "新版安裝未完成：$message",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+        refreshInstalledState()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleUninstallResult(intent)
+        handleInstallResult(intent)
     }
 
     // =====================================================
@@ -2114,7 +2376,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // APK 安裝
+    // 一般 APK 安裝
     // =====================================================
 
     private fun openApkInstaller(uri: Uri) {
@@ -2167,7 +2429,6 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
 
-        // 未知來源安裝權限設定返回後，繼續原本的安裝流程
         val uri = pendingInstallUri
 
         if (
@@ -2180,7 +2441,6 @@ class MainActivity : Activity() {
             return
         }
 
-        // 安裝完成或返回市場後，更新網頁上的已安裝狀態
         if (pendingInstallCheck && ::webView.isInitialized) {
             pendingInstallCheck = false
             refreshInstalledState()
