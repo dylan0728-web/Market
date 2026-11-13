@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -1531,39 +1530,17 @@ class MainActivity : Activity() {
             layout.addView(button, params)
         }
 
-        addAction("▶   開啟應用程式", 0xFF245B80.toInt()) {
+        addAction("市場開啟", 0xFF245B80.toInt()) {
             launchInstalledApp(packageName)
         }
 
-        addAction("↻   重新安裝應用程式", 0xFF286B55.toInt()) {
+        addAction("重裝", 0xFF286B55.toInt()) {
             reinstallInstalledApp(packageName, fileName, url)
         }
 
-        addAction("✕   解除安裝應用程式", 0xFF853C42.toInt()) {
+        addAction("卸載", 0xFF853C42.toInt()) {
             uninstallInstalledApp(packageName)
         }
-
-        val cancel = TextView(this).apply {
-            text = "取消"
-            textSize = 17f
-            setTextColor(0xFFB8C5D0.toInt())
-            gravity = android.view.Gravity.CENTER
-            isFocusable = true
-            isFocusableInTouchMode = true
-            minimumHeight = dp(44)
-
-            setOnClickListener {
-                dialog.dismiss()
-            }
-        }
-
-        layout.addView(
-            cancel,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(44)
-            )
-        )
 
         dialog.show()
 
