@@ -1747,8 +1747,6 @@ class MainActivity : Activity() {
         }
 
         activeDownloads.add(url)
-        Toast.makeText(this, "正在下載重裝檔案：$safeName", Toast.LENGTH_SHORT).show()
-
         Thread {
             val tempFile = File(downloadDirectory, "$safeName.part")
             try {
@@ -1881,12 +1879,6 @@ class MainActivity : Activity() {
 
         if (status == PackageInstaller.STATUS_SUCCESS) {
             if (reinstall && reinstallUriText.isNotBlank()) {
-                Toast.makeText(
-                    this,
-                    "舊版卸載完成，正在開啟新版安裝畫面",
-                    Toast.LENGTH_LONG
-                ).show()
-
                 val reinstallUri = Uri.parse(reinstallUriText)
 
                 handler.postDelayed({
@@ -2040,11 +2032,7 @@ class MainActivity : Activity() {
         }
 
         if (status == PackageInstaller.STATUS_SUCCESS) {
-            Toast.makeText(
-                this,
-                "重新安裝完成",
-                Toast.LENGTH_SHORT
-            ).show()
+            // 安裝成功不顯示底部 Toast 提示
         } else {
             val message = intent.getStringExtra(
                 PackageInstaller.EXTRA_STATUS_MESSAGE
@@ -2133,12 +2121,6 @@ class MainActivity : Activity() {
 
         activeDownloads.add(url)
         sendProgress(url, 0, "downloading")
-
-        Toast.makeText(
-            this,
-            "開始下載：$safeName",
-            Toast.LENGTH_SHORT
-        ).show()
 
         Thread {
             val downloadDirectory =
