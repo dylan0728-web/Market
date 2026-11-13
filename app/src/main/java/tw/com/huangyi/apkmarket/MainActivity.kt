@@ -1530,7 +1530,7 @@ class MainActivity : Activity() {
             layout.addView(button, params)
         }
 
-        addAction("市場開啟", 0xFF245B80.toInt()) {
+        addAction("開啟", 0xFF245B80.toInt()) {
             launchInstalledApp(packageName)
         }
 
