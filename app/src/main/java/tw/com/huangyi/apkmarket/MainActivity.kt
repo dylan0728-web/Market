@@ -1,3 +1,4 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -1378,7 +1379,8 @@ class MainActivity : Activity() {
     private fun normalizeName(value: String): String {
         return value.lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
     }
-        // =====================================================
+
+    // =====================================================
     // 已安裝軟體：美化操作視窗
     // =====================================================
 
@@ -1782,8 +1784,20 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    // 重裝流程：先確認 APK 正確，再決定安裝或卸載後重裝
     private fun beginReinstall(packageName: String, apkFile: File) {
         try {
+            val archiveInfo = packageManager.getPackageArchiveInfo(
+                apkFile.absolutePath,
+                0
+            ) ?: throw IOException("下載檔案不是有效的 APK")
+
+            if (archiveInfo.packageName != packageName) {
+                throw IOException(
+                    "APK 套件名稱不符：預期 $packageName，實際 ${archiveInfo.packageName}"
+                )
+            }
+
             val apkUri = FileProvider.getUriForFile(
                 this,
                 "${this.packageName}.fileprovider",
@@ -1791,7 +1805,7 @@ class MainActivity : Activity() {
             )
 
             if (!isPackageInstalled(packageName)) {
-                installApkWithoutOpenScreen(apkUri)
+                openApkInstaller(apkUri)
                 return
             }
 
@@ -1869,17 +1883,25 @@ class MainActivity : Activity() {
             if (reinstall && reinstallUriText.isNotBlank()) {
                 Toast.makeText(
                     this,
-                    "舊版卸載完成，正在安裝新版",
-                    Toast.LENGTH_SHORT
+                    "舊版卸載完成，正在開啟新版安裝畫面",
+                    Toast.LENGTH_LONG
                 ).show()
+
+                val reinstallUri = Uri.parse(reinstallUriText)
 
                 handler.postDelayed({
                     if (!isFinishing && !isDestroyed) {
-                        installApkWithoutOpenScreen(
-                            Uri.parse(reinstallUriText)
-                        )
+                        try {
+                            openApkInstaller(reinstallUri)
+                        } catch (e: Exception) {
+                            Toast.makeText(
+                                this,
+                                "無法開啟新版安裝畫面：${e.message ?: "未知錯誤"}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
-                }, 500L)
+                }, 1000L)
             } else {
                 Toast.makeText(
                     this,
@@ -1905,7 +1927,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 重裝專用安裝流程：完成後不啟動目標 APP
+    // 重裝專用安裝流程：保留舊函式，不再用於重裝
     // =====================================================
 
     private fun installApkWithoutOpenScreen(uri: Uri) {
