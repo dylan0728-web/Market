@@ -1,3 +1,4 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -1498,7 +1499,7 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 卸載 APP：依照系統卸載結果及實際安裝狀態判斷
+    // 卸載 APP：使用系統卸載流程並回傳結果
     // =====================================================
 
     private fun uninstallInstalledApp(packageName: String) {
@@ -1517,10 +1518,10 @@ class MainActivity : Activity() {
         try {
             pendingUninstallPackage = packageName
 
-            val intent = Intent(
-                Intent.ACTION_DELETE,
-                Uri.parse("package:$packageName")
-            )
+            val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE).apply {
+                data = Uri.parse("package:$packageName")
+                putExtra(Intent.EXTRA_RETURN_RESULT, true)
+            }
 
             startActivityForResult(
                 intent,
@@ -1532,8 +1533,8 @@ class MainActivity : Activity() {
 
             Toast.makeText(
                 this,
-                "無法開啟卸載畫面",
-                Toast.LENGTH_SHORT
+                "無法開啟卸載畫面：${e.message ?: "未知錯誤"}",
+                Toast.LENGTH_LONG
             ).show()
         }
     }
@@ -1641,10 +1642,10 @@ class MainActivity : Activity() {
             pendingReinstallUri = apkUri
             pendingReinstallPackage = packageName
 
-            val intent = Intent(
-                Intent.ACTION_DELETE,
-                Uri.parse("package:$packageName")
-            )
+            val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE).apply {
+                data = Uri.parse("package:$packageName")
+                putExtra(Intent.EXTRA_RETURN_RESULT, true)
+            }
 
             startActivityForResult(
                 intent,
