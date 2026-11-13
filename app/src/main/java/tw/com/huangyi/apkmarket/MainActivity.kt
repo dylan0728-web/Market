@@ -3,8 +3,10 @@ package tw.com.huangyi.apkmarket
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -50,9 +52,6 @@ class MainActivity : Activity() {
 
     private var pendingInstallUri: Uri? = null
     private var pendingInstallCheck = false
-    private var pendingReinstallUri: Uri? = null
-    private var pendingReinstallPackage: String? = null
-    private var pendingUninstallPackage: String? = null
 
     private val activeDownloads = mutableSetOf<String>()
 
@@ -102,6 +101,9 @@ class MainActivity : Activity() {
 
         private const val MARKET_UPDATE_FILE =
             "HY應用市場.apk"
+
+        private const val ACTION_UNINSTALL_RESULT =
+            "tw.com.huangyi.apkmarket.UNINSTALL_RESULT"
     }
 
     private val httpClient by lazy {
@@ -130,6 +132,8 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        handleUninstallResult(intent)
 
         authorized = false
         specialAuthorized = false
@@ -1483,17 +1487,72 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 直接呼叫 Android 系統解除安裝確認畫面
+    // 使用 PackageInstaller 正式解除安裝
     // =====================================================
 
-    private fun openAppUninstallConfirmation(packageName: String) {
-        val intent = Intent(
-            Intent.ACTION_DELETE,
-            Uri.parse("package:$packageName")
-        )
+    private fun openAppUninstallConfirmation(
+        targetPackageName: String,
+        reinstallUri: Uri? = null
+    ) {
+        try {
+            val callbackIntent = Intent(
+                this,
+                MainActivity::class.java
+            ).apply {
+                action = ACTION_UNINSTALL_RESULT
+                addFlags(
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                )
+            }
 
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
+            prefs.edit()
+                .putString("pending_uninstall_package", targetPackageName)
+                .putString(
+                    "pending_reinstall_uri",
+                    reinstallUri?.toString() ?: ""
+                )
+                .putBoolean("pending_is_reinstall", reinstallUri != null)
+                .apply()
+
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    PendingIntent.FLAG_MUTABLE
+                } else {
+                    0
+                }
+
+            val callback = PendingIntent.getActivity(
+                this,
+                targetPackageName.hashCode(),
+                callbackIntent,
+                flags
+            )
+
+            packageManager.packageInstaller.uninstall(
+                targetPackageName,
+                callback.intentSender
+            )
+
+            Toast.makeText(
+                this,
+                if (reinstallUri != null) {
+                    "請在系統畫面確認解除安裝，完成後會接續安裝新版"
+                } else {
+                    "請在系統畫面確認解除安裝"
+                },
+                Toast.LENGTH_LONG
+            ).show()
+
+        } catch (e: Exception) {
+            clearPendingUninstall()
+
+            Toast.makeText(
+                this,
+                "無法啟動解除安裝：${e.message ?: "未知錯誤"}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     private fun uninstallInstalledApp(packageName: String) {
@@ -1509,30 +1568,11 @@ class MainActivity : Activity() {
             return
         }
 
-        try {
-            pendingUninstallPackage = packageName
-
-            Toast.makeText(
-                this,
-                "請在系統畫面確認解除安裝",
-                Toast.LENGTH_LONG
-            ).show()
-
-            openAppUninstallConfirmation(packageName)
-
-        } catch (e: Exception) {
-            pendingUninstallPackage = null
-
-            Toast.makeText(
-                this,
-                "無法開啟系統解除安裝畫面：${e.message ?: "未知錯誤"}",
-                Toast.LENGTH_LONG
-            ).show()
-        }
+        openAppUninstallConfirmation(packageName)
     }
 
     // =====================================================
-    // 重裝 APP：先下載，再直接呼叫系統解除安裝確認
+    // 重裝 APP：先下載，再使用 PackageInstaller 卸載
     // =====================================================
 
     private fun reinstallInstalledApp(
@@ -1630,20 +1670,10 @@ class MainActivity : Activity() {
                 return
             }
 
-            pendingReinstallUri = apkUri
-            pendingReinstallPackage = packageName
-
-            Toast.makeText(
-                this,
-                "請在系統畫面確認解除安裝舊版，完成後會自動接續安裝",
-                Toast.LENGTH_LONG
-            ).show()
-
-            openAppUninstallConfirmation(packageName)
+            openAppUninstallConfirmation(packageName, apkUri)
 
         } catch (e: Exception) {
-            pendingReinstallUri = null
-            pendingReinstallPackage = null
+            clearPendingUninstall()
 
             Toast.makeText(
                 this,
@@ -1651,6 +1681,106 @@ class MainActivity : Activity() {
                 Toast.LENGTH_LONG
             ).show()
         }
+    }
+
+    // =====================================================
+    // PackageInstaller 卸載結果回呼
+    // =====================================================
+
+    private fun clearPendingUninstall() {
+        prefs.edit()
+            .remove("pending_uninstall_package")
+            .remove("pending_reinstall_uri")
+            .remove("pending_is_reinstall")
+            .apply()
+    }
+
+    private fun handleUninstallResult(intent: Intent?) {
+        if (intent?.action != ACTION_UNINSTALL_RESULT) return
+
+        val status = intent.getIntExtra(
+            PackageInstaller.EXTRA_STATUS,
+            PackageInstaller.STATUS_FAILURE
+        )
+
+        // 系統要求使用者確認卸載
+        if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            val confirmIntent = if (Build.VERSION.SDK_INT >= 33) {
+                intent.getParcelableExtra(
+                    Intent.EXTRA_INTENT,
+                    Intent::class.java
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_INTENT) as? Intent
+            }
+
+            if (confirmIntent != null) {
+                confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(confirmIntent)
+            } else {
+                clearPendingUninstall()
+                Toast.makeText(
+                    this,
+                    "無法開啟系統卸載確認畫面",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            return
+        }
+
+        val targetPackage = prefs.getString(
+            "pending_uninstall_package",
+            ""
+        ) ?: ""
+
+        val reinstall = prefs.getBoolean(
+            "pending_is_reinstall",
+            false
+        )
+
+        val reinstallUriText = prefs.getString(
+            "pending_reinstall_uri",
+            ""
+        ) ?: ""
+
+        clearPendingUninstall()
+
+        if (status == PackageInstaller.STATUS_SUCCESS) {
+            Toast.makeText(
+                this,
+                "卸載成功",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            if (reinstall && reinstallUriText.isNotBlank()) {
+                handler.postDelayed({
+                    if (!isFinishing && !isDestroyed) {
+                        openApkInstaller(Uri.parse(reinstallUriText))
+                    }
+                }, 500L)
+            }
+
+            refreshInstalledState()
+        } else {
+            val message = intent.getStringExtra(
+                PackageInstaller.EXTRA_STATUS_MESSAGE
+            ) ?: "使用者取消或系統無法完成卸載"
+
+            Toast.makeText(
+                this,
+                "卸載未完成：$message",
+                Toast.LENGTH_LONG
+            ).show()
+
+            refreshInstalledState()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleUninstallResult(intent)
     }
 
     // =====================================================
@@ -2048,66 +2178,6 @@ class MainActivity : Activity() {
             pendingInstallUri = null
             installApk(uri)
             return
-        }
-
-        // 從系統解除安裝確認畫面返回後，確認舊 APP 是否已卸載
-        val reinstallPackage = pendingReinstallPackage
-        val reinstallUri = pendingReinstallUri
-        val uninstallPackage = pendingUninstallPackage
-
-        if (
-            reinstallPackage != null ||
-            uninstallPackage != null
-        ) {
-            // 先清除待處理資料，避免同一次返回重複執行
-            pendingReinstallPackage = null
-            pendingReinstallUri = null
-            pendingUninstallPackage = null
-
-            handler.postDelayed({
-                if (isFinishing || isDestroyed) return@postDelayed
-
-                if (reinstallPackage != null) {
-                    val stillInstalled = isPackageInstalled(reinstallPackage)
-
-                    if (!stillInstalled && reinstallUri != null) {
-                        Toast.makeText(
-                            this,
-                            "舊版已卸載，正在開啟新版安裝畫面",
-                            Toast.LENGTH_LONG
-                        ).show()
-
-                        openApkInstaller(reinstallUri)
-                    } else {
-                        Toast.makeText(
-                            this,
-                            "尚未解除安裝舊版，保留原本應用程式",
-                            Toast.LENGTH_SHORT
-                        ).show()
-
-                        refreshInstalledState()
-                    }
-
-                } else if (uninstallPackage != null) {
-                    val stillInstalled = isPackageInstalled(uninstallPackage)
-
-                    if (!stillInstalled) {
-                        Toast.makeText(
-                            this,
-                            "卸載成功",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        Toast.makeText(
-                            this,
-                            "尚未解除安裝，保留原本應用程式",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-
-                    refreshInstalledState()
-                }
-            }, 800L)
         }
 
         // 安裝完成或返回市場後，更新網頁上的已安裝狀態
