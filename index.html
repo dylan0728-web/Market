@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -67,10 +68,19 @@ header{align-items:flex-start;flex-direction:column}
 </div>
 <div id="macInfo">MAC：讀取中...</div>
 </header>
-
 <div id="status">正在準備應用程式清單……</div>
 <main id="apps"><div class="empty">正在連線 GitHub Releases……</div></main>
-
+<div id="dialog">
+<div class="dialog-box">
+<h2 id="dialogTitle">應用程式</h2>
+<p id="dialogText">請選擇操作</p>
+<div class="dialog-actions">
+<button type="button" id="openBtn">市場開啟</button>
+<button type="button" id="reinstallBtn">重裝</button>
+<button type="button" id="uninstallBtn">卸載</button>
+</div>
+</div>
+</div>
 <script>
 (function(){
 "use strict";
@@ -82,9 +92,16 @@ const ICON_VERSION="20261113";
 
 const appsElement=document.getElementById("apps");
 const statusElement=document.getElementById("status");
+const dialog=document.getElementById("dialog");
+const dialogTitle=document.getElementById("dialogTitle");
+const dialogText=document.getElementById("dialogText");
+const openButton=document.getElementById("openBtn");
+const reinstallButton=document.getElementById("reinstallBtn");
+const uninstallButton=document.getElementById("uninstallBtn");
 
 let appList=[];
 let selectedIndex=0;
+let currentApp=null;
 let loading=false;
 
 function readMarketVersion(){
@@ -211,6 +228,7 @@ if(NAME_MAP[fileName])return NAME_MAP[fileName];
 return fileName.replace(/\.apk$/i,"").replace(/[_-]\d[\w.-]*$/,"");
 }
 
+/* 依照圖片實際副檔名載入；六張新圖片會依序嘗試 PNG、WEBP、JPG、JPEG */
 function iconFor(fileName){
 const imageName=ICON_MAP[fileName];
 if(!imageName)return "";
@@ -373,33 +391,64 @@ else if(direction==="up"&&selectedIndex===0)scrollPageToTop();
 }
 }
 
-/* 已安裝 APP：改呼叫 Android 原生操作選單 */
 function handleAppClick(app){
-if(app.downloadActive){
-setStatus("此 APK 正在下載，請稍候。");
-return;
-}
-
+if(app.downloadActive){setStatus("此 APK 正在下載，請稍候。");return}
 if(app.installed===true&&app.packageName){
-if(window.AndroidMarket&&typeof window.AndroidMarket.showInstalledActions==="function"){
-try{
-window.AndroidMarket.showInstalledActions(
-app.packageName,
-app.fileName,
-app.url,
-app.appName||app.name
-);
-}catch(e){
-setStatus("無法開啟操作選單："+e.message);
-}
-}else{
-setStatus("無法呼叫 Android 原生操作選單，請確認已更新市場 App。");
-}
+currentApp=app;
+dialogTitle.textContent=app.appName||app.name;
+dialogText.textContent="這個應用程式已經安裝，請選擇要執行的操作。";
+dialog.style.display="flex";
+openButton.focus();
 return;
 }
-
 downloadApp(app);
 }
+
+function closeDialog(){
+dialog.style.display="none";
+currentApp=null;
+const card=appsElement.querySelectorAll(".app")[selectedIndex];
+if(card){try{card.focus({preventScroll:true})}catch(e){card.focus()}}
+}
+
+openButton.addEventListener("click",function(){
+if(!currentApp)return;
+const packageName=currentApp.packageName;
+closeDialog();
+try{
+if(window.AndroidMarket&&typeof window.AndroidMarket.launchApp==="function")window.AndroidMarket.launchApp(packageName);
+else setStatus("無法呼叫 Android 開啟功能。");
+}catch(e){setStatus("開啟應用程式失敗："+e.message)}
+});
+
+reinstallButton.addEventListener("click",function(){
+if(!currentApp)return;
+const packageName=currentApp.packageName;
+const fileName=currentApp.fileName;
+const name=currentApp.appName||currentApp.name;
+closeDialog();
+if(!confirm("確定要重裝「"+name+"」嗎？\n系統會先要求卸載舊版，卸載完成後自動開啟新版安裝。"))return;
+try{
+if(window.AndroidMarket&&typeof window.AndroidMarket.reinstallApp==="function"){
+window.AndroidMarket.reinstallApp(packageName,fileName,currentApp.url);
+}else{setStatus("無法呼叫 Android 重裝功能。");}
+}catch(e){setStatus("重裝功能呼叫失敗："+e.message)}
+});
+
+uninstallButton.addEventListener("click",function(){
+if(!currentApp)return;
+const packageName=currentApp.packageName;
+const name=currentApp.appName||currentApp.name;
+closeDialog();
+if(confirm("確定要卸載「"+name+"」嗎？")){
+try{
+if(window.AndroidMarket&&typeof window.AndroidMarket.uninstallApp==="function")window.AndroidMarket.uninstallApp(packageName);
+else setStatus("無法呼叫 Android 卸載功能。");
+}catch(e){setStatus("卸載功能呼叫失敗："+e.message)}
+}
+});
+
+dialog.addEventListener("click",function(event){if(event.target===dialog)closeDialog()});
 
 function downloadApp(app){
 if(!app.url||!app.fileName){setStatus("APK 下載資料不完整。");return}
@@ -534,6 +583,10 @@ setStatus("無法讀取 GitHub Releases，請檢查網路連線後重新整理�
 
 /* Android TV 遙控器方向鍵及確認鍵 */
 document.addEventListener("keydown",function(event){
+if(dialog.style.display==="flex"){
+if(event.key==="Escape"||event.key==="Backspace"){event.preventDefault();closeDialog()}
+return;
+}
 if(!appList.length)return;
 const key=event.key;
 const keyCode=event.keyCode;
