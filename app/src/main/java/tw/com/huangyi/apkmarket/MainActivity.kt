@@ -1,3 +1,4 @@
+
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -51,6 +52,7 @@ class MainActivity : Activity() {
     private var pendingInstallCheck = false
     private var pendingReinstallUri: Uri? = null
     private var pendingReinstallPackage: String? = null
+    private var pendingUninstallPackage: String? = null
 
     private val activeDownloads = mutableSetOf<String>()
 
@@ -100,6 +102,9 @@ class MainActivity : Activity() {
 
         private const val MARKET_UPDATE_FILE =
             "HY應用市場.apk"
+
+        private const val REQUEST_UNINSTALL_APP = 7101
+        private const val REQUEST_REINSTALL_UNINSTALL = 7102
     }
 
     private val httpClient by lazy {
@@ -1391,17 +1396,39 @@ class MainActivity : Activity() {
         }
     }
 
+    // =====================================================
+    // 卸載 APP：依照系統卸載結果及實際安裝狀態判斷
+    // =====================================================
+
     private fun uninstallInstalledApp(packageName: String) {
         if (packageName.isBlank()) return
 
+        if (!isPackageInstalled(packageName)) {
+            Toast.makeText(
+                this,
+                "此應用程式已經卸載",
+                Toast.LENGTH_SHORT
+            ).show()
+            refreshInstalledState()
+            return
+        }
+
         try {
-            startActivity(
-                Intent(
-                    Intent.ACTION_DELETE,
-                    Uri.parse("package:$packageName")
-                )
+            pendingUninstallPackage = packageName
+
+            val intent = Intent(
+                Intent.ACTION_DELETE,
+                Uri.parse("package:$packageName")
             )
+
+            startActivityForResult(
+                intent,
+                REQUEST_UNINSTALL_APP
+            )
+
         } catch (e: Exception) {
+            pendingUninstallPackage = null
+
             Toast.makeText(
                 this,
                 "無法開啟卸載畫面",
@@ -1410,7 +1437,15 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun reinstallInstalledApp(packageName: String, fileName: String, url: String) {
+    // =====================================================
+    // 重裝 APP：先下載，再確認舊版真的卸載才安裝新版
+    // =====================================================
+
+    private fun reinstallInstalledApp(
+        packageName: String,
+        fileName: String,
+        url: String
+    ) {
         if (packageName.isBlank() || fileName.isBlank()) return
 
         if (!canAccessApk(fileName)) {
@@ -1490,23 +1525,167 @@ class MainActivity : Activity() {
                 "${this.packageName}.fileprovider",
                 apkFile
             )
+
+            // 如果舊版已不存在，不必再開啟卸載畫面，直接安裝
+            if (!isPackageInstalled(packageName)) {
+                Toast.makeText(
+                    this,
+                    "舊版已不存在，正在開啟新版安裝畫面",
+                    Toast.LENGTH_LONG
+                ).show()
+                openApkInstaller(apkUri)
+                return
+            }
+
             pendingReinstallUri = apkUri
             pendingReinstallPackage = packageName
-            startActivity(
-                Intent(
-                    Intent.ACTION_DELETE,
-                    Uri.parse("package:$packageName")
-                )
+
+            val intent = Intent(
+                Intent.ACTION_DELETE,
+                Uri.parse("package:$packageName")
             )
+
+            startActivityForResult(
+                intent,
+                REQUEST_REINSTALL_UNINSTALL
+            )
+
         } catch (e: Exception) {
             pendingReinstallUri = null
             pendingReinstallPackage = null
+
             Toast.makeText(
                 this,
                 "無法啟動重裝流程：${e.message ?: "未知錯誤"}",
                 Toast.LENGTH_LONG
             ).show()
         }
+    }
+
+    // =====================================================
+    // 卸載結果回傳：以實際套件狀態作為最終判斷
+    // =====================================================
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (
+            requestCode != REQUEST_UNINSTALL_APP &&
+            requestCode != REQUEST_REINSTALL_UNINSTALL
+        ) {
+            return
+        }
+
+        val isReinstall = requestCode == REQUEST_REINSTALL_UNINSTALL
+
+        val targetPackage = if (isReinstall) {
+            pendingReinstallPackage
+        } else {
+            pendingUninstallPackage
+        }
+
+        val installUri = if (isReinstall) {
+            pendingReinstallUri
+        } else {
+            null
+        }
+
+        pendingUninstallPackage = null
+
+        if (isReinstall) {
+            pendingReinstallPackage = null
+            pendingReinstallUri = null
+        }
+
+        if (targetPackage.isNullOrBlank()) {
+            refreshInstalledState()
+            return
+        }
+
+        // 部分電視盒的卸載畫面關閉後，套件狀態不會立即更新。
+        // 稍等一下再確認，避免誤判成卸載失敗。
+        handler.postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
+
+            val stillInstalled = isPackageInstalled(targetPackage)
+
+            if (!stillInstalled) {
+                if (isReinstall && installUri != null) {
+                    Toast.makeText(
+                        this,
+                        "舊版已卸載，正在開啟新版安裝畫面",
+                        Toast.LENGTH_LONG
+                    ).show()
+
+                    openApkInstaller(installUri)
+                } else {
+                    Toast.makeText(
+                        this,
+                        "卸載成功",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    refreshInstalledState()
+                }
+            } else {
+                if (isReinstall) {
+                    val message = if (resultCode == RESULT_CANCELED) {
+                        "已取消重裝，保留原本應用程式"
+                    } else {
+                        "重裝未完成，保留原本應用程式"
+                    }
+
+                    Toast.makeText(
+                        this,
+                        message,
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                } else {
+                    val message = if (resultCode == RESULT_CANCELED) {
+                        "已取消卸載，保留原本應用程式"
+                    } else {
+                        "卸載未完成，保留原本應用程式"
+                    }
+
+                    Toast.makeText(
+                        this,
+                        message,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                refreshInstalledState()
+            }
+
+        }, 800L)
+    }
+
+    // =====================================================
+    // 更新網頁中的已安裝狀態
+    // =====================================================
+
+    private fun refreshInstalledState() {
+        if (!::webView.isInitialized || !authorized) return
+
+        handler.postDelayed({
+            if (
+                !isFinishing &&
+                !isDestroyed &&
+                ::webView.isInitialized &&
+                authorized
+            ) {
+                webView.evaluateJavascript(
+                    "window.refreshInstalledState && window.refreshInstalledState();",
+                    null
+                )
+            }
+        }, 500L)
     }
 
     // =====================================================
@@ -1872,21 +2051,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
 
-        val reinstallUri = pendingReinstallUri
-        val reinstallPackage = pendingReinstallPackage
-        if (reinstallUri != null && !reinstallPackage.isNullOrBlank()) {
-            pendingReinstallUri = null
-            pendingReinstallPackage = null
-
-            if (!isPackageInstalled(reinstallPackage)) {
-                Toast.makeText(this, "舊版已卸載，正在開啟新版安裝畫面", Toast.LENGTH_LONG).show()
-                openApkInstaller(reinstallUri)
-            } else {
-                Toast.makeText(this, "已取消卸載，保留原本應用程式", Toast.LENGTH_SHORT).show()
-            }
-            return
-        }
-
+        // 未知來源安裝權限設定返回後，繼續原本的安裝流程
         val uri = pendingInstallUri
 
         if (
@@ -1899,18 +2064,10 @@ class MainActivity : Activity() {
             return
         }
 
+        // 安裝完成或返回市場後，更新網頁上的已安裝狀態
         if (pendingInstallCheck && ::webView.isInitialized) {
             pendingInstallCheck = false
-
-            handler.postDelayed({
-                if (::webView.isInitialized && authorized) {
-                    webView.evaluateJavascript(
-                        "window.refreshInstalledState && " +
-                            "window.refreshInstalledState();",
-                        null
-                    )
-                }
-            }, 1500)
+            refreshInstalledState()
         }
     }
 
