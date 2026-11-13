@@ -1483,15 +1483,16 @@ class MainActivity : Activity() {
     }
 
     // =====================================================
-    // 卸載 APP：改開啟 Android 系統應用程式資訊頁
+    // 直接呼叫 Android 系統解除安裝確認畫面
     // =====================================================
 
-    private fun openAppDetailsPage(packageName: String) {
+    private fun openAppUninstallConfirmation(packageName: String) {
         val intent = Intent(
-            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Intent.ACTION_DELETE,
             Uri.parse("package:$packageName")
         )
 
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
     }
 
@@ -1513,25 +1514,25 @@ class MainActivity : Activity() {
 
             Toast.makeText(
                 this,
-                "請在系統應用程式資訊頁按下「解除安裝」",
+                "請在系統畫面確認解除安裝",
                 Toast.LENGTH_LONG
             ).show()
 
-            openAppDetailsPage(packageName)
+            openAppUninstallConfirmation(packageName)
 
         } catch (e: Exception) {
             pendingUninstallPackage = null
 
             Toast.makeText(
                 this,
-                "無法開啟應用程式資訊：${e.message ?: "未知錯誤"}",
+                "無法開啟系統解除安裝畫面：${e.message ?: "未知錯誤"}",
                 Toast.LENGTH_LONG
             ).show()
         }
     }
 
     // =====================================================
-    // 重裝 APP：先下載，再開啟系統應用程式資訊頁
+    // 重裝 APP：先下載，再直接呼叫系統解除安裝確認
     // =====================================================
 
     private fun reinstallInstalledApp(
@@ -1634,11 +1635,11 @@ class MainActivity : Activity() {
 
             Toast.makeText(
                 this,
-                "請在系統應用程式資訊頁解除安裝舊版，返回市場後會接續安裝",
+                "請在系統畫面確認解除安裝舊版，完成後會自動接續安裝",
                 Toast.LENGTH_LONG
             ).show()
 
-            openAppDetailsPage(packageName)
+            openAppUninstallConfirmation(packageName)
 
         } catch (e: Exception) {
             pendingReinstallUri = null
@@ -2049,7 +2050,7 @@ class MainActivity : Activity() {
             return
         }
 
-        // 從系統應用程式資訊頁返回後，確認舊 APP 是否已卸載
+        // 從系統解除安裝確認畫面返回後，確認舊 APP 是否已卸載
         val reinstallPackage = pendingReinstallPackage
         val reinstallUri = pendingReinstallUri
         val uninstallPackage = pendingUninstallPackage
