@@ -1,4 +1,3 @@
-
 package tw.com.huangyi.apkmarket
 
 import android.app.Activity
@@ -1324,6 +1323,24 @@ class MainActivity : Activity() {
             runOnUiThread { launchInstalledApp(packageName) }
         }
 
+        // 新增：接收網頁端已安裝應用程式的操作選單要求
+        @JavascriptInterface
+        fun showInstalledActions(
+            packageName: String,
+            fileName: String,
+            url: String,
+            appName: String
+        ) {
+            runOnUiThread {
+                this@MainActivity.showInstalledActions(
+                    packageName,
+                    fileName,
+                    url,
+                    appName
+                )
+            }
+        }
+
         @JavascriptInterface
         fun uninstallApp(packageName: String) {
             runOnUiThread { uninstallInstalledApp(packageName) }
@@ -1366,6 +1383,90 @@ class MainActivity : Activity() {
     // =====================================================
     // 已安裝軟體
     // =====================================================
+
+    // 新增：已安裝應用程式操作選單
+    private fun showInstalledActions(
+        packageName: String,
+        fileName: String,
+        url: String,
+        appName: String
+    ) {
+        if (!authorized) {
+            Toast.makeText(
+                this,
+                "目前設備尚未取得市場授權",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        if (packageName.isBlank() || fileName.isBlank()) {
+            Toast.makeText(
+                this,
+                "應用程式資料不完整",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        if (!canAccessApk(fileName)) {
+            Toast.makeText(
+                this,
+                "目前設備沒有此 APK 的使用權限",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        if (!isPackageInstalled(packageName)) {
+            Toast.makeText(
+                this,
+                "找不到已安裝的應用程式，正在更新清單",
+                Toast.LENGTH_SHORT
+            ).show()
+            refreshInstalledState()
+            return
+        }
+
+        val options = arrayOf(
+            "開啟",
+            "重裝",
+            "卸載"
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(appName.ifBlank { "應用程式操作" })
+            .setItems(options) { _, which ->
+                if (!authorized) {
+                    Toast.makeText(
+                        this,
+                        "目前設備尚未取得市場授權",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@setItems
+                }
+
+                when (which) {
+                    0 -> {
+                        launchInstalledApp(packageName)
+                    }
+
+                    1 -> {
+                        reinstallInstalledApp(
+                            packageName,
+                            fileName,
+                            url
+                        )
+                    }
+
+                    2 -> {
+                        uninstallInstalledApp(packageName)
+                    }
+                }
+            }
+            .setCancelable(true)
+            .show()
+    }
 
     private fun isPackageInstalled(packageName: String): Boolean {
         if (packageName.isBlank()) return false
