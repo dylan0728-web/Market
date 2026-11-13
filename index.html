@@ -398,7 +398,8 @@ currentApp=app;
 dialogTitle.textContent=app.appName||app.name;
 dialogText.textContent="這個應用程式已經安裝，請選擇要執行的操作。";
 dialog.style.display="flex";
-openButton.focus();
+/* 等目前遙控器確認鍵事件結束後，再移動焦點，避免同一次按鍵誤觸「市場開啟」 */
+setTimeout(function(){openButton.focus();},300);
 return;
 }
 downloadApp(app);
