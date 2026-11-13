@@ -391,15 +391,24 @@ else if(direction==="up"&&selectedIndex===0)scrollPageToTop();
 }
 }
 
+/* 已安裝的 APK 改由 Android 原生選單處理 */
 function handleAppClick(app){
 if(app.downloadActive){setStatus("此 APK 正在下載，請稍候。");return}
 if(app.installed===true&&app.packageName){
-currentApp=app;
-dialogTitle.textContent=app.appName||app.name;
-dialogText.textContent="這個應用程式已經安裝，請選擇要執行的操作。";
-dialog.style.display="flex";
-/* 等目前遙控器確認鍵事件結束後，再移動焦點，避免同一次按鍵誤觸「市場開啟」 */
-setTimeout(function(){openButton.focus();},300);
+if(window.AndroidMarket&&typeof window.AndroidMarket.showInstalledActions==="function"){
+try{
+window.AndroidMarket.showInstalledActions(
+app.packageName,
+app.fileName,
+app.url,
+app.appName||app.name
+);
+}catch(e){
+setStatus("開啟原生操作選單失敗："+e.message);
+}
+}else{
+setStatus("無法呼叫 Android 原生操作選單，請確認已安裝新版 HY 市場。");
+}
 return;
 }
 downloadApp(app);
@@ -427,11 +436,12 @@ if(!currentApp)return;
 const packageName=currentApp.packageName;
 const fileName=currentApp.fileName;
 const name=currentApp.appName||currentApp.name;
+const url=currentApp.url;
 closeDialog();
 if(!confirm("確定要重裝「"+name+"」嗎？\n系統會先要求卸載舊版，卸載完成後自動開啟新版安裝。"))return;
 try{
 if(window.AndroidMarket&&typeof window.AndroidMarket.reinstallApp==="function"){
-window.AndroidMarket.reinstallApp(packageName,fileName,currentApp.url);
+window.AndroidMarket.reinstallApp(packageName,fileName,url);
 }else{setStatus("無法呼叫 Android 重裝功能。");}
 }catch(e){setStatus("重裝功能呼叫失敗："+e.message)}
 });
