@@ -182,6 +182,7 @@ const ICON_MAP={
 "W_SSS.apk":"W_SSS.png",
 "I_SSS.apk":"I_SSS.png",
 "D_SSS.apk":"D_SSS.png",
+"KB_SSS.apk":"KB_SSS.png",
 "AirScreen_2.3.1.apk":"AirScreen_2.3.1.png",
 "APKPure_3.17.58.apk":"APKPure_3.17.58.png",
 "Emotn.Store_1.0.40.apk":"EmotnStore_1.0.40.png",
@@ -212,6 +213,7 @@ const NAME_MAP={
 "W_SSS.apk":"网飞猫",
 "I_SSS.apk":"愛壹帆",
 "D_SSS.apk":"獨播庫",
+"KB_SSS.apk":"_酷播",
 "AirScreen_2.3.1.apk":"AirScreen",
 "APKPure_3.17.58.apk":"APKPure",
 "Emotn.Store_1.0.40.apk":"Emotn Store",
@@ -240,7 +242,7 @@ if(NAME_MAP[fileName])return NAME_MAP[fileName];
 return fileName.replace(/\.apk$/i,"").replace(/[_-]\d[\w.-]*$/,"");
 }
 
-/* 依照圖片實際副檔名載入；六張新圖片會依序嘗試 PNG、WEBP、JPG、JPEG */
+/* 依照圖片實際副檔名載入 */
 function iconFor(fileName){
 const imageName=ICON_MAP[fileName];
 if(!imageName)return "";
@@ -256,6 +258,30 @@ const encoded=encodeURIComponent(imageName);
 return ["webp","jpg","jpeg"].map(function(extension){
 return ICON_BASE+encoded+"."+extension+"?v="+ICON_VERSION;
 });
+}
+
+/* 固定七個特殊 APP 的排列，酷播固定排第七 */
+function arrangeSpecialApps(){
+const specialOrder=[
+"H_S.apk",
+"G_SSS.apk",
+"K_SSS.apk",
+"W_SSS.apk",
+"I_SSS.apk",
+"D_SSS.apk",
+"KB_SSS.apk"
+];
+
+const specialSet=new Set(specialOrder);
+const specialApps=specialOrder
+.map(fileName=>appList.find(app=>app.fileName===fileName))
+.filter(Boolean);
+
+if(!specialApps.length)return;
+
+const firstIndex=appList.findIndex(app=>specialSet.has(app.fileName));
+appList=appList.filter(app=>!specialSet.has(app.fileName));
+appList.splice(firstIndex,0,...specialApps);
 }
 
 function getPageScroller(){
@@ -593,6 +619,10 @@ downloadState:""
 });
 });
 });
+
+/* 只調整指定七個特殊 APP 的順序，其餘 APP 順序不變 */
+arrangeSpecialApps();
+
 if(!appList.length){renderApps();setStatus("GitHub Releases 中沒有找到符合條件的 APK。");return}
 renderApps();
 setStatus("找到 "+appList.length+" 個 APK，正在檢查安裝狀態……");
