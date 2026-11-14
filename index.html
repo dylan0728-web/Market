@@ -15,23 +15,23 @@ h1{font-size:30px;margin:0;letter-spacing:1px}
 #macInfo{color:#e0e9f5;font-size:19px;font-weight:bold;white-space:nowrap;margin-left:auto;margin-right:42px}
 #status{color:#c5d0df;font-size:15px;margin-bottom:18px}
 
-/* 電視版：每排 4 個 APP */
-#apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px;padding-bottom:40px}
+/* 電視及桌面：每排四個 APP */
+#apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;padding-bottom:40px}
 
-/* 卡片底部預留血條空間 */
-.app{position:relative;width:100%;aspect-ratio:1/1;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 18px 46px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:18px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;overflow:hidden}
+/* 卡片預留底部空間，避免下載血條被遮住 */
+.app{position:relative;width:100%;aspect-ratio:1/1;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px 14px 48px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:18px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;overflow:hidden}
 .app:focus,.app.selected{border-color:#fff;background:rgba(255,255,255,.20);transform:scale(1.025)}
-.app-icon{width:40%;max-width:110px;aspect-ratio:1/1;flex-shrink:0;border-radius:20px;background:linear-gradient(145deg,#647d9c,#273c58);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:30px;font-weight:bold}
+.app-icon{width:34%;max-width:92px;aspect-ratio:1/1;flex-shrink:0;border-radius:18px;background:linear-gradient(145deg,#647d9c,#273c58);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:28px;font-weight:bold}
 .app-icon img{width:100%;height:100%;object-fit:contain}
 .app-info{width:100%;min-width:0;flex:0 1 auto;text-align:center}
-.app-name{font-size:21px;font-weight:bold;margin-bottom:5px;overflow-wrap:anywhere}
-.app-detail{color:#c1ccda;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
-.installed,.not-installed{display:inline-block;border-radius:6px;padding:4px 10px;font-size:13px;margin-top:5px}
+.app-name{font-size:18px;font-weight:bold;margin-bottom:5px;overflow-wrap:anywhere}
+.app-detail{color:#c1ccda;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.installed,.not-installed{display:inline-block;border-radius:6px;padding:4px 10px;font-size:12px;margin-top:6px}
 .installed{color:#8de6a3;background:rgba(46,204,113,.15);border:1px solid rgba(46,204,113,.4)}
 .not-installed{color:#c5d9ff;background:rgba(91,151,230,.15);border:1px solid rgba(91,151,230,.4)}
 
 /* 下載血條固定在卡片底部 */
-.download-progress{display:none;position:absolute;left:18px;right:18px;bottom:8px;width:auto;margin:0;top:auto}
+.download-progress{display:none;position:absolute;left:14px;right:14px;bottom:8px;width:auto;margin:0}
 .download-progress-label{display:flex;justify-content:space-between;gap:8px;color:#dce8f8;font-size:12px;margin-bottom:5px}
 .download-track{width:100%;height:9px;background:rgba(0,0,0,.4);border-radius:10px;overflow:hidden}
 .download-bar-fill{width:0%;height:100%;background:linear-gradient(90deg,#36d399,#75e6ff);border-radius:10px;transition:width .25s}
@@ -45,7 +45,7 @@ button{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255
 button:focus{outline:2px solid #fff}
 .dialog-actions button{min-width:85px}
 
-/* 手機版維持每排 2 個 APP */
+/* 手機：維持每排兩個 APP */
 @media(max-width:700px){
 body{padding:18px}
 #apps{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
@@ -53,9 +53,11 @@ body{padding:18px}
 .app-icon{width:42%;border-radius:14px}
 .app-name{font-size:16px}
 .app-detail{font-size:11px}
-#macInfo{margin-right:0;font-size:15px}
 .download-progress{left:12px;right:12px;bottom:7px}
+#macInfo{margin-right:0;font-size:15px}
 }
+
+/* 小尺寸手機 */
 @media(max-width:420px){
 body{padding:12px}
 header{align-items:flex-start;flex-direction:column}
@@ -282,11 +284,11 @@ if(direction==="up"){
 if(index===0){scrollPageToTop();return}
 const upperLimit=Math.max(headerBottom+25,viewportHeight*.25);
 if(rect.top<upperLimit){
-const rowStep=card.offsetHeight+(parseFloat(getComputedStyle(appsElement).rowGap)||22);
+const rowStep=card.offsetHeight+(parseFloat(getComputedStyle(appsElement).rowGap)||18);
 target=currentScroll-rowStep;
 }
 }else if(direction==="down"&&rect.bottom>viewportHeight*.75){
-const rowStep=card.offsetHeight+(parseFloat(getComputedStyle(appsElement).rowGap)||22);
+const rowStep=card.offsetHeight+(parseFloat(getComputedStyle(appsElement).rowGap)||18);
 target=currentScroll+rowStep;
 }
 if(target!==currentScroll)smoothPageScroll(target);
@@ -602,12 +604,11 @@ setStatus("無法讀取 GitHub Releases，請檢查網路連線後重新整理�
 }finally{loading=false}
 }
 
-/* 依畫面欄數決定遙控器上下移動距離 */
+/* Android TV 遙控器方向鍵及確認鍵 */
 function getGridColumnCount(){
 return window.innerWidth<=700?2:4;
 }
 
-/* Android TV 遙控器方向鍵及確認鍵 */
 document.addEventListener("keydown",function(event){
 if(dialog.style.display==="flex"){
 if(event.key==="Escape"||event.key==="Backspace"){event.preventDefault();closeDialog()}
