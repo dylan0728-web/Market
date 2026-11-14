@@ -2060,39 +2060,31 @@ class MainActivity : Activity() {
 
     private fun downloadApk(url: String, fileName: String) {
         if (!canAccessApk(fileName)) {
-            Toast.makeText(
-                this,
-                "無法下載此應用程式",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "無權限下載此應用程式", Toast.LENGTH_LONG).show()
             return
         }
 
         if (!url.startsWith(
                 "https://github.com/dylan0728-web/Market/releases/download/"
             )) {
-            Toast.makeText(this, "下載網址不正確", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "下載網址不符合安全規則", Toast.LENGTH_LONG).show()
             return
         }
 
         if (activeDownloads.contains(url)) {
-            Toast.makeText(
-                this,
-                "這個 APK 正在下載中",
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(this, "此 APK 正在下載中", Toast.LENGTH_SHORT).show()
             return
         }
 
         val safeName = File(fileName).name
 
         if (safeName.isBlank() || !safeName.endsWith(".apk", true)) {
-            Toast.makeText(this, "APK 檔名不正確", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "APK 檔案名稱不正確", Toast.LENGTH_LONG).show()
             return
         }
 
         if (!canAccessApk(safeName)) {
-            Toast.makeText(this, "無法下載此應用程式", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "無權限下載此應用程式", Toast.LENGTH_LONG).show()
             return
         }
 
@@ -2105,25 +2097,84 @@ class MainActivity : Activity() {
 
             val apkFile = File(downloadDirectory, safeName)
             val tempFile = File(downloadDirectory, "$safeName.part")
+            val backupFile = File(downloadDirectory, "$safeName.bak")
 
             try {
                 downloadWithRetry(url, tempFile, safeName)
 
-                if (tempFile.length() <= 0L) {
+                if (!tempFile.exists() || tempFile.length() <= 0L) {
                     throw IOException("下載檔案是空的")
                 }
 
-                if (apkFile.exists() && !apkFile.delete()) {
-                    throw IOException("無法覆蓋舊 APK 檔案")
+                val archiveInfo = packageManager.getPackageArchiveInfo(
+                    tempFile.absolutePath,
+                    0
+                ) ?: throw IOException("下載內容不是有效的 APK")
+
+                val archivePackageName = archiveInfo.packageName
+                if (archivePackageName.isNullOrBlank()) {
+                    throw IOException("無法讀取 APK 套件名稱")
                 }
 
-                if (!tempFile.renameTo(apkFile)) {
-                    tempFile.copyTo(apkFile, overwrite = true)
-                    tempFile.delete()
+                val expectedPackageName = prefs.getString("package_$safeName", null)
+
+                if (
+                    !expectedPackageName.isNullOrBlank() &&
+                    expectedPackageName != archivePackageName
+                ) {
+                    throw IOException(
+                        "APK 套件名稱不符，預期：$expectedPackageName，實際：$archivePackageName"
+                    )
                 }
 
-                if (!apkFile.exists() || apkFile.length() <= 0L) {
-                    throw IOException("APK 儲存失敗")
+                val archiveVersionName = archiveInfo.versionName ?: "未知版本"
+                @Suppress("DEPRECATION")
+                val archiveVersionCode =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        archiveInfo.longVersionCode
+                    } else {
+                        archiveInfo.versionCode.toLong()
+                    }
+
+                backupFile.delete()
+                var oldFileBackedUp = false
+
+                try {
+                    if (apkFile.exists()) {
+                        if (!apkFile.renameTo(backupFile)) {
+                            throw IOException("無法保留原有 APK")
+                        }
+                        oldFileBackedUp = true
+                    }
+
+                    if (!tempFile.renameTo(apkFile)) {
+                        tempFile.copyTo(apkFile, overwrite = true)
+                        tempFile.delete()
+                    }
+
+                    if (!apkFile.exists() || apkFile.length() <= 0L) {
+                        throw IOException("APK 檔案替換失敗")
+                    }
+
+                    val finalInfo = packageManager.getPackageArchiveInfo(
+                        apkFile.absolutePath,
+                        0
+                    ) ?: throw IOException("替換後的 APK 驗證失敗")
+
+                    if (finalInfo.packageName != archivePackageName) {
+                        throw IOException("替換後 APK 套件名稱不一致")
+                    }
+
+                    backupFile.delete()
+
+                } catch (replaceError: Exception) {
+                    apkFile.delete()
+
+                    if (oldFileBackedUp && backupFile.exists()) {
+                        backupFile.renameTo(apkFile)
+                    }
+
+                    throw replaceError
                 }
 
                 saveApkPackageName(safeName)
@@ -2137,6 +2188,13 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     activeDownloads.remove(url)
                     sendProgress(url, 100, "complete")
+
+                    Toast.makeText(
+                        this,
+                        "下載完成：$archiveVersionName（$archiveVersionCode）",
+                        Toast.LENGTH_LONG
+                    ).show()
+
                     openApkInstaller(uri)
                 }
 
@@ -2157,10 +2215,6 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    // =====================================================
-    // OkHttp 下載及錯誤重試
-    // =====================================================
-
     private fun downloadWithRetry(
         url: String,
         destination: File,
@@ -2172,14 +2226,33 @@ class MainActivity : Activity() {
             try {
                 destination.delete()
 
+                val requestUrl =
+                    if (url.startsWith(
+                            "https://github.com/dylan0728-web/Market/releases/download/"
+                        )
+                    ) {
+                        Uri.parse(url)
+                            .buildUpon()
+                            .appendQueryParameter(
+                                "hy_refresh",
+                                System.currentTimeMillis().toString()
+                            )
+                            .build()
+                            .toString()
+                    } else {
+                        url
+                    }
+
                 val request = Request.Builder()
-                    .url(url)
+                    .url(requestUrl)
                     .get()
                     .header(
                         "User-Agent",
                         "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36"
                     )
                     .header("Accept", "application/octet-stream,*/*")
+                    .header("Cache-Control", "no-cache, no-store, max-age=0")
+                    .header("Pragma", "no-cache")
                     .header("Connection", "keep-alive")
                     .build()
 
@@ -2199,11 +2272,11 @@ class MainActivity : Activity() {
                             throw RetryableDownloadException(message)
                         }
 
-                        throw IOException("伺服器拒絕下載：$message")
+                        throw IOException("伺服器下載失敗：$message")
                     }
 
                     val body = response.body
-                        ?: throw IOException("伺服器沒有傳回檔案")
+                        ?: throw IOException("伺服器沒有回傳檔案")
 
                     val totalBytes = body.contentLength()
                     var downloadedBytes = 0L
@@ -2215,11 +2288,10 @@ class MainActivity : Activity() {
 
                             while (true) {
                                 if (Thread.currentThread().isInterrupted) {
-                                    throw IOException("下載已中斷")
+                                    throw IOException("下載已取消")
                                 }
 
                                 val count = input.read(buffer)
-
                                 if (count == -1) break
 
                                 output.write(buffer, 0, count)
@@ -2238,11 +2310,7 @@ class MainActivity : Activity() {
                                         0
                                     }
 
-                                    sendProgress(
-                                        url,
-                                        percent,
-                                        "downloading"
-                                    )
+                                    sendProgress(url, percent, "downloading")
                                 }
                             }
 
@@ -2274,7 +2342,7 @@ class MainActivity : Activity() {
                     runOnUiThread {
                         Toast.makeText(
                             this,
-                            "$fileName 下載連線異常，正在重試（$attempt/3）",
+                            "$fileName 下載暫時失敗，重新嘗試 $attempt/3",
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -2290,7 +2358,7 @@ class MainActivity : Activity() {
                     runOnUiThread {
                         Toast.makeText(
                             this,
-                            "$fileName 網路中斷，正在重試（$attempt/3）",
+                            "$fileName 網路連線中斷，重新嘗試 $attempt/3",
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -2301,11 +2369,10 @@ class MainActivity : Activity() {
         }
 
         throw IOException(
-            "重試 3 次仍無法下載：${lastError?.message ?: "未知錯誤"}",
+            "連續 3 次下載失敗：${lastError?.message ?: "未知錯誤"}",
             lastError
         )
     }
-
     private class RetryableDownloadException(
         message: String
     ) : IOException(message)
