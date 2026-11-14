@@ -18,8 +18,8 @@ h1{font-size:30px;margin:0;letter-spacing:1px}
 /* 電視版：每排 4 個 APP */
 #apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px;padding-bottom:40px}
 
-/* 卡片間距微調，圖示大小不變 */
-.app{width:100%;aspect-ratio:1/1;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:18px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;overflow:hidden}
+/* 卡片底部預留血條空間 */
+.app{position:relative;width:100%;aspect-ratio:1/1;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px 18px 46px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:18px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;overflow:hidden}
 .app:focus,.app.selected{border-color:#fff;background:rgba(255,255,255,.20);transform:scale(1.025)}
 .app-icon{width:40%;max-width:110px;aspect-ratio:1/1;flex-shrink:0;border-radius:20px;background:linear-gradient(145deg,#647d9c,#273c58);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:30px;font-weight:bold}
 .app-icon img{width:100%;height:100%;object-fit:contain}
@@ -30,8 +30,8 @@ h1{font-size:30px;margin:0;letter-spacing:1px}
 .installed{color:#8de6a3;background:rgba(46,204,113,.15);border:1px solid rgba(46,204,113,.4)}
 .not-installed{color:#c5d9ff;background:rgba(91,151,230,.15);border:1px solid rgba(91,151,230,.4)}
 
-/* 下載血條整體往上移動 12px */
-.download-progress{display:none;margin-top:4px;width:100%;position:relative;top:-12px}
+/* 下載血條固定在卡片底部 */
+.download-progress{display:none;position:absolute;left:18px;right:18px;bottom:8px;width:auto;margin:0;top:auto}
 .download-progress-label{display:flex;justify-content:space-between;gap:8px;color:#dce8f8;font-size:12px;margin-bottom:5px}
 .download-track{width:100%;height:9px;background:rgba(0,0,0,.4);border-radius:10px;overflow:hidden}
 .download-bar-fill{width:0%;height:100%;background:linear-gradient(90deg,#36d399,#75e6ff);border-radius:10px;transition:width .25s}
@@ -49,21 +49,23 @@ button:focus{outline:2px solid #fff}
 @media(max-width:700px){
 body{padding:18px}
 #apps{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.app{padding:12px;gap:8px}
+.app{padding:12px 12px 42px;gap:8px}
 .app-icon{width:42%;border-radius:14px}
 .app-name{font-size:16px}
 .app-detail{font-size:11px}
 #macInfo{margin-right:0;font-size:15px}
+.download-progress{left:12px;right:12px;bottom:7px}
 }
 @media(max-width:420px){
 body{padding:12px}
 header{align-items:flex-start;flex-direction:column}
 #macInfo{margin-left:0}
-.app{padding:9px;gap:6px}
+.app{padding:9px 9px 38px;gap:6px}
 .app-icon{width:45%;border-radius:12px}
 .app-name{font-size:14px}
 .app-detail{font-size:10px}
 .installed,.not-installed{font-size:10px;padding:3px 6px}
+.download-progress{left:9px;right:9px;bottom:6px}
 }
 </style>
 </head>
@@ -341,7 +343,7 @@ name.className="app-name";
 name.textContent=app.appName||app.name;
 const detail=document.createElement("div");
 detail.className="app-detail";
-detail.textContent="版本："+(app.versionName||app.version||"未標示")+"｜大小："+formatSize(app.size);
+detail.textContent="版本："+(app.installed===true?(app.versionName||app.version||"?"):"?")+"｜大小："+formatSize(app.size);
 const label=document.createElement("div");
 if(app.installed===true&&app.packageName){label.className="installed";label.textContent="已安裝"}
 else{label.className="not-installed";label.textContent="尚未安裝"}
