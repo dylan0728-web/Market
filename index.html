@@ -101,6 +101,7 @@ const API="https://api.github.com/repos/dylan0728-web/Market/releases";
 const RELEASE_PREFIX="https://github.com/dylan0728-web/Market/releases/download/";
 const ICON_BASE="https://dylan0728-web.github.io/Market/icons/";
 const ICON_VERSION="20261115";
+const SORT_URL="https://dylan0728-web.github.io/Market/sort.json";
 
 const appsElement=document.getElementById("apps");
 const statusElement=document.getElementById("status");
@@ -262,7 +263,7 @@ return ICON_BASE+encoded+"."+extension+"?v="+ICON_VERSION;
 });
 }
 
-/* 固定七個特殊 APP 的排列，酷播固定排第七 */
+/* 尚未發布雲端排序檔時，沿用原本七個特殊 APP 的固定順序 */
 function arrangeSpecialApps(){
 const specialOrder=[
 "H_S.apk",
@@ -284,6 +285,34 @@ if(!specialApps.length)return;
 const firstIndex=appList.findIndex(app=>specialSet.has(app.fileName));
 appList=appList.filter(app=>!specialSet.has(app.fileName));
 appList.splice(firstIndex,0,...specialApps);
+}
+
+/* 讀取中央 sort.json；未列入的新 APK 自動接在排序清單最後 */
+async function applyCloudSort(){
+try{
+const response=await fetch(SORT_URL,{method:"GET",cache:"no-store"});
+if(!response.ok)throw new Error("HTTP "+response.status);
+const data=await response.json();
+if(!data||!Array.isArray(data.files))throw new Error("排序資料格式不正確");
+
+const rank=new Map();
+data.files.forEach(function(fileName,index){
+if(typeof fileName==="string"&&!rank.has(fileName))rank.set(fileName,index);
+});
+
+appList=appList.map(function(app,index){return {app:app,index:index}})
+.sort(function(a,b){
+const rankA=rank.has(a.app.fileName)?rank.get(a.app.fileName):Number.MAX_SAFE_INTEGER;
+const rankB=rank.has(b.app.fileName)?rank.get(b.app.fileName):Number.MAX_SAFE_INTEGER;
+if(rankA!==rankB)return rankA-rankB;
+return a.index-b.index;
+})
+.map(function(item){return item.app});
+return true;
+}catch(e){
+arrangeSpecialApps();
+return false;
+}
 }
 
 function getPageScroller(){
@@ -622,8 +651,8 @@ downloadState:""
 });
 });
 
-/* 只調整指定七個特殊 APP 的順序，其餘 APP 順序不變 */
-arrangeSpecialApps();
+/* 優先使用所有電視盒共用的雲端排序；尚未建立排序檔時沿用舊排序 */
+await applyCloudSort();
 
 if(!appList.length){renderApps();setStatus("GitHub Releases 中沒有找到符合條件的 APK。");return}
 renderApps();
