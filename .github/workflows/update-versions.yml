@@ -1,3 +1,4 @@
+
 name: Update APK Versions
 
 on:
@@ -13,6 +14,7 @@ permissions:
 jobs:
   update-versions:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v4
@@ -25,13 +27,20 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android command line tools
+      - name: Locate Android APK Analyzer
+        shell: bash
         run: |
-          sdkmanager --install "cmdline-tools;latest"
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+
+          APKANALYZER="$(find "$SDK_ROOT/cmdline-tools" -type f -name apkanalyzer -print -quit)"
+
+          if [ -z "$APKANALYZER" ]; then
+            echo "::error::找不到 Android apkanalyzer"
+            exit 1
+          fi
+
+          echo "$(dirname "$APKANALYZER")" >> "$GITHUB_PATH"
+          echo "找到 APK Analyzer：$APKANALYZER"
 
       - name: Read APK versions
         env:
