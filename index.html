@@ -8,8 +8,8 @@
 <style>
 *{box-sizing:border-box}
 html{min-height:100%;height:auto;overflow-x:hidden;overflow-y:auto;scroll-behavior:smooth}
-body{margin:0;padding:10px 34px 24px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh;height:auto;overflow-x:hidden;overflow-y:visible;-webkit-overflow-scrolling:touch}
-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:16px;flex-wrap:wrap}
+body{margin:0;padding:24px 34px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh;height:auto;overflow-x:hidden;overflow-y:visible;-webkit-overflow-scrolling:touch}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px;gap:16px;flex-wrap:wrap}
 h1{font-size:30px;margin:0;letter-spacing:1px}
 #versionDate,#marketVersion{color:#aebed2;font-size:15px;margin-top:6px}
 #macInfo{color:#e0e9f5;font-size:19px;font-weight:bold;white-space:nowrap;margin-left:auto;margin-right:42px}
@@ -47,7 +47,7 @@ button:focus{outline:2px solid #fff}
 
 /* 手機：維持每排兩個 APP */
 @media(max-width:700px){
-body{padding:10px 18px 18px}
+body{padding:18px}
 #apps{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .app{padding:12px 12px 42px;gap:8px}
 .app-icon{width:42%;border-radius:14px}
@@ -59,7 +59,7 @@ body{padding:10px 18px 18px}
 
 /* 小尺寸手機 */
 @media(max-width:420px){
-body{padding:8px 12px 12px}
+body{padding:12px}
 header{align-items:flex-start;flex-direction:column}
 #macInfo{margin-left:0}
 .app{padding:9px 9px 38px;gap:6px}
@@ -185,10 +185,10 @@ const ICON_MAP={
 "D_SSS.apk":"D_SSS.png",
 "KB_SSS.apk":"KB_SSS.png",
 "SmartTube.apk":"SmartTube_stable_32.56.png",
-"Orz.apk":"Orz_1.2.1-20260512.png",
+"Orz.apk":"Orz_1.2.1-20260512.png",  
 "_8.13.32.apk":"樂播投屏_8.13.32.png",
 "IQQIKeyboard_2.2.7942.0.apk":"IQQIKeyboard_2.2.7942.0.png",
-"LetsView_1.5.20.apk":"LetsView_1.5.20.png",
+"LetsView_1.5.20.apk":"LetsView_1.5.20.png",  
 "AirScreen_2.3.1.apk":"AirScreen_2.3.1.png",
 "APKPure_3.17.58.apk":"APKPure_3.17.58.png",
 "Emotn.Store_1.0.40.apk":"EmotnStore_1.0.40.png",
@@ -218,9 +218,9 @@ const NAME_MAP={
 "KB_SSS.apk":"酷播",
 "SmartTube.apk":"SmartTube",
 "Orz.apk":"Orz",
-"_8.13.32.apk":"樂播投屏",
+"_8.13.32.apk":"樂播投屏",  
 "IQQIKeyboard_2.2.7942.0.apk":"IQQI Keyboard",
-"LetsView_1.5.20.apk":"LetsView",
+"LetsView_1.5.20.apk":"LetsView",  
 "AirScreen_2.3.1.apk":"AirScreen",
 "APKPure_3.17.58.apk":"APKPure",
 "Emotn.Store_1.0.40.apk":"Emotn Store",
