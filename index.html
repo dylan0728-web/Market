@@ -9,10 +9,56 @@
 *{box-sizing:border-box}
 html{min-height:100%;height:auto;overflow-x:hidden;overflow-y:auto;scroll-behavior:smooth}
 body{margin:0;padding:24px 34px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh;height:auto;overflow-x:hidden;overflow-y:visible;-webkit-overflow-scrolling:touch}
-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px;gap:16px;flex-wrap:wrap}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:16px;flex-wrap:wrap}
 h1{font-size:30px;margin:0;letter-spacing:1px}
 #versionDate,#marketVersion{color:#aebed2;font-size:15px;margin-top:6px}
 #macInfo{color:#e0e9f5;font-size:19px;font-weight:bold;white-space:nowrap;margin-left:auto;margin-right:42px}
+
+/* 精簡版統計框 */
+.stats{
+display:grid;
+grid-template-columns:repeat(3,minmax(0,1fr));
+gap:10px;
+max-width:760px;
+margin:0 0 20px;
+}
+.stat{
+min-height:68px;
+padding:9px 13px;
+display:flex;
+align-items:center;
+gap:10px;
+background:rgba(255,255,255,.085);
+border:1px solid rgba(255,255,255,.13);
+border-radius:13px;
+box-shadow:0 5px 18px rgba(0,0,0,.08);
+}
+.stat-icon{
+width:32px;
+height:32px;
+flex:0 0 32px;
+display:flex;
+align-items:center;
+justify-content:center;
+border-radius:9px;
+background:rgba(130,170,220,.17);
+color:#cfe2ff;
+font-size:18px;
+}
+.stat-label{
+color:#b9c8dc;
+font-size:12px;
+margin-bottom:4px;
+white-space:nowrap;
+}
+.stat-number{
+font-size:22px;
+font-weight:bold;
+line-height:1;
+letter-spacing:.3px;
+font-variant-numeric:tabular-nums;
+}
+
 #status{color:#c5d0df;font-size:15px;margin-bottom:18px}
 #apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;padding-bottom:40px}
 .app{position:relative;width:100%;aspect-ratio:1/1;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px 14px 48px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:18px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;overflow:hidden}
@@ -39,6 +85,7 @@ h1{font-size:30px;margin:0;letter-spacing:1px}
 button{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:10px 17px;font-size:15px;cursor:pointer}
 button:focus{outline:2px solid #fff}
 .dialog-actions button{min-width:85px}
+
 @media(max-width:700px){
 body{padding:18px}
 #apps{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
@@ -48,11 +95,21 @@ body{padding:18px}
 .app-detail{font-size:11px}
 .download-progress{left:12px;right:12px;bottom:7px}
 #macInfo{margin-right:0;font-size:15px}
+.stats{gap:8px}
+.stat{padding:8px 9px;gap:7px;min-height:64px}
+.stat-icon{width:29px;height:29px;flex-basis:29px;font-size:16px}
+.stat-number{font-size:20px}
 }
+
 @media(max-width:420px){
 body{padding:12px}
 header{align-items:flex-start;flex-direction:column}
 #macInfo{margin-left:0}
+.stats{gap:6px}
+.stat{padding:7px 6px;gap:5px;min-height:60px}
+.stat-icon{width:25px;height:25px;flex-basis:25px;font-size:14px}
+.stat-label{font-size:10px}
+.stat-number{font-size:18px}
 .app{padding:9px 9px 38px;gap:6px}
 .app-icon{width:45%;border-radius:12px}
 .app-name{font-size:14px}
@@ -70,8 +127,35 @@ header{align-items:flex-start;flex-direction:column}
 <div id="versionDate">版本日期：2026/11/16</div>
 <div id="marketVersion">市場版本：讀取中...</div>
 </div>
-<div id="macInfo">MAC：讀取中...</div>
+<div id="macInfo">主機 MAC：讀取中...</div>
 </header>
+
+<!-- 首頁統計框 -->
+<section class="stats" aria-label="應用程式統計">
+<div class="stat">
+<div class="stat-icon">▦</div>
+<div>
+<div class="stat-label">全部應用</div>
+<div class="stat-number" id="totalCount">0</div>
+</div>
+</div>
+
+<div class="stat">
+<div class="stat-icon">✓</div>
+<div>
+<div class="stat-label">已安裝應用</div>
+<div class="stat-number" id="installedCount">0</div>
+</div>
+</div>
+
+<div class="stat">
+<div class="stat-icon">↻</div>
+<div>
+<div class="stat-label">可更新應用</div>
+<div class="stat-number" id="updateCount">0</div>
+</div>
+</div>
+</section>
 
 <div id="status">正在準備應用程式清單……</div>
 <main id="apps"><div class="empty">正在連線 GitHub Releases……</div></main>
@@ -157,12 +241,25 @@ const el=document.getElementById("macInfo");
 try{
 if(window.AndroidMarket&&typeof window.AndroidMarket.getDeviceMac==="function"){
 const mac=window.AndroidMarket.getDeviceMac();
-el.textContent=mac?"MAC："+mac:"MAC：無法讀取";
-}else{el.textContent="MAC：請使用電視盒 App 開啟"}
-}catch(e){el.textContent="MAC：讀取失敗"}
+el.textContent=mac?"主機 MAC："+mac:"主機 MAC：無法讀取";
+}else{el.textContent="主機 MAC：請使用電視盒 App 開啟"}
+}catch(e){el.textContent="主機 MAC：讀取失敗"}
 }
 
 function setStatus(message){statusElement.textContent=message}
+
+/* 更新首頁統計數字 */
+function updateStats(){
+const total=appList.length;
+const installed=appList.filter(app=>app.installed===true).length;
+const updates=appList.filter(app=>{
+return app.installed===true&&getVersionDisplay(app).update;
+}).length;
+
+document.getElementById("totalCount").textContent=total;
+document.getElementById("installedCount").textContent=installed;
+document.getElementById("updateCount").textContent=updates;
+}
 
 function renderEmpty(message){
 appsElement.innerHTML="";
@@ -361,7 +458,6 @@ const update=!!(installed&&cloud&&compareVersions(installed,cloud)<0);
 return {version:version,update:update};
 }
 
-/* 未安裝 APP 直接顯示雲端版本 */
 return {
 version:cloud||"未提供",
 update:false
@@ -424,6 +520,7 @@ if(label)label.textContent="下載中";
 
 /* 顯示 APP */
 function renderApps(){
+updateStats();
 appsElement.innerHTML="";
 if(!appList.length){
 renderEmpty("目前沒有找到 APK，請確認 GitHub Releases 是否已上傳檔案。");
@@ -754,6 +851,7 @@ async function loadApps(){
 if(loading)return;
 loading=true;
 appList=[];
+updateStats();
 setStatus("正在讀取 GitHub Releases……");
 renderEmpty("正在讀取 APK 清單，請稍候……");
 
@@ -822,6 +920,7 @@ requestMetadata();
 
 }catch(e){
 appList=[];
+updateStats();
 renderEmpty("讀取失敗："+e.message);
 setStatus("無法讀取 GitHub Releases，請檢查網路連線後重新整理。");
 }finally{
