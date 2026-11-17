@@ -8,23 +8,12 @@
 <style>
 *{box-sizing:border-box}
 html{min-height:100%;height:auto;overflow-x:hidden;overflow-y:auto;scroll-behavior:smooth}
-body{margin:0;padding:12px 34px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh;height:auto;overflow-x:hidden;overflow-y:visible;-webkit-overflow-scrolling:touch}
-
-/* 精簡頂部 */
-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:12px;flex-wrap:wrap}
-.header-left{display:flex;align-items:center;gap:15px;min-width:0}
-.market-logo{width:66px;height:66px;flex-shrink:0;border-radius:15px;object-fit:contain}
-.header-title{min-width:0}
-h1{font-size:28px;margin:0;letter-spacing:1px}
-#versionDate,#marketVersion{color:#aebed2;font-size:13px;margin-top:4px}
-#macInfo{color:#e0e9f5;font-size:17px;font-weight:bold;white-space:nowrap;margin-left:auto}
-
-/* 應用數量 */
-#appSummary{display:flex;align-items:center;gap:22px;flex-wrap:wrap;padding:9px 14px;margin-bottom:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);border-radius:10px;color:#dce8f8;font-size:15px;font-weight:bold}
-.summary-number{color:#75e6ff;font-size:19px;margin-left:5px}
-#status{color:#c5d0df;font-size:13px;margin-bottom:10px;min-height:18px}
-
-/* 原本 APK 卡片維持不變 */
+body{margin:0;padding:24px 34px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh;height:auto;overflow-x:hidden;overflow-y:visible;-webkit-overflow-scrolling:touch}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px;gap:16px;flex-wrap:wrap}
+h1{font-size:30px;margin:0;letter-spacing:1px}
+#versionDate,#marketVersion{color:#aebed2;font-size:15px;margin-top:6px}
+#macInfo{color:#e0e9f5;font-size:19px;font-weight:bold;white-space:nowrap;margin-left:auto;margin-right:42px}
+#status{color:#c5d0df;font-size:15px;margin-bottom:18px}
 #apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;padding-bottom:40px}
 .app{position:relative;width:100%;aspect-ratio:1/1;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px 14px 48px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:18px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;overflow:hidden}
 .app:focus,.app.selected{border-color:#fff;background:rgba(255,255,255,.20);transform:scale(1.025)}
@@ -42,7 +31,6 @@ h1{font-size:28px;margin:0;letter-spacing:1px}
 .download-track{width:100%;height:9px;background:rgba(0,0,0,.4);border-radius:10px;overflow:hidden}
 .download-bar-fill{width:0%;height:100%;background:linear-gradient(90deg,#36d399,#75e6ff);border-radius:10px;transition:width .25s}
 .empty{grid-column:1/-1;text-align:center;padding:55px 15px;color:#c1ccda;font-size:17px}
-
 #dialog{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
 .dialog-box{width:min(360px,100%);background:#263448;border:1px solid #60738d;border-radius:15px;padding:22px;text-align:center;box-shadow:0 12px 40px #0008}
 .dialog-box h2{font-size:20px;margin:0 0 10px}
@@ -51,31 +39,20 @@ h1{font-size:28px;margin:0;letter-spacing:1px}
 button{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:10px 17px;font-size:15px;cursor:pointer}
 button:focus{outline:2px solid #fff}
 .dialog-actions button{min-width:85px}
-
 @media(max-width:700px){
-body{padding:12px 18px}
-.header-left{gap:10px}
-.market-logo{width:54px;height:54px}
-h1{font-size:23px}
-#macInfo{font-size:14px}
-#appSummary{font-size:13px;gap:15px}
+body{padding:18px}
 #apps{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .app{padding:12px 12px 42px;gap:8px}
 .app-icon{width:42%;border-radius:14px}
 .app-name{font-size:16px}
 .app-detail{font-size:11px}
 .download-progress{left:12px;right:12px;bottom:7px}
+#macInfo{margin-right:0;font-size:15px}
 }
-
 @media(max-width:420px){
-body{padding:10px 12px}
-header{align-items:center}
-.market-logo{width:46px;height:46px}
-h1{font-size:20px}
-#versionDate,#marketVersion{font-size:11px}
-#macInfo{font-size:12px}
-#appSummary{padding:8px 10px;gap:10px;font-size:12px}
-.summary-number{font-size:16px}
+body{padding:12px}
+header{align-items:flex-start;flex-direction:column}
+#macInfo{margin-left:0}
 .app{padding:9px 9px 38px;gap:6px}
 .app-icon{width:45%;border-radius:12px}
 .app-name{font-size:14px}
@@ -88,22 +65,13 @@ h1{font-size:20px}
 <body>
 
 <header>
-<div class="header-left">
-<img class="market-logo" id="marketLogo" src="https://dylan0728-web.github.io/Market/icons/HY.png?v=20261117" alt="HY應用市場"
-onerror="this.style.display='none'">
-<div class="header-title">
+<div>
 <h1>HY應用市場</h1>
-<div id="versionDate">版本日期：2026/11/17</div>
+<div id="versionDate">版本日期：2026/11/16</div>
 <div id="marketVersion">市場版本：讀取中...</div>
 </div>
-</div>
-<div id="macInfo">主機MAC：讀取中...</div>
+<div id="macInfo">MAC：讀取中...</div>
 </header>
-
-<div id="appSummary">
-<span>全部應用 <span class="summary-number" id="totalCount">0</span></span>
-<span>已安裝應用 <span class="summary-number" id="installedCount">0</span></span>
-</div>
 
 <div id="status">正在準備應用程式清單……</div>
 <main id="apps"><div class="empty">正在連線 GitHub Releases……</div></main>
@@ -147,13 +115,6 @@ let loading=false;
 let cloudVersions={};
 let cloudVersionLoaded=false;
 
-/* 動態更新應用數量 */
-function updateAppSummary(){
-document.getElementById("totalCount").textContent=appList.length;
-document.getElementById("installedCount").textContent=
-appList.filter(app=>app.installed===true&&!!app.packageName).length;
-}
-
 /* 市場版本 */
 function readMarketVersion(){
 const el=document.getElementById("marketVersion");
@@ -196,9 +157,9 @@ const el=document.getElementById("macInfo");
 try{
 if(window.AndroidMarket&&typeof window.AndroidMarket.getDeviceMac==="function"){
 const mac=window.AndroidMarket.getDeviceMac();
-el.textContent=mac?"主機MAC："+mac:"主機MAC：無法讀取";
-}else{el.textContent="主機MAC：請使用電視盒 App 開啟"}
-}catch(e){el.textContent="主機MAC：讀取失敗"}
+el.textContent=mac?"MAC："+mac:"MAC：無法讀取";
+}else{el.textContent="MAC：請使用電視盒 App 開啟"}
+}catch(e){el.textContent="MAC：讀取失敗"}
 }
 
 function setStatus(message){statusElement.textContent=message}
@@ -209,7 +170,6 @@ const empty=document.createElement("div");
 empty.className="empty";
 empty.textContent=message;
 appsElement.appendChild(empty);
-updateAppSummary();
 }
 
 /* ICON 對照 */
@@ -340,7 +300,8 @@ return false;
 async function loadCloudVersions(){
 try{
 const response=await fetch(CLOUD_VERSION_URL+"?t="+Date.now(),{
-method:"GET",cache:"no-store"
+method:"GET",
+cache:"no-store"
 });
 if(!response.ok)throw new Error("HTTP "+response.status);
 const data=await response.json();
@@ -350,8 +311,11 @@ throw new Error("版本資料格式不正確");
 const clean={};
 Object.keys(data.versions).forEach(function(fileName){
 const value=data.versions[fileName];
-if(typeof value==="string"&&value.trim())clean[fileName]=value.trim();
-else if(typeof value==="number")clean[fileName]=String(value);
+if(typeof value==="string"&&value.trim()){
+clean[fileName]=value.trim();
+}else if(typeof value==="number"){
+clean[fileName]=String(value);
+}
 });
 cloudVersions=clean;
 cloudVersionLoaded=true;
@@ -371,7 +335,8 @@ return String(value||"").trim().replace(/^v/i,"").split(/[.+_-]/).map(function(p
 return /^\d+$/.test(part)?Number(part):part.toLowerCase();
 });
 }
-const a=parse(installed),b=parse(cloud);
+const a=parse(installed);
+const b=parse(cloud);
 const length=Math.max(a.length,b.length);
 for(let i=0;i<length;i++){
 const x=a[i]===undefined?0:a[i];
@@ -389,12 +354,18 @@ return 0;
 function getVersionDisplay(app){
 const cloud=String(cloudVersions[app.fileName]||"").trim();
 const installed=app.installed===true?String(app.versionName||"").trim():"";
+
 if(app.installed===true){
 const version=installed||cloud||"未提供";
 const update=!!(installed&&cloud&&compareVersions(installed,cloud)<0);
 return {version:version,update:update};
 }
-return {version:cloud||"未提供",update:false};
+
+/* 未安裝 APP 直接顯示雲端版本 */
+return {
+version:cloud||"未提供",
+update:false
+};
 }
 
 /* 頁面捲動 */
@@ -489,12 +460,14 @@ icon.textContent=(app.appName||app.name).substring(0,2);
 
 const info=document.createElement("div");
 info.className="app-info";
+
 const name=document.createElement("div");
 name.className="app-name";
 name.textContent=app.appName||app.name;
 
 const detail=document.createElement("div");
 detail.className="app-detail";
+
 const versionInfo=getVersionDisplay(app);
 detail.appendChild(document.createTextNode("版本："+versionInfo.version));
 
@@ -517,20 +490,26 @@ label.textContent="尚未安裝";
 
 const progress=document.createElement("div");
 progress.className="download-progress";
+
 const progressLabel=document.createElement("div");
 progressLabel.className="download-progress-label";
+
 const progressText=document.createElement("span");
 progressText.textContent="下載中";
+
 const percent=document.createElement("span");
 percent.className="download-percent";
+
 progressLabel.appendChild(progressText);
 progressLabel.appendChild(percent);
 
 const track=document.createElement("div");
 track.className="download-track";
+
 const fill=document.createElement("div");
 fill.className="download-bar-fill";
 track.appendChild(fill);
+
 progress.appendChild(progressLabel);
 progress.appendChild(track);
 
@@ -538,6 +517,7 @@ info.appendChild(name);
 info.appendChild(detail);
 info.appendChild(label);
 info.appendChild(progress);
+
 card.appendChild(icon);
 card.appendChild(info);
 
@@ -553,7 +533,6 @@ updateProgressCard(app);
 
 selectedIndex=Math.min(selectedIndex,appList.length-1);
 updateSelection();
-updateAppSummary();
 }
 
 function updateSelection(){
@@ -584,8 +563,15 @@ return;
 if(app.installed===true&&app.packageName){
 if(window.AndroidMarket&&typeof window.AndroidMarket.showInstalledActions==="function"){
 try{
-window.AndroidMarket.showInstalledActions(app.packageName,app.fileName,app.url,app.appName||app.name);
-}catch(e){setStatus("開啟原生操作選單失敗："+e.message)}
+window.AndroidMarket.showInstalledActions(
+app.packageName,
+app.fileName,
+app.url,
+app.appName||app.name
+);
+}catch(e){
+setStatus("開啟原生操作選單失敗："+e.message);
+}
 }else{
 setStatus("無法呼叫 Android 原生操作選單，請確認已安裝新版 HY 市場。");
 }
@@ -598,7 +584,9 @@ function closeDialog(){
 dialog.style.display="none";
 currentApp=null;
 const card=appsElement.querySelectorAll(".app")[selectedIndex];
-if(card){try{card.focus({preventScroll:true})}catch(e){card.focus()}}
+if(card){
+try{card.focus({preventScroll:true})}catch(e){card.focus()}
+}
 }
 
 openButton.addEventListener("click",function(){
@@ -622,7 +610,9 @@ if(!confirm("確定要重裝「"+name+"」嗎？\n系統會先要求卸載舊版
 try{
 if(window.AndroidMarket&&typeof window.AndroidMarket.reinstallApp==="function"){
 window.AndroidMarket.reinstallApp(packageName,fileName,url);
-}else{setStatus("無法呼叫 Android 重裝功能。")}
+}else{
+setStatus("無法呼叫 Android 重裝功能。");
+}
 }catch(e){setStatus("重裝功能呼叫失敗："+e.message)}
 });
 
@@ -645,7 +635,10 @@ if(event.target===dialog)closeDialog();
 
 /* APK 下載 */
 function downloadApp(app){
-if(!app.url||!app.fileName){setStatus("APK 下載資料不完整。");return}
+if(!app.url||!app.fileName){
+setStatus("APK 下載資料不完整。");
+return;
+}
 if(app.downloadActive)return;
 if(!window.AndroidMarket||typeof window.AndroidMarket.startDownload!=="function"){
 setStatus("無法連接 Android 下載功能，請確認已使用電視盒市場 App 開啟。");
@@ -671,6 +664,7 @@ setStatus("下載啟動失敗："+e.message);
 window.onApkDownloadProgress=function(url,percent,state){
 const app=appList.find(item=>item.url===url);
 if(!app)return;
+
 if(state==="complete"||state==="installing"){
 app.downloadPercent=0;
 app.downloadState="complete";
@@ -679,6 +673,7 @@ updateProgressCard(app);
 setStatus("下載完成："+app.appName);
 return;
 }
+
 if(state==="failed"){
 app.downloadPercent=0;
 app.downloadState="failed";
@@ -687,6 +682,7 @@ updateProgressCard(app);
 setStatus("下載失敗："+app.appName);
 return;
 }
+
 app.downloadPercent=Math.max(0,Math.min(100,Number(percent)||0));
 app.downloadState="downloading";
 app.downloadActive=true;
@@ -697,19 +693,24 @@ setStatus("正在下載 "+app.appName+"："+app.downloadPercent+"%");
 /* Android 安裝資訊回呼 */
 function onApkMetadata(metadata){
 if(!Array.isArray(metadata))return;
+
 metadata.forEach(function(item){
 const app=appList.find(value=>value.url===item.url);
 if(!app)return;
+
 app.appName=item.appName||app.appName||app.name;
 app.packageName=item.packageName||"";
 app.versionName=item.versionName||"";
 app.installed=item.installed===true&&!!app.packageName;
+
 if(!app.downloadActive){
 app.downloadPercent=0;
 app.downloadState="";
 }
 });
+
 renderApps();
+
 const installedCount=appList.filter(app=>app.installed).length;
 setStatus("清單讀取完成，共 "+appList.length+" 個應用程式，已安裝 "+installedCount+" 個。");
 }
@@ -729,11 +730,15 @@ app.downloadPercent=0;
 app.downloadState="";
 }
 });
+
 renderApps();
 
 if(window.AndroidMarket&&typeof window.AndroidMarket.inspectApks==="function"){
 const files=appList.map(app=>({
-url:app.url,fileName:app.fileName,appName:app.appName,versionName:""
+url:app.url,
+fileName:app.fileName,
+appName:app.appName,
+versionName:""
 }));
 setStatus("正在檢查已安裝的應用程式……");
 window.AndroidMarket.inspectApks(JSON.stringify(files));
@@ -749,7 +754,6 @@ async function loadApps(){
 if(loading)return;
 loading=true;
 appList=[];
-updateAppSummary();
 setStatus("正在讀取 GitHub Releases……");
 renderEmpty("正在讀取 APK 清單，請稍候……");
 
@@ -759,7 +763,9 @@ method:"GET",
 headers:{"Accept":"application/vnd.github+json"},
 cache:"no-store"
 });
+
 if(!response.ok)throw new Error("GitHub API 回應錯誤，HTTP "+response.status);
+
 const releases=await response.json();
 if(!Array.isArray(releases))throw new Error("GitHub 回傳的資料格式不正確。");
 
@@ -768,7 +774,9 @@ const specialLevel=getSpecialAccessLevel();
 
 releases.forEach(function(release){
 if(!release||release.draft||release.prerelease)return;
+
 const assets=Array.isArray(release.assets)?release.assets:[];
+
 assets.forEach(function(asset){
 if(!asset||typeof asset.name!=="string")return;
 if(!asset.name.toLowerCase().endsWith(".apk"))return;
@@ -778,7 +786,9 @@ if(isMarketUpdateAsset(asset.name))return;
 if(!canShowSpecialApk(asset.name,specialLevel))return;
 if(asset.name==="File.Manager.+_3.2.8.apk")return;
 if(seenFiles.has(asset.name))return;
+
 seenFiles.add(asset.name);
+
 appList.push({
 name:asset.name.replace(/\.apk$/i,""),
 appName:displayName(asset.name),
@@ -797,12 +807,15 @@ downloadState:""
 });
 });
 
+/* 使用中央排序 */
 await applyCloudSort();
+
 if(!appList.length){
 renderApps();
 setStatus("GitHub Releases 中沒有找到符合條件的 APK。");
 return;
 }
+
 renderApps();
 setStatus("找到 "+appList.length+" 個 APK，正在檢查安裝狀態……");
 requestMetadata();
@@ -811,7 +824,9 @@ requestMetadata();
 appList=[];
 renderEmpty("讀取失敗："+e.message);
 setStatus("無法讀取 GitHub Releases，請檢查網路連線後重新整理。");
-}finally{loading=false}
+}finally{
+loading=false;
+}
 }
 
 /* Android TV 遙控器 */
@@ -827,21 +842,33 @@ closeDialog();
 }
 return;
 }
+
 if(!appList.length)return;
+
 const key=event.key;
 const keyCode=event.keyCode;
+
 if(key==="ArrowRight"||keyCode===22){
-event.preventDefault();moveSelection(selectedIndex+1,"right");return;
+event.preventDefault();
+moveSelection(selectedIndex+1,"right");
+return;
 }
 if(key==="ArrowLeft"||keyCode===21){
-event.preventDefault();moveSelection(selectedIndex-1,"left");return;
+event.preventDefault();
+moveSelection(selectedIndex-1,"left");
+return;
 }
 if(key==="ArrowDown"||keyCode===20){
-event.preventDefault();moveSelection(selectedIndex+getGridColumnCount(),"down");return;
+event.preventDefault();
+moveSelection(selectedIndex+getGridColumnCount(),"down");
+return;
 }
 if(key==="ArrowUp"||keyCode===19){
-event.preventDefault();moveSelection(selectedIndex-getGridColumnCount(),"up");return;
+event.preventDefault();
+moveSelection(selectedIndex-getGridColumnCount(),"up");
+return;
 }
+
 if(key==="Enter"||key===" "||key==="Select"||key==="OK"||keyCode===23||keyCode===66||keyCode===160){
 event.preventDefault();
 event.stopPropagation();
@@ -853,7 +880,11 @@ if(app)handleAppClick(app);
 /* 啟動 */
 readDeviceMac();
 readMarketVersion();
+
+/* 版本清單獨立背景讀取，不等待它完成 */
 loadCloudVersions();
+
+/* 先載入 APP 清單及安裝狀態 */
 loadApps();
 
 })();
