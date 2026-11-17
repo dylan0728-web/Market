@@ -198,14 +198,17 @@ h1{
  color:#dceeff;font-size:12px;margin-bottom:5px;
 }
 .download-track{
- width:100%;height:9px;background:rgba(2,12,23,.88);
- border:1px solid rgba(120,197,235,.30);border-radius:3px;overflow:hidden;
+ width:100%;height:14px;
+ background:rgba(2,12,23,.95);
+ border:1px solid rgba(120,197,235,.48);
+ border-radius:4px;overflow:hidden;
+ box-shadow:inset 0 1px 4px rgba(0,0,0,.7),0 0 8px rgba(35,160,255,.18);
 }
 .download-bar-fill{
  width:0%;height:100%;
- background:linear-gradient(90deg,#32d6a1,#65eaff,#6d9dff);
+ background:linear-gradient(90deg,#20d69a 0%,#55e8df 48%,#65eaff 75%,#789dff 100%);
  border-radius:3px;transition:width .25s;
- box-shadow:0 0 12px rgba(91,225,255,.55);
+ box-shadow:0 0 8px rgba(91,225,255,.75),0 0 16px rgba(45,175,255,.55);
 }
 .empty{grid-column:1/-1;text-align:center;padding:55px 15px;color:#b9d2e8;font-size:17px}
 
@@ -780,8 +783,6 @@ info.appendChild(label);
 
 card.appendChild(icon);
 card.appendChild(info);
-
-/* 關鍵修正：進度條直接放入 APP 卡片，不再放在 app-info 裡 */
 card.appendChild(progress);
 
 card.addEventListener("click",function(){
