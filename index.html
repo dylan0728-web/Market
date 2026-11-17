@@ -131,6 +131,169 @@ header>.stats{grid-row:3}
 .installed,.not-installed{font-size:10px;padding:3px 6px}
 .download-progress{left:9px;right:9px;bottom:6px}
 }
+
+/* ===== HY 科技感視覺優化：保留原版配置與功能 ===== */
+:root{
+  color-scheme:dark;
+  --hy-cyan:#62e7ff;
+  --hy-blue:#4d9fff;
+  --hy-line:rgba(111,205,255,.22);
+  --hy-glass:rgba(12,29,49,.72);
+}
+body{
+  color:#edf7ff;
+  background:
+    radial-gradient(ellipse at 12% 0%,rgba(28,132,190,.23),transparent 34%),
+    radial-gradient(ellipse at 92% 12%,rgba(67,91,190,.20),transparent 30%),
+    linear-gradient(135deg,#071321 0%,#101f35 48%,#172943 100%);
+  background-attachment:fixed;
+}
+body:before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  opacity:.16;
+  background-image:
+    linear-gradient(rgba(117,196,255,.08) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(117,196,255,.08) 1px,transparent 1px);
+  background-size:42px 42px;
+  mask-image:linear-gradient(to bottom,black,transparent 82%);
+}
+header,#status,#apps,#dialog{position:relative;z-index:1}
+h1{
+  color:#f3fbff;
+  letter-spacing:1.5px;
+  text-shadow:0 0 18px rgba(72,196,255,.28),0 2px 12px rgba(0,0,0,.35);
+}
+#versionDate,#marketVersion{color:#a9c5df}
+#macInfo{
+  color:#a9f2ff;
+  font-size:18px;
+  padding:11px 15px;
+  border:1px solid rgba(98,231,255,.32);
+  border-radius:12px;
+  background:linear-gradient(135deg,rgba(12,48,72,.82),rgba(17,37,66,.76));
+  box-shadow:inset 0 0 18px rgba(58,185,255,.08),0 0 22px rgba(35,165,255,.12);
+  text-shadow:0 0 12px rgba(98,231,255,.28);
+  font-variant-numeric:tabular-nums;
+}
+.stats{gap:12px}
+.stat{
+  position:relative;
+  background:linear-gradient(145deg,rgba(24,54,82,.82),rgba(13,31,52,.78));
+  border:1px solid var(--hy-line);
+  border-radius:14px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 24px rgba(0,0,0,.20);
+  transition:border-color .18s,box-shadow .18s,transform .18s;
+}
+.stat:hover{
+  border-color:rgba(98,231,255,.48);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 20px rgba(45,174,255,.12);
+}
+.stat-icon{
+  color:#8ceeff;
+  background:linear-gradient(145deg,rgba(46,160,218,.30),rgba(49,91,170,.22));
+  border:1px solid rgba(103,220,255,.18);
+  box-shadow:inset 0 0 12px rgba(82,202,255,.12);
+}
+.stat-label{color:#a9c5df}
+.stat-number{
+  color:#f1fbff;
+  text-shadow:0 0 12px rgba(98,231,255,.18);
+}
+#status{
+  color:#b9d2e8;
+  text-shadow:0 1px 8px rgba(0,0,0,.35);
+}
+#apps{gap:18px}
+.app{
+  background:linear-gradient(145deg,rgba(30,58,87,.88),rgba(13,29,49,.91));
+  border:1px solid rgba(119,190,235,.20);
+  border-radius:18px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.075),0 9px 24px rgba(0,0,0,.22);
+  transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease;
+}
+.app:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  background:linear-gradient(135deg,rgba(92,218,255,.09),transparent 38%,rgba(82,126,255,.07));
+  opacity:.75;
+}
+.app:after{
+  content:"";
+  position:absolute;
+  top:0;
+  left:18px;
+  right:18px;
+  height:1px;
+  pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(137,229,255,.48),transparent);
+}
+.app:focus,.app.selected{
+  border-color:var(--hy-cyan);
+  background:linear-gradient(145deg,rgba(34,82,119,.96),rgba(17,43,72,.96));
+  box-shadow:inset 0 0 0 1px rgba(98,231,255,.20),0 0 0 2px rgba(98,231,255,.10),0 0 26px rgba(44,178,255,.28);
+  transform:scale(1.025);
+}
+.app-icon{
+  border:1px solid rgba(160,222,255,.22);
+  background:linear-gradient(145deg,#315c82,#172d49);
+  box-shadow:0 5px 16px rgba(0,0,0,.28),0 0 15px rgba(67,174,255,.10);
+}
+.app-name{color:#f2f9ff;text-shadow:0 1px 8px rgba(0,0,0,.30)}
+.app-detail{color:#afc5dc}
+.installed{
+  color:#8fffc0;
+  background:rgba(31,177,112,.13);
+  border:1px solid rgba(74,230,157,.38);
+  box-shadow:0 0 12px rgba(47,218,140,.08);
+}
+.not-installed{
+  color:#9edcff;
+  background:rgba(50,139,221,.13);
+  border:1px solid rgba(90,183,255,.32);
+}
+.update-available{
+  color:#071b25;
+  background:linear-gradient(90deg,#69f2c0,#8cecff);
+  box-shadow:0 0 12px rgba(77,232,194,.18);
+}
+.download-track{
+  background:rgba(2,12,23,.72);
+  border:1px solid rgba(120,197,235,.18);
+}
+.download-bar-fill{
+  background:linear-gradient(90deg,#32d6a1,#65eaff,#6d9dff);
+  box-shadow:0 0 12px rgba(91,225,255,.42);
+}
+.empty{color:#b9d2e8}
+.dialog-box{
+  background:linear-gradient(145deg,#1a3552,#101f35);
+  border:1px solid rgba(98,210,255,.42);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 18px 55px rgba(0,0,0,.58),0 0 26px rgba(44,169,255,.15);
+}
+.dialog-box h2{color:#effaff}
+.dialog-box p{color:#b9d2e8}
+button{
+  background:linear-gradient(145deg,rgba(56,105,145,.48),rgba(28,57,88,.72));
+  border:1px solid rgba(126,205,255,.28);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
+  transition:background .16s,border-color .16s,box-shadow .16s;
+}
+button:hover,button:focus{
+  background:linear-gradient(145deg,rgba(42,135,174,.62),rgba(34,79,129,.82));
+  border-color:rgba(98,231,255,.72);
+  box-shadow:0 0 16px rgba(63,190,255,.18);
+}
+@media(prefers-reduced-motion:reduce){
+  *,*:before,*:after{scroll-behavior:auto!important;transition:none!important}
+}
+
 </style>
 </head>
 <body>
@@ -168,7 +331,7 @@ header>.stats{grid-row:3}
 </div>
 </div>
 </section>
-<div id="macInfo">主機 MAC：讀取中...</div>
+<div id="macInfo">Mac:讀取中...</div>
 </header>
 
 <div id="status">正在準備應用程式清單……</div>
@@ -255,9 +418,9 @@ const el=document.getElementById("macInfo");
 try{
 if(window.AndroidMarket&&typeof window.AndroidMarket.getDeviceMac==="function"){
 const mac=window.AndroidMarket.getDeviceMac();
-el.textContent=mac?"主機 MAC："+mac:"主機 MAC：無法讀取";
-}else{el.textContent="主機 MAC：請使用電視盒 App 開啟"}
-}catch(e){el.textContent="主機 MAC：讀取失敗"}
+el.textContent=mac?"Mac:"+mac:"Mac:無法讀取";
+}else{el.textContent="Mac:請使用電視盒 App 開啟"}
+}catch(e){el.textContent="Mac:讀取失敗"}
 }
 
 function setStatus(message){statusElement.textContent=message}
