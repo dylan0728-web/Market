@@ -1,3 +1,381 @@
 {
-  "apps": []
+  "generated_at": "2026-11-17T12:02:12Z",
+  "apps": [
+    {
+      "name": "AirScreen_2.3.1.apk",
+      "size": 56429642,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/AirScreen_2.3.1.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "APKPure_3.17.58.apk",
+      "size": 10279943,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/APKPure_3.17.58.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "AppDrawer.apk",
+      "size": 58300,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/AppDrawer.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "D_SSS.apk",
+      "size": 15378085,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/D_SSS.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "Emotn.Store_1.0.40.apk",
+      "size": 16694114,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/Emotn.Store_1.0.40.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "ES.apk",
+      "size": 16552781,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/ES.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "FileManager+_3.2.8.apk",
+      "size": 8395232,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/FileManager%2B_3.2.8.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "G_SSS.apk",
+      "size": 20551685,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/G_SSS.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "HY.apk",
+      "size": 3256711,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/HY.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "H_S.apk",
+      "size": 3965171,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/H_S.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "IQQIKeyboard_2.2.7942.0.apk",
+      "size": 15722861,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/IQQIKeyboard_2.2.7942.0.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "I_SSS.apk",
+      "size": 27373530,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/I_SSS.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "KB_SSS.apk",
+      "size": 27246220,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/KB_SSS.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "K_SSS.apk",
+      "size": 22710148,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/K_SSS.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "LetsView_1.5.20.apk",
+      "size": 39285888,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/LetsView_1.5.20.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "Orz.apk",
+      "size": 32667421,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/Orz.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "SideloadLauncher_2.0.1.apk",
+      "size": 2356439,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/SideloadLauncher_2.0.1.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "SmartTube.apk",
+      "size": 34922752,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/SmartTube.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "Speedtest_4.1.9.apk",
+      "size": 12033705,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/Speedtest_4.1.9.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "Trust.DNS_1.3.3.apk",
+      "size": 10252236,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/Trust.DNS_1.3.3.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "W_SSS.apk",
+      "size": 22712175,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/W_SSS.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "_1.0-20241014.apk",
+      "size": 32093713,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/_1.0-20241014.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "_1.0.0.apk",
+      "size": 936515,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/_1.0.0.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "_1.0.6.apk",
+      "size": 1946113,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/_1.0.6.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "_2.9.6.apk",
+      "size": 10041881,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/_2.9.6.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "_8.13.32.apk",
+      "size": 69097225,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/_8.13.32.apk",
+      "version": "market-update",
+      "release_tag": "market-update",
+      "release_name": "HY應用市場更新"
+    },
+    {
+      "name": "AirScreen_2.3.1.apk",
+      "size": 56429642,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/AirScreen_2.3.1.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "APKPure_3.17.58.apk",
+      "size": 10279943,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/APKPure_3.17.58.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "D_SSS.apk",
+      "size": 15378085,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/D_SSS.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "Emotn.Store_1.0.40.apk",
+      "size": 16694114,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/Emotn.Store_1.0.40.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "FileManager+_3.2.8.apk",
+      "size": 8395232,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/FileManager%2B_3.2.8.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "G_SSS.apk",
+      "size": 20551685,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/G_SSS.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "HY.apk",
+      "size": 3254991,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/HY.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "IQQIKeyboard_2.2.7942.0.apk",
+      "size": 15722861,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/IQQIKeyboard_2.2.7942.0.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "I_SSS.apk",
+      "size": 27373530,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/I_SSS.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "K_SSS.apk",
+      "size": 22710148,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/K_SSS.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "LetsView_1.5.20.apk",
+      "size": 39285888,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/LetsView_1.5.20.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "Orz.apk",
+      "size": 32667421,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/Orz.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "SmartTube.apk",
+      "size": 34922752,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/SmartTube.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "Speedtest_4.1.9.apk",
+      "size": 12033705,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/Speedtest_4.1.9.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "Trust.DNS_1.3.3.apk",
+      "size": 10252236,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/Trust.DNS_1.3.3.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "W_SSS.apk",
+      "size": 22712175,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/W_SSS.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "_1.0-20241014.apk",
+      "size": 32093713,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/_1.0-20241014.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "_1.0.0.apk",
+      "size": 936515,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/_1.0.0.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "_1.0.6.apk",
+      "size": 1946113,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/_1.0.6.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "_2.9.6.apk",
+      "size": 10041881,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/_2.9.6.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    },
+    {
+      "name": "_8.13.32.apk",
+      "size": 69097225,
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/1.0/_8.13.32.apk",
+      "version": "1.0",
+      "release_tag": "1.0",
+      "release_name": "Market市場（舊版備份・勿使用上傳）"
+    }
+  ]
 }
