@@ -1,3 +1,4 @@
+
 name: Update APK manifest
 
 on:
@@ -24,7 +25,7 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
 
-      - name: Generate apps.json from GitHub Releases
+      - name: Generate APK manifest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -36,6 +37,7 @@ jobs:
                 | [
                     .[]
                     | select(.draft == false and .prerelease == false)
+                    | select(.tag_name == "market-update")
                     | . as $release
                     | (.assets // [])[]
                     | select((.name | ascii_downcase | endswith(".apk")))
@@ -54,7 +56,6 @@ jobs:
                     apps: $apps
                   }
               ' > apps.json
-
           echo "Generated APK entries:"
           jq '.apps | length' apps.json
 
