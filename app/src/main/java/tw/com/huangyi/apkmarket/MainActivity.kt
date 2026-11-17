@@ -1210,6 +1210,11 @@ class MainActivity : Activity() {
                     var installedLabel = appName
                     var installedVersion = item.optString("versionName", "")
 
+                    val candidates = listOf(
+                        appName,
+                        fileName.substringBeforeLast(".")
+                    ).map { normalizeName(it) }.filter { it.isNotBlank() }
+
                     if (packageName.isNotBlank()) {
                         try {
                             val info = packageManager.getPackageInfo(packageName, 0)
@@ -1225,15 +1230,13 @@ class MainActivity : Activity() {
                             }
                         } catch (e: Exception) {
                             installed = false
+                            // 快取的套件已不存在，清除舊資料，避免每次掃描都使用失效套件名稱。
+                            prefs.edit().remove("package_$fileName").apply()
+                            packageName = ""
                         }
                     }
 
                     if (!installed) {
-                        val candidates = listOf(
-                            appName,
-                            fileName.substringBeforeLast(".")
-                        ).map { normalizeName(it) }.filter { it.isNotBlank() }
-
                         for (info in installedPackages) {
                             val label = try {
                                 packageManager.getApplicationLabel(
@@ -1243,10 +1246,7 @@ class MainActivity : Activity() {
                                 ""
                             }
 
-                            if (
-                                normalizeName(label).isNotBlank() &&
-                                candidates.contains(normalizeName(label))
-                            ) {
+                            if (isMatchingInstalledAppLabel(fileName, candidates, label)) {
                                 packageName = info.packageName
                                 installed = true
                                 installedLabel = label
@@ -1377,6 +1377,45 @@ class MainActivity : Activity() {
 
     private fun normalizeName(value: String): String {
         return value.lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
+    }
+
+    /**
+     * 比對已安裝應用程式名稱。
+     * 一般 APK 維持完整名稱比對，避免把名稱相近的其他 APP 誤判。
+     * 特殊影音 APK 可能因不同版本而使用繁體／簡體或不同品牌顯示名稱，
+     * 因此只針對已知特殊 APK 檔名增加明確別名，不做全市場模糊比對。
+     */
+    private fun isMatchingInstalledAppLabel(
+        fileName: String,
+        candidates: List<String>,
+        installedLabel: String
+    ): Boolean {
+        val normalizedLabel = normalizeName(installedLabel)
+        if (normalizedLabel.isBlank()) return false
+
+        if (candidates.contains(normalizedLabel)) return true
+
+        val aliases = when (fileName.uppercase(Locale.ROOT)) {
+            "H_S.APK" -> listOf(
+                "紅果", "红果", "紅果短劇", "红果短剧",
+                "紅果免費短劇", "红果免费短剧"
+            )
+            "G_SSS.APK" -> listOf("今日影視", "今日影视")
+            "K_SSS.APK" -> listOf("可可影视", "可可影視")
+            "W_SSS.APK" -> listOf("网飞猫", "網飛貓")
+            "I_SSS.APK" -> listOf("愛壹帆", "爱壹帆")
+            "D_SSS.APK" -> listOf("獨播庫", "独播库")
+            "KB_SSS.APK" -> listOf("酷播")
+            else -> emptyList()
+        }.map { normalizeName(it) }
+
+        if (aliases.isEmpty()) return false
+
+        return aliases.any { alias ->
+            normalizedLabel == alias ||
+                (fileName.equals("H_S.apk", ignoreCase = true) &&
+                    normalizedLabel.startsWith(alias))
+        }
     }
 
     // =====================================================
