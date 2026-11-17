@@ -106,7 +106,7 @@ h1{
  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 22px rgba(45,174,255,.22);
 }
 
-/* 首頁狀態列隱藏：保留程式內部狀態與錯誤處理 */
+/* 首頁狀態列隱藏 */
 #status{display:none!important}
 
 /* APP 電競卡片 */
@@ -187,16 +187,11 @@ h1{
  border:1px solid rgba(90,183,255,.38);
 }
 
-/* 單張卡片下載進度 */
+/* 單張卡片下載進度：固定在整張卡片底部 */
 .download-progress{
- display:none;
- position:absolute;
- left:14px;
- right:14px;
- bottom:8px;
- width:auto;
- margin:0;
- z-index:2;
+ display:none;position:absolute;
+ left:14px;right:14px;bottom:8px;
+ width:auto;margin:0;z-index:2;
 }
 .download-progress-label{
  display:flex;justify-content:space-between;gap:8px;
@@ -263,7 +258,7 @@ button:hover,button:focus{
  .app-icon{width:42%;border-radius:11px}
  .app-name{font-size:16px}
  .app-detail{font-size:11px}
- .download-progress{left:12px;right:12px;bottom:7px}
+ .download-progress{left:12px;right:12px;bottom:8px}
  .stats{gap:8px}
  .stat{padding:8px 9px;gap:7px;min-height:64px}
  .stat-icon{width:29px;height:29px;flex-basis:29px;font-size:16px}
@@ -286,7 +281,7 @@ button:hover,button:focus{
  .app-name{font-size:14px}
  .app-detail{font-size:10px}
  .installed,.not-installed{font-size:10px;padding:3px 6px}
- .download-progress{left:9px;right:9px;bottom:6px}
+ .download-progress{left:9px;right:9px;bottom:8px}
 }
 @media(prefers-reduced-motion:reduce){
  *,*:before,*:after{scroll-behavior:auto!important;transition:none!important}
@@ -782,10 +777,12 @@ progress.appendChild(track);
 info.appendChild(name);
 info.appendChild(detail);
 info.appendChild(label);
-info.appendChild(progress);
 
 card.appendChild(icon);
 card.appendChild(info);
+
+/* 關鍵修正：進度條直接放入 APP 卡片，不再放在 app-info 裡 */
+card.appendChild(progress);
 
 card.addEventListener("click",function(){
 selectedIndex=index;
@@ -978,7 +975,6 @@ app.downloadState="";
 renderApps();
 
 const installedCount=appList.filter(app=>app.installed).length;
-/* 清單完成提示不再顯示於首頁 */
 setStatus("");
 }
 
@@ -1007,7 +1003,6 @@ fileName:app.fileName,
 appName:app.appName,
 versionName:""
 }));
-/* 不再顯示安裝狀態檢查文字 */
 setStatus("");
 window.AndroidMarket.inspectApks(JSON.stringify(files));
 }else{
@@ -1023,7 +1018,6 @@ if(loading)return;
 loading=true;
 appList=[];
 updateStats();
-/* 清單載入期間保持首頁乾淨，不顯示讀取文字 */
 appsElement.innerHTML="";
 setStatus("");
 
@@ -1072,7 +1066,6 @@ downloadState:""
 });
 });
 
-/* 使用中央排序 */
 await applyCloudSort();
 
 if(!appList.length){
