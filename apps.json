@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-17T15:26:58Z",
+  "generated_at": "2026-11-17T15:32:06Z",
   "apps": [
     {
       "name": "AirScreen_2.3.1.apk",
@@ -34,9 +34,9 @@
       "release_name": "HY應用市場更新"
     },
     {
-      "name": "Emotn.Store_1.0.40.apk",
+      "name": "Emotn.Store_1.0.40_S.apk",
       "size": 16694114,
-      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/Emotn.Store_1.0.40.apk",
+      "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/Emotn.Store_1.0.40_S.apk",
       "version": "market-update",
       "release_tag": "market-update",
       "release_name": "HY應用市場更新"
