@@ -9,56 +9,58 @@
 *{box-sizing:border-box}
 html{min-height:100%;height:auto;overflow-x:hidden;overflow-y:auto;scroll-behavior:smooth}
 body{margin:0;padding:24px 34px;color:#fff;font-family:Arial,"Microsoft JhengHei",sans-serif;background:linear-gradient(135deg,#101827,#303b4d);min-height:100vh;height:auto;overflow-x:hidden;overflow-y:visible;-webkit-overflow-scrolling:touch}
-
-/* 標題、統計、主機 MAC 同一列 */
-header{
-display:grid;
-grid-template-columns:auto minmax(0,760px) auto;
-align-items:center;
-gap:20px;
-margin-bottom:12px;
-width:100%;
-}
+header{display:grid;grid-template-columns:auto minmax(0,760px) auto;align-items:center;justify-content:space-between;gap:20px;margin-bottom:12px;width:100%}
 h1{font-size:30px;margin:0;letter-spacing:1px}
 #versionDate,#marketVersion{color:#aebed2;font-size:15px;margin-top:6px}
-#macInfo{color:#e0e9f5;font-size:19px;font-weight:bold;white-space:nowrap;margin:0;text-align:right}
+#macInfo{color:#e0e9f5;font-size:19px;font-weight:bold;white-space:nowrap;margin-left:0;margin-right:0;justify-self:end}
 
-/* 精簡版統計框：放在標題與 MAC 中間 */
+/* 精簡版統計框 */
 .stats{
 display:grid;
 grid-template-columns:repeat(3,minmax(0,1fr));
-gap:8px;
-width:100%;
+gap:10px;
 max-width:760px;
+width:100%;
 margin:0;
 }
 .stat{
-min-height:62px;
-padding:8px 11px;
+min-height:68px;
+padding:9px 13px;
 display:flex;
 align-items:center;
-gap:9px;
+gap:10px;
 background:rgba(255,255,255,.085);
 border:1px solid rgba(255,255,255,.13);
-border-radius:12px;
+border-radius:13px;
 box-shadow:0 5px 18px rgba(0,0,0,.08);
 }
 .stat-icon{
-width:30px;
-height:30px;
-flex:0 0 30px;
+width:32px;
+height:32px;
+flex:0 0 32px;
 display:flex;
 align-items:center;
 justify-content:center;
 border-radius:9px;
 background:rgba(130,170,220,.17);
 color:#cfe2ff;
-font-size:17px;
+font-size:18px;
 }
-.stat-label{color:#b9c8dc;font-size:12px;margin-bottom:4px;white-space:nowrap}
-.stat-number{font-size:21px;font-weight:bold;line-height:1;letter-spacing:.3px;font-variant-numeric:tabular-nums}
+.stat-label{
+color:#b9c8dc;
+font-size:12px;
+margin-bottom:4px;
+white-space:nowrap;
+}
+.stat-number{
+font-size:22px;
+font-weight:bold;
+line-height:1;
+letter-spacing:.3px;
+font-variant-numeric:tabular-nums;
+}
 
-#status{color:#c5d0df;font-size:15px;margin-bottom:12px}
+#status{color:#c5d0df;font-size:15px;margin-bottom:18px}
 #apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;padding-bottom:40px}
 .app{position:relative;width:100%;aspect-ratio:1/1;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px 14px 48px;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.10);border-radius:18px;cursor:pointer;transition:transform .12s,border-color .12s;outline:none;overflow:hidden}
 .app:focus,.app.selected{border-color:#fff;background:rgba(255,255,255,.20);transform:scale(1.025)}
@@ -85,39 +87,41 @@ button{background:rgba(255,255,255,.13);color:#fff;border:1px solid rgba(255,255
 button:focus{outline:2px solid #fff}
 .dialog-actions button{min-width:85px}
 
-/* 平板及較窄螢幕 */
 @media(max-width:1000px){
-header{grid-template-columns:auto minmax(0,1fr);gap:12px}
-header>div:first-child{grid-column:1}
-#macInfo{grid-column:2;grid-row:1;text-align:right}
-.stats{grid-column:1/-1;grid-row:2;max-width:none}
+header{grid-template-columns:minmax(0,1fr) auto;gap:14px}
+header>div:first-child{grid-column:1;grid-row:1}
+#macInfo{grid-column:2;grid-row:1;justify-self:end}
+header>.stats{grid-column:1/-1;grid-row:2;max-width:760px}
 }
 
-/* 手機版 */
 @media(max-width:700px){
 body{padding:18px}
-header{grid-template-columns:1fr;gap:12px;margin-bottom:10px}
+header{grid-template-columns:minmax(0,1fr);gap:12px}
 header>div:first-child{grid-column:1;grid-row:1}
-#macInfo{grid-column:1;grid-row:2;margin:0;text-align:left;font-size:15px}
-.stats{grid-column:1;grid-row:3;gap:8px}
+#macInfo{grid-column:1;grid-row:2;justify-self:start;margin:0;font-size:15px}
+header>.stats{grid-column:1;grid-row:3;max-width:none}
 #apps{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .app{padding:12px 12px 42px;gap:8px}
 .app-icon{width:42%;border-radius:14px}
 .app-name{font-size:16px}
 .app-detail{font-size:11px}
 .download-progress{left:12px;right:12px;bottom:7px}
-.stat{padding:8px 9px;gap:7px;min-height:60px}
-.stat-icon{width:27px;height:27px;flex-basis:27px;font-size:15px}
+.stats{gap:8px}
+.stat{padding:8px 9px;gap:7px;min-height:64px}
+.stat-icon{width:29px;height:29px;flex-basis:29px;font-size:16px}
 .stat-number{font-size:20px}
 }
 
 @media(max-width:420px){
 body{padding:12px}
-h1{font-size:26px}
-#versionDate,#marketVersion{font-size:13px}
+header{grid-template-columns:minmax(0,1fr);align-items:start}
+header>div:first-child,#macInfo,header>.stats{grid-column:1}
+header>div:first-child{grid-row:1}
+#macInfo{grid-row:2;margin:0}
+header>.stats{grid-row:3}
 .stats{gap:6px}
-.stat{padding:7px 6px;gap:5px;min-height:56px}
-.stat-icon{width:24px;height:24px;flex-basis:24px;font-size:13px}
+.stat{padding:7px 6px;gap:5px;min-height:60px}
+.stat-icon{width:25px;height:25px;flex-basis:25px;font-size:14px}
 .stat-label{font-size:10px}
 .stat-number{font-size:18px}
 .app{padding:9px 9px 38px;gap:6px}
@@ -134,10 +138,11 @@ h1{font-size:26px}
 <header>
 <div>
 <h1>HY應用市場</h1>
-<div id="versionDate">版本日期：2026/11/16</div>
+<div id="versionDate">版本日期：2026/11/17</div>
 <div id="marketVersion">市場版本：讀取中...</div>
 </div>
 
+<!-- 首頁統計框：置於市場標題與主機 MAC 中間 -->
 <section class="stats" aria-label="應用程式統計">
 <div class="stat">
 <div class="stat-icon">▦</div>
@@ -146,6 +151,7 @@ h1{font-size:26px}
 <div class="stat-number" id="totalCount">0</div>
 </div>
 </div>
+
 <div class="stat">
 <div class="stat-icon">✓</div>
 <div>
@@ -153,6 +159,7 @@ h1{font-size:26px}
 <div class="stat-number" id="installedCount">0</div>
 </div>
 </div>
+
 <div class="stat">
 <div class="stat-icon">↻</div>
 <div>
@@ -161,7 +168,6 @@ h1{font-size:26px}
 </div>
 </div>
 </section>
-
 <div id="macInfo">主機 MAC：讀取中...</div>
 </header>
 
@@ -184,7 +190,7 @@ h1{font-size:26px}
 (function(){
 "use strict";
 
-const API="https://api.github.com/repos/dylan0728-web/Market/releases";
+const APPS_MANIFEST_URL="https://dylan0728-web.github.io/Market/apps.json";
 const RELEASE_PREFIX="https://github.com/dylan0728-web/Market/releases/download/";
 const ICON_BASE="https://dylan0728-web.github.io/Market/icons/";
 const ICON_VERSION="20261115";
@@ -860,28 +866,24 @@ if(loading)return;
 loading=true;
 appList=[];
 updateStats();
-setStatus("正在讀取 GitHub Releases……");
+setStatus("正在讀取雲端 APK 清單……");
 renderEmpty("正在讀取 APK 清單，請稍候……");
 
 try{
-const response=await fetch(API,{
+const response=await fetch(APPS_MANIFEST_URL+"?t="+Date.now(),{
 method:"GET",
-headers:{"Accept":"application/vnd.github+json"},
+headers:{"Accept":"application/json"},
 cache:"no-store"
 });
 
-if(!response.ok)throw new Error("GitHub API 回應錯誤，HTTP "+response.status);
+if(!response.ok)throw new Error("雲端 APK 清單讀取錯誤，HTTP "+response.status);
 
-const releases=await response.json();
-if(!Array.isArray(releases))throw new Error("GitHub 回傳的資料格式不正確。");
+const manifest=await response.json();
+const assets=manifest&&Array.isArray(manifest.apps)?manifest.apps:null;
+if(!assets)throw new Error("apps.json 格式不正確，請先執行 GitHub Actions 更新清單。");
 
 const seenFiles=new Set();
 const specialLevel=getSpecialAccessLevel();
-
-releases.forEach(function(release){
-if(!release||release.draft||release.prerelease)return;
-
-const assets=Array.isArray(release.assets)?release.assets:[];
 
 assets.forEach(function(asset){
 if(!asset||typeof asset.name!=="string")return;
@@ -900,7 +902,7 @@ name:asset.name.replace(/\.apk$/i,""),
 appName:displayName(asset.name),
 fileName:asset.name,
 size:asset.size||0,
-version:release.tag_name||release.name||"未標示版本",
+version:asset.version||asset.release_tag||"未標示版本",
 versionName:"",
 url:asset.browser_download_url,
 icon:iconFor(asset.name),
@@ -909,7 +911,6 @@ installed:false,
 downloadActive:false,
 downloadPercent:0,
 downloadState:""
-});
 });
 });
 
@@ -930,7 +931,7 @@ requestMetadata();
 appList=[];
 updateStats();
 renderEmpty("讀取失敗："+e.message);
-setStatus("無法讀取 GitHub Releases，請檢查網路連線後重新整理。");
+setStatus("無法讀取雲端 APK 清單，請確認 apps.json 已成功產生。");
 }finally{
 loading=false;
 }
