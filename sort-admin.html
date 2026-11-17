@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -46,11 +47,13 @@ footer{margin-top:20px;color:#aebed2;font-size:13px;line-height:1.7}
 <script>
 (function(){
 "use strict";
+
 const API="https://api.github.com/repos/dylan0728-web/Market/releases";
 const SORT_URL="https://dylan0728-web.github.io/Market/sort.json";
 const list=document.getElementById("list");
 const status=document.getElementById("status");
 const downloadButton=document.getElementById("download");
+
 const nameMap={
 "H_S.apk":"紅果TV","G_SSS.apk":"今日影視","K_SSS.apk":"可可影视","W_SSS.apk":"网飞猫",
 "I_SSS.apk":"愛壹帆","D_SSS.apk":"獨播庫","KB_SSS.apk":"酷播",
@@ -59,70 +62,179 @@ const nameMap={
 "IQQIKeyboard_2.2.7942.0.apk":"IQQI Keyboard","LetsView_1.5.20.apk":"LetsView",
 "ES.apk":"ES檔案瀏覽器","Google.apk":"Google Play Store"
 };
+
 const specialOrder=["H_S.apk","G_SSS.apk","K_SSS.apk","W_SSS.apk","I_SSS.apk","D_SSS.apk","KB_SSS.apk"];
+
 let files=[];
 let dragged=null;
-function label(file){return nameMap[file]||file.replace(/\.apk$/i,"").replace(/[_-]\d[\w.-]*$/,"")}
+
+function label(file){
+return nameMap[file]||file.replace(/\.apk$/i,"").replace(/[_-]\d[\w.-]*$/,"");
+}
+
 function isUpdate(name){
 const n=String(name||"").toLowerCase();
 return ["hy.apk","hyupdate.apk","hy_update.apk","hy應用市場.apk","hy應用市場更新.apk"].includes(n)||/^hyupdate[-_].*\.apk$/i.test(n)||/^hy應用市場[-_].*\.apk$/i.test(n);
 }
-function move(from,to){if(from===to||from<0||to<0||from>=files.length||to>=files.length)return;const x=files.splice(from,1)[0];files.splice(to,0,x);render()}
+
+function move(from,to){
+if(from===to||from<0||to<0||from>=files.length||to>=files.length)return;
+const x=files.splice(from,1)[0];
+files.splice(to,0,x);
+render();
+}
+
 function render(){
 list.innerHTML="";
 files.forEach((file,index)=>{
-const li=document.createElement("li");li.className="item";li.draggable=true;li.dataset.index=String(index);
-const handle=document.createElement("span");handle.className="handle";handle.textContent="☷";handle.title="拖曳調整";
-const num=document.createElement("span");num.className="num";num.textContent=String(index+1)+".";
-const name=document.createElement("span");name.className="name";name.textContent=label(file);
-const fn=document.createElement("span");fn.className="filename";fn.textContent=file;name.appendChild(fn);
-const moves=document.createElement("span");moves.className="moves";
-const up=document.createElement("button");up.className="secondary";up.type="button";up.textContent="↑";up.title="往上";up.disabled=index===0;up.onclick=()=>move(index,index-1);
-const down=document.createElement("button");down.className="secondary";down.type="button";down.textContent="↓";down.title="往下";down.disabled=index===files.length-1;down.onclick=()=>move(index,index+1);
-moves.append(up,down);li.append(handle,num,name,moves);
-li.addEventListener("dragstart",e=>{dragged=index;li.classList.add("dragging");e.dataTransfer.effectAllowed="move"});
-li.addEventListener("dragend",()=>{dragged=null;li.classList.remove("dragging");list.querySelectorAll(".over").forEach(x=>x.classList.remove("over"))});
-li.addEventListener("dragover",e=>{e.preventDefault();li.classList.add("over")});
+const li=document.createElement("li");
+li.className="item";
+li.draggable=true;
+li.dataset.index=String(index);
+
+const handle=document.createElement("span");
+handle.className="handle";
+handle.textContent="☷";
+handle.title="拖曳調整";
+
+const num=document.createElement("span");
+num.className="num";
+num.textContent=String(index+1)+".";
+
+const name=document.createElement("span");
+name.className="name";
+name.textContent=label(file);
+
+const fn=document.createElement("span");
+fn.className="filename";
+fn.textContent=file;
+name.appendChild(fn);
+
+const moves=document.createElement("span");
+moves.className="moves";
+
+const up=document.createElement("button");
+up.className="secondary";
+up.type="button";
+up.textContent="↑";
+up.title="往上";
+up.disabled=index===0;
+up.onclick=()=>move(index,index-1);
+
+const down=document.createElement("button");
+down.className="secondary";
+down.type="button";
+down.textContent="↓";
+down.title="往下";
+down.disabled=index===files.length-1;
+down.onclick=()=>move(index,index+1);
+
+moves.append(up,down);
+li.append(handle,num,name,moves);
+
+li.addEventListener("dragstart",e=>{
+dragged=index;
+li.classList.add("dragging");
+e.dataTransfer.effectAllowed="move";
+});
+
+li.addEventListener("dragend",()=>{
+dragged=null;
+li.classList.remove("dragging");
+list.querySelectorAll(".over").forEach(x=>x.classList.remove("over"));
+});
+
+li.addEventListener("dragover",e=>{
+e.preventDefault();
+li.classList.add("over");
+});
+
 li.addEventListener("dragleave",()=>li.classList.remove("over"));
-li.addEventListener("drop",e=>{e.preventDefault();li.classList.remove("over");if(dragged!==null)move(dragged,index)});
+
+li.addEventListener("drop",e=>{
+e.preventDefault();
+li.classList.remove("over");
+if(dragged!==null)move(dragged,index);
+});
+
 list.appendChild(li);
 });
+
 downloadButton.disabled=files.length===0;
 }
+
 async function load(){
-downloadButton.disabled=true;status.textContent="正在讀取 GitHub Releases……";list.innerHTML="";
+downloadButton.disabled=true;
+status.textContent="正在讀取 market-update 正式 APK……";
+list.innerHTML="";
+
 try{
 const r=await fetch(API,{headers:{"Accept":"application/vnd.github+json"},cache:"no-store"});
 if(!r.ok)throw new Error("GitHub Releases HTTP "+r.status);
-const releases=await r.json();if(!Array.isArray(releases))throw new Error("GitHub 回傳格式錯誤");
-const all=[];const seen=new Set();
-releases.forEach(rel=>{if(!rel||rel.draft||rel.prerelease)return;(rel.assets||[]).forEach(a=>{
+
+const releases=await r.json();
+if(!Array.isArray(releases))throw new Error("GitHub 回傳格式錯誤");
+
+const all=[];
+const seen=new Set();
+
+releases.forEach(rel=>{
+if(!rel||rel.draft||rel.prerelease||rel.tag_name!=="market-update")return;
+
+(rel.assets||[]).forEach(a=>{
 if(!a||!a.name||!/\.apk$/i.test(a.name)||isUpdate(a.name)||seen.has(a.name))return;
-seen.add(a.name);all.push(a.name);
-})});
-if(!all.length)throw new Error("沒有找到 APK");
+seen.add(a.name);
+all.push(a.name);
+});
+});
+
+if(!all.length)throw new Error("market-update 沒有找到 APK");
+
 let order=[];
-try{const sr=await fetch(SORT_URL,{cache:"no-store"});if(sr.ok){const data=await sr.json();if(Array.isArray(data.files))order=data.files.filter(x=>typeof x==="string")}}catch(e){}
+
+try{
+const sr=await fetch(SORT_URL,{cache:"no-store"});
+if(sr.ok){
+const data=await sr.json();
+if(Array.isArray(data.files))order=data.files.filter(x=>typeof x==="string");
+}
+}catch(e){}
+
 if(order.length===0){
 const set=new Set(specialOrder.filter(x=>all.includes(x)));
 const first=all.findIndex(x=>set.has(x));
 const rest=all.filter(x=>!set.has(x));
 order=first<0?all.slice():rest.slice(0,first).concat(specialOrder.filter(x=>set.has(x)),rest.slice(first));
 }
+
 const valid=new Set(all);
 files=order.filter((x,i)=>valid.has(x)&&order.indexOf(x)===i);
 all.forEach(x=>{if(!files.includes(x))files.push(x)});
-render();status.textContent="已載入 "+files.length+" 個 APP。調整順序後，按「下載排序檔 sort.json」。";
-}catch(e){status.textContent="讀取失敗："+e.message+"。請確認網路連線後按重新讀取。"}
+
+render();
+status.textContent="已載入 "+files.length+" 個正式 APP（僅 market-update）。";
+}catch(e){
+status.textContent="讀取失敗："+e.message+"。請確認網路連線後按重新讀取。";
 }
+}
+
 downloadButton.addEventListener("click",()=>{
 const payload={version:1,updatedAt:new Date().toISOString(),files:files.slice()};
 const blob=new Blob([JSON.stringify(payload,null,2)+"\n"],{type:"application/json;charset=utf-8"});
-const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="sort.json";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+const url=URL.createObjectURL(blob);
+const a=document.createElement("a");
+a.href=url;
+a.download="sort.json";
+document.body.appendChild(a);
+a.click();
+a.remove();
+URL.revokeObjectURL(url);
 status.textContent="已產生 sort.json。請將它上傳到 GitHub Market 專案 main 分支根目錄，取代舊的 sort.json。";
 });
+
 document.getElementById("reload").addEventListener("click",load);
 load();
+
 })();
 </script>
 </body>
