@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-21T06:02:29Z",
+  "generated_at": "2026-11-21T07:19:45Z",
   "apps": [
     {
       "name": "AirScreen_2.3.1.apk",
@@ -59,7 +59,7 @@
     },
     {
       "name": "G_SSS.apk",
-      "size": 20551685,
+      "size": 41499266,
       "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/G_SSS.apk",
       "version": "market-update",
       "release_tag": "market-update",
