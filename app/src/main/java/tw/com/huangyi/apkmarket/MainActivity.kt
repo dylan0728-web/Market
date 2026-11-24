@@ -169,41 +169,145 @@ class MainActivity : Activity() {
         specialAuthorized = false
         specialAccessLevel = ""
 
-        val mac = authorizationDeviceMac.ifBlank {
-            "無法讀取 MAC"
-        }
+        val mac = authorizationDeviceMac.ifBlank { "無法讀取 MAC" }
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = android.view.Gravity.CENTER
             setBackgroundColor(0xFF101820.toInt())
-            setPadding(30, 30, 30, 30)
+            setPadding(30, 20, 30, 20)
         }
 
         val title = TextView(this).apply {
-            text = "此機器Mac未授權"
-            textSize = 32f
+            text = "此機器 Mac 未授權"
+            textSize = 30f
             setTextColor(0xFFFF3333.toInt())
             setTypeface(null, android.graphics.Typeface.BOLD)
             gravity = android.view.Gravity.CENTER
-            setPadding(10, 10, 10, 25)
+            setPadding(10, 10, 10, 20)
         }
 
         val detail = TextView(this).apply {
-            text = "機器Mac：$mac"
-            textSize = 26f
+            text = "機器 MAC：$mac\n授權錯誤：$authorizationErrorMessage"
+            textSize = 19f
             setTextColor(0xFFFFFFFF.toInt())
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            gravity = android.view.Gravity.CENTER
-            setPadding(10, 10, 10, 15)
+            setPadding(10, 10, 10, 20)
+        }
+
+        val diagnostic = TextView(this).apply {
+            text = collectMacDiagnostics()
+            textSize = 15f
+            setTextColor(0xFFB8D8FF.toInt())
+            setPadding(10, 10, 10, 20)
         }
 
         layout.addView(title)
         layout.addView(detail)
+        layout.addView(diagnostic)
 
-        setContentView(layout)
+        val scroll = android.widget.ScrollView(this).apply {
+            addView(layout)
+            isFillViewport = true
+        }
+
+        setContentView(scroll)
     }
 
+    private fun collectMacDiagnostics(): String {
+        val result = StringBuilder()
+
+        result.append("========== MAC 讀取診斷 ==========\n")
+        result.append("品牌：${Build.BRAND}\n")
+        result.append("製造商：${Build.MANUFACTURER}\n")
+        result.append("型號：${Build.MODEL}\n")
+        result.append("DEVICE：${Build.DEVICE}\n")
+        result.append("PRODUCT：${Build.PRODUCT}\n")
+        result.append("Android：${Build.VERSION.RELEASE}\n")
+        result.append("API：${Build.VERSION.SDK_INT}\n\n")
+
+        result.append("========== /sys/class/net ==========\n")
+        try {
+            val root = File("/sys/class/net")
+            result.append("目錄存在：${root.exists()}\n")
+            result.append("目錄可讀：${root.canRead()}\n")
+
+            val interfaces = root.listFiles()
+            if (interfaces == null) {
+                result.append("listFiles：null（無法列出網卡）\n")
+            } else {
+                result.append("網卡數量：${interfaces.size}\n")
+
+                for (item in interfaces.sortedBy { it.name }) {
+                    result.append("\n網卡：${item.name}\n")
+
+                    val address = File(item, "address")
+                    result.append("address 存在：${address.exists()}\n")
+                    result.append("address 可讀：${address.canRead()}\n")
+
+                    try {
+                        result.append("address 內容：${address.readText().trim()}\n")
+                    } catch (e: Exception) {
+                        result.append("address 讀取錯誤：${e.javaClass.simpleName}: ${e.message}\n")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            result.append("網卡目錄錯誤：${e.javaClass.simpleName}: ${e.message}\n")
+        }
+
+        result.append("\n========== NetworkInterface ==========\n")
+        try {
+            val enumeration = NetworkInterface.getNetworkInterfaces()
+
+            if (enumeration == null) {
+                result.append("getNetworkInterfaces：null\n")
+            } else {
+                while (enumeration.hasMoreElements()) {
+                    val item = enumeration.nextElement()
+                    result.append("\n介面：${item.name}\n")
+
+                    try {
+                        result.append("isUp：${item.isUp}\n")
+                    } catch (e: Exception) {
+                        result.append("isUp 錯誤：${e.javaClass.simpleName}: ${e.message}\n")
+                    }
+
+                    try {
+                        result.append("isLoopback：${item.isLoopback}\n")
+                    } catch (e: Exception) {
+                        result.append("isLoopback 錯誤：${e.message}\n")
+                    }
+
+                    try {
+                        result.append("isVirtual：${item.isVirtual}\n")
+                    } catch (e: Exception) {
+                        result.append("isVirtual 錯誤：${e.message}\n")
+                    }
+
+                    try {
+                        val address = item.hardwareAddress
+
+                        if (address == null) {
+                            result.append("hardwareAddress：null\n")
+                        } else {
+                            result.append(
+                                "hardwareAddress：" +
+                                    address.joinToString(":") {
+                                        "%02X".format(it.toInt() and 0xFF)
+                                    } + "\n"
+                            )
+                        }
+                    } catch (e: Exception) {
+                        result.append("hardwareAddress 錯誤：${e.javaClass.simpleName}: ${e.message}\n")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            result.append("NetworkInterface 錯誤：${e.javaClass.simpleName}: ${e.message}\n")
+        }
+
+        result.append("\n========== 診斷結束 ==========\n")
+        return result.toString()
+    }
     // =====================================================
     // 雲端授權檢查
     // =====================================================
