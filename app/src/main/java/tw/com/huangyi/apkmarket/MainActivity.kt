@@ -79,6 +79,19 @@ class MainActivity : Activity() {
         getSharedPreferences("apk_market_packages", Context.MODE_PRIVATE)
     }
 
+    // 診斷用原生 MAC 讀取程式庫；載入失敗時不影響原有授權流程。
+    private val nativeMacLibraryStatus: String by lazy {
+        try {
+            System.loadLibrary("macreader")
+            "載入成功"
+        } catch (e: Throwable) {
+            "載入失敗：${e.javaClass.simpleName}: ${e.message ?: "未知錯誤"}"
+        }
+    }
+
+    // 僅供診斷 eth0 的 ioctl 讀取測試，暫不參與正式授權判斷。
+    private external fun readEthMacNative(): String
+
     companion object {
         private const val MARKET_URL =
             "https://dylan0728-web.github.io/Market/"
@@ -303,6 +316,20 @@ class MainActivity : Activity() {
             }
         } catch (e: Exception) {
             result.append("NetworkInterface 錯誤：${e.javaClass.simpleName}: ${e.message}\n")
+        }
+
+        result.append("\n========== 原生 ioctl eth0 讀取測試 ==========\n")
+        result.append("原生程式庫：$nativeMacLibraryStatus\n")
+
+        if (nativeMacLibraryStatus == "載入成功") {
+            try {
+                val nativeMac = readEthMacNative()
+                result.append("原生讀取結果：$nativeMac\n")
+            } catch (e: Throwable) {
+                result.append(
+                    "原生讀取錯誤：${e.javaClass.simpleName}: ${e.message}\n"
+                )
+            }
         }
 
         result.append("\n========== 診斷結束 ==========\n")
