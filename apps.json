@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-24T15:12:50Z",
+  "generated_at": "2026-11-24T16:23:34Z",
   "apps": [
     {
       "name": "AirScreen_2.3.1.apk",
@@ -59,7 +59,7 @@
     },
     {
       "name": "HY.apk",
-      "size": 3259907,
+      "size": 4646547,
       "browser_download_url": "https://github.com/dylan0728-web/Market/releases/download/market-update/HY.apk",
       "version": "market-update",
       "release_tag": "market-update",
