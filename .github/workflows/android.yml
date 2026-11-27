@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - android7-compat-test
 
 permissions:
   contents: write
@@ -24,6 +25,10 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Configure isolated Android 7 compatibility test
+        if: github.ref == 'refs/heads/android7-compat-test'
+        run: echo "HY_TEST_BUILD=true" >> "$GITHUB_ENV"
 
       - name: Set up JDK
         uses: actions/setup-java@v4
