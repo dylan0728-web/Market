@@ -19,6 +19,11 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.SslErrorHandler
+import android.net.http.SslError
+import androidx.webkit.WebViewAssetLoader
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -46,6 +51,7 @@ import javax.crypto.spec.SecretKeySpec
 class MainActivity : Activity() {
 
     private lateinit var webView: WebView
+    private lateinit var webViewAssetLoader: WebViewAssetLoader
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -81,7 +87,7 @@ class MainActivity : Activity() {
 
     companion object {
         private const val MARKET_URL =
-            "https://dylan0728-web.github.io/Market/"
+            "https://appassets.androidplatform.net/assets/index.html"
 
         private const val MEGA_AUTH_FOLDER_URL =
             "https://mega.nz/folder/0lFhiRBT#QKMgWwfILTnEDGAqgxG8IQ"
@@ -878,6 +884,10 @@ class MainActivity : Activity() {
             setBackgroundColor(0xFF101820.toInt())
         }
 
+        webViewAssetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+
         webView = WebView(this)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -885,7 +895,30 @@ class MainActivity : Activity() {
 
         webView.addJavascriptInterface(AndroidMarketBridge(), "AndroidMarket")
         webView.webChromeClient = WebChromeClient()
-        webView.webViewClient = WebViewClient()
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                return webViewAssetLoader.shouldInterceptRequest(request.url)
+            }
+
+            override fun onReceivedSslError(
+                view: WebView,
+                handler: SslErrorHandler,
+                error: SslError
+            ) {
+                // 一律拒絕無效憑證，不略過、不繞過 HTTPS 驗證。
+                handler.cancel()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "安全連線失敗：${error.primaryError}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
 
         layout.addView(
             webView,
@@ -918,6 +951,7 @@ class MainActivity : Activity() {
     }
 
     private fun checkMarketUpdate() {
+        if (BuildConfig.HY_TEST_BUILD) return
         if (!authorized || marketUpdateCheckStarted) return
 
         marketUpdateCheckStarted = true
