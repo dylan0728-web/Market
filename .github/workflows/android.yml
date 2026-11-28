@@ -45,7 +45,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Prepare signing key
-        if: !startsWith(github.ref, 'refs/heads/android7-compat-')
+        if: ${{ !startsWith(github.ref, 'refs/heads/android7-compat-') }}
         run: |
           printf '%s' "$HY_KEYSTORE_BASE64" | base64 --decode > "$HY_KEYSTORE_PATH"
           test -s "$HY_KEYSTORE_PATH"
