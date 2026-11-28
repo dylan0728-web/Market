@@ -72,7 +72,9 @@ h1{
  max-width:none;width:100%;margin:0;min-width:0;
  position:relative;left:-8px; /* 電視畫面統計區整組微幅左移 */
 }
-.stats>.stat{flex:0 1 calc((100% - 3cm)/3);min-width:0;margin-right:0}
+/* 舊版 Android WebView 不支援 gap，使用子項 margin 保留等距 */
+/* Build refreshed from current official main branch */
+.stats>.stat{flex:0 1 calc((100% - 16px)/3);min-width:0;margin-right:8px}
 .stats>.stat:last-child{margin-right:0}
 .stat{
  position:relative;min-height:62px;padding:8px 10px;
