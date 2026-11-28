@@ -1353,9 +1353,16 @@ class MainActivity : Activity() {
 
                             // 快取套件必須再次符合目前 APK 的專屬名稱規則，
                             // 避免舊版模糊比對留下的錯誤套件對應持續污染版本顯示。
+                            val belongsToOtherMarketEntry =
+                                fileName.equals("H_S.apk", true) &&
+                                    packageName == "com.hongguotv.nativeapp"
+
                             if (
-                                packageName == knownPackage && knownPackage.isNotBlank() ||
-                                isMatchingInstalledAppLabel(fileName, candidates, cachedLabel)
+                                !belongsToOtherMarketEntry &&
+                                (
+                                    (packageName == knownPackage && knownPackage.isNotBlank()) ||
+                                    isMatchingInstalledAppLabel(fileName, candidates, cachedLabel)
+                                )
                             ) {
                                 installed = true
                                 installedVersion = info.versionName ?: installedVersion
@@ -1382,6 +1389,14 @@ class MainActivity : Activity() {
                             otherFileName.equals(fileName, ignoreCase = true)
                         ) continue
 
+                        val otherKnownPackage = when (otherFileName.uppercase(Locale.ROOT)) {
+                            "HG_S.APK" -> "com.hongguotv.nativeapp"
+                            else -> ""
+                        }
+                        if (otherKnownPackage.isNotBlank()) {
+                            packagesOwnedByOtherApks.add(otherKnownPackage)
+                        }
+
                         val otherPackage = prefs.getString("package_$otherFileName", "") ?: ""
                         if (otherPackage.isNotBlank()) {
                             packagesOwnedByOtherApks.add(otherPackage)
@@ -1391,6 +1406,10 @@ class MainActivity : Activity() {
                     if (!installed) {
                         for (info in installedPackages) {
                             if (packagesOwnedByOtherApks.contains(info.packageName)) continue
+                            if (
+                                fileName.equals("H_S.apk", true) &&
+                                info.packageName == "com.hongguotv.nativeapp"
+                            ) continue
                             val label = try {
                                 packageManager.getApplicationLabel(
                                     info.applicationInfo!!
