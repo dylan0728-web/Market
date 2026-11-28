@@ -1,6 +1,6 @@
 {
   "versions": {
-    "H_S.apk": "1.4.0",
+    "H_S.apk": "1.4.0.1",
     "K_SSS.apk": "1.0.3",
     "W_SSS.apk": "1.0.3",
     "I_SSS.apk": "2.4.5",
@@ -26,6 +26,6 @@
     "SideloadLauncher_2.0.1.apk": "2.0.1",
     "Emotn.Store_1.0.40_S.apk": "1.0.40",
     "ProtonVPN.apk": "5.20.57.0",
-    "HG_S.apk": "0.36.0+66"
+    "HG_S.apk": "0.37.0+67"
   }
 }
