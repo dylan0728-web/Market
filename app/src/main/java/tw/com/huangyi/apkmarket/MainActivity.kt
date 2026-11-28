@@ -1323,7 +1323,14 @@ class MainActivity : Activity() {
 
                     if (!canAccessApk(fileName)) continue
 
-                    var packageName = prefs.getString("package_$fileName", "") ?: ""
+                    // 已知 APK 使用固定套件名稱，避免不同系統語系或 APP 顯示名稱造成漏判。
+                    val knownPackage = when (fileName.uppercase(Locale.ROOT)) {
+                        "HG_S.APK" -> "com.hongguotv.nativeapp"
+                        else -> ""
+                    }
+                    var packageName = knownPackage.ifBlank {
+                        prefs.getString("package_$fileName", "") ?: ""
+                    }
                     var installed = false
                     var installedLabel = appName
                     var installedVersion = item.optString("versionName", "")
@@ -1346,7 +1353,10 @@ class MainActivity : Activity() {
 
                             // 快取套件必須再次符合目前 APK 的專屬名稱規則，
                             // 避免舊版模糊比對留下的錯誤套件對應持續污染版本顯示。
-                            if (isMatchingInstalledAppLabel(fileName, candidates, cachedLabel)) {
+                            if (
+                                packageName == knownPackage && knownPackage.isNotBlank() ||
+                                isMatchingInstalledAppLabel(fileName, candidates, cachedLabel)
+                            ) {
                                 installed = true
                                 installedVersion = info.versionName ?: installedVersion
                                 installedLabel = cachedLabel.ifBlank { appName }
