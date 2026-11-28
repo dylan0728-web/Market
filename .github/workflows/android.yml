@@ -29,7 +29,9 @@ jobs:
 
       - name: Configure isolated Android 7 compatibility test
         if: startsWith(github.ref, 'refs/heads/android7-compat-')
-        run: echo "HY_TEST_BUILD=true" >> "$GITHUB_ENV"
+        run: |
+          echo "HY_TEST_BUILD=true" >> "$GITHUB_ENV"
+          echo "HY_KEYSTORE_PATH=" >> "$GITHUB_ENV"
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -43,6 +45,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Prepare signing key
+        if: !startsWith(github.ref, 'refs/heads/android7-compat-')
         run: |
           printf '%s' "$HY_KEYSTORE_BASE64" | base64 --decode > "$HY_KEYSTORE_PATH"
           test -s "$HY_KEYSTORE_PATH"
