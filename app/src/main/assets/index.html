@@ -68,13 +68,14 @@ h1{
 /* 電競統計面板 */
 .stats{
  /* 三個統計面板固定橫向排列，避免舊 WebView 將 Grid 退化成直排 */
- display:flex;flex-direction:row;flex-wrap:nowrap;gap:8px;
+ display:flex;flex-direction:row;flex-wrap:nowrap;
  max-width:none;width:100%;margin:0;min-width:0;
 }
-.stats>.stat{flex:1 1 0;min-width:0}
+.stats>.stat{flex:1 1 0;min-width:0;margin-right:8px}
+.stats>.stat:last-child{margin-right:0}
 .stat{
  position:relative;min-height:62px;padding:8px 10px;
- display:flex;align-items:center;gap:8px;
+ display:flex;align-items:center;
  background:linear-gradient(135deg,rgba(19,48,78,.97),rgba(7,17,32,.98));
  border:1px solid var(--hy-line);border-radius:5px;
  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 8px 24px rgba(0,0,0,.35);
@@ -117,16 +118,16 @@ h1{
 /* APP 電競卡片 */
 #apps{
  display:flex;flex-wrap:wrap;align-items:stretch;
- gap:24px;padding-bottom:40px;
+ padding-bottom:40px;margin:-8px;
 }
 #apps>.app{
- box-sizing:border-box;flex:0 0 calc((100% - 72px)/4);
- width:calc((100% - 72px)/4);min-width:0;
+ box-sizing:border-box;flex:0 0 calc((100% - 64px)/4);
+ width:calc((100% - 64px)/4);min-width:0;margin:8px;
 }
 .app{
  position:relative;width:100%;height:calc((100vw - 140px)/4);aspect-ratio:1/1;min-width:0;min-height:220px;
- display:flex;flex-direction:column;align-items:center;justify-content:center;
- gap:8px;padding:14px 14px 48px;
+ display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+ gap:8px;padding:20px 12px 48px;
  background:
  linear-gradient(145deg,rgba(20,45,72,.98),rgba(6,15,29,.99));
  border:1px solid rgba(78,160,220,.34);
@@ -264,14 +265,15 @@ button:hover,button:focus{
  header>div:first-child{order:1;flex:0 0 170px;min-width:0}
  header>.stats{order:2;display:flex;flex:1 1 0;flex-direction:row;flex-wrap:nowrap;width:auto;max-width:none;min-width:0}
  #macInfo{order:3;flex:0 0 auto;margin:0;padding:7px 8px;font-size:12px}
- .stats>.stat{flex:1 1 0;min-width:0;padding:6px 5px;gap:4px}
+ .stats>.stat{flex:1 1 0;min-width:0;padding:6px 5px;margin-right:7px}
+ .stats>.stat:last-child{margin-right:0}
  .stat-icon{width:20px;height:20px;flex-basis:20px;font-size:13px}
  .stat-label{font-size:9px}
  .stat-number{font-size:17px}
  h1{font-size:22px;letter-spacing:1px}
  #versionDate,#marketVersion{font-size:11px}
- #apps{display:flex;flex-wrap:wrap;gap:24px}
- #apps>.app{flex:0 0 calc((100% - 72px)/4);width:calc((100% - 72px)/4);height:calc((100vw - 112px)/4)}
+ #apps{display:flex;flex-wrap:wrap;gap:0;margin:-6px}
+ #apps>.app{flex:0 0 calc((100% - 48px)/4);width:calc((100% - 48px)/4);height:calc((100vw - 112px)/4);margin:6px}
 }
 @media(prefers-reduced-motion:reduce){
  *,*:before,*:after{scroll-behavior:auto!important;transition:none!important}
