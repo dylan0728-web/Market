@@ -34,6 +34,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -900,7 +901,90 @@ class MainActivity : Activity() {
                 view: WebView,
                 request: WebResourceRequest
             ): WebResourceResponse? {
-                return webViewAssetLoader.shouldInterceptRequest(request.url)
+                val localResponse = webViewAssetLoader.shouldInterceptRequest(request.url)
+                if (localResponse != null) return localResponse
+
+                // Android 7.0 的 WebView 不套用 App Network Security Config。
+                // 因此 raw.githubusercontent.com 資料改由 OkHttp 取得，
+                // 使用 App 的系統憑證 + 官方 ISRG Root X1 信任設定。
+                if (
+                    request.url.scheme != "https" ||
+                    request.url.host != "raw.githubusercontent.com"
+                ) {
+                    return null
+                }
+
+                if (!request.method.equals("GET", ignoreCase = true)) {
+                    return WebResourceResponse(
+                        "text/plain",
+                        "UTF-8",
+                        405,
+                        "Method Not Allowed",
+                        mapOf("Access-Control-Allow-Origin" to "*"),
+                        ByteArrayInputStream(ByteArray(0))
+                    )
+                }
+
+                return try {
+                    val upstreamRequest = Request.Builder()
+                        .url(request.url.toString())
+                        .get()
+                        .header("User-Agent", "HY-App-Market")
+                        .header("Cache-Control", "no-cache")
+                        .build()
+
+                    httpClient.newCall(upstreamRequest).execute().use { response ->
+                        val responseBody = response.body
+                        val bytes = responseBody?.bytes() ?: ByteArray(0)
+                        val contentType = responseBody?.contentType()
+
+                        val responseHeaders = mutableMapOf<String, String>()
+                        response.headers.names().forEach { name ->
+                            if (
+                                !name.equals("Set-Cookie", ignoreCase = true) &&
+                                !name.equals("Access-Control-Allow-Origin", ignoreCase = true)
+                            ) {
+                                responseHeaders[name] = response.headers.values(name).joinToString(", ")
+                            }
+                        }
+                        responseHeaders["Access-Control-Allow-Origin"] = "*"
+                        responseHeaders["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+                        responseHeaders["Access-Control-Allow-Headers"] = "*"
+
+                        val mimeType = contentType?.let {
+                            "${it.type}/${it.subtype}"
+                        } ?: when {
+                            request.url.path.endsWith(".json", ignoreCase = true) -> "application/json"
+                            request.url.path.endsWith(".png", ignoreCase = true) -> "image/png"
+                            request.url.path.endsWith(".webp", ignoreCase = true) -> "image/webp"
+                            request.url.path.endsWith(".jpg", ignoreCase = true) ||
+                                request.url.path.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+                            else -> "application/octet-stream"
+                        }
+                        val charset = contentType?.charset(StandardCharsets.UTF_8)?.name() ?: "UTF-8"
+
+                        WebResourceResponse(
+                            mimeType,
+                            charset,
+                            response.code,
+                            response.message.ifBlank { "OK" },
+                            responseHeaders,
+                            ByteArrayInputStream(bytes)
+                        )
+                    }
+                } catch (e: Exception) {
+                    WebResourceResponse(
+                        "text/plain",
+                        "UTF-8",
+                        502,
+                        "Bad Gateway",
+                        mapOf("Access-Control-Allow-Origin" to "*"),
+                        ByteArrayInputStream(
+                            ("GitHub 資料讀取失敗：" + (e.message ?: "未知錯誤"))
+                                .toByteArray(StandardCharsets.UTF_8)
+                        )
+                    )
+                }
             }
 
             override fun onReceivedSslError(
