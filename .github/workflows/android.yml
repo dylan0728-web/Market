@@ -9,6 +9,7 @@ on:
       - android7-compat-test
       - android7-compat-work
       - android7-compat-release
+      - android7-compat-current-main
 
 permissions:
   contents: write
