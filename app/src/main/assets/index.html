@@ -42,12 +42,12 @@ body:after{
 header,#apps,#dialog{position:relative;z-index:1}
 header{
  /* Android 7 WebView 不完整支援 CSS Grid，改用 Flex 保留原始兩層標頭 */
- display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:20px;
+ display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:12px;
  margin-bottom:18px;width:100%;
 }
-header>div:first-child{order:1;flex:1 1 auto;min-width:260px}
-#macInfo{order:2;flex:0 0 auto}
-header>.stats{order:3;flex:0 0 100%;width:100%;max-width:760px}
+header>div:first-child{order:1;flex:0 0 240px;min-width:0}
+header>.stats{order:2;flex:1 1 0;width:auto;max-width:none;min-width:0}
+#macInfo{order:3;flex:0 0 auto}
 h1{
  font-size:30px;margin:0;letter-spacing:3px;font-weight:900;
  color:#f3fbff;
@@ -68,13 +68,13 @@ h1{
 /* 電競統計面板 */
 .stats{
  /* 三個統計面板固定橫向排列，避免舊 WebView 將 Grid 退化成直排 */
- display:flex;flex-direction:row;flex-wrap:nowrap;gap:12px;
- max-width:760px;width:100%;margin:0;
+ display:flex;flex-direction:row;flex-wrap:nowrap;gap:8px;
+ max-width:none;width:100%;margin:0;min-width:0;
 }
 .stats>.stat{flex:1 1 0;min-width:0}
 .stat{
- position:relative;min-height:70px;padding:10px 14px;
- display:flex;align-items:center;gap:11px;
+ position:relative;min-height:62px;padding:8px 10px;
+ display:flex;align-items:center;gap:8px;
  background:linear-gradient(135deg,rgba(19,48,78,.97),rgba(7,17,32,.98));
  border:1px solid var(--hy-line);border-radius:5px;
  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 8px 24px rgba(0,0,0,.35);
@@ -92,7 +92,7 @@ h1{
  border-bottom:2px solid rgba(67,188,255,.45);
 }
 .stat-icon{
- width:33px;height:33px;flex:0 0 33px;
+ width:28px;height:28px;flex:0 0 28px;
  display:flex;align-items:center;justify-content:center;
  border-radius:5px;
  background:linear-gradient(145deg,rgba(27,139,205,.32),rgba(49,70,170,.24));
@@ -100,7 +100,7 @@ h1{
  color:#8ceeff;font-size:19px;
  box-shadow:inset 0 0 12px rgba(82,202,255,.16),0 0 10px rgba(36,160,255,.12);
 }
-.stat-label{color:#91b4d2;font-size:12px;margin-bottom:4px;white-space:nowrap}
+.stat-label{color:#91b4d2;font-size:11px;margin-bottom:3px;white-space:nowrap}
 .stat-number{
  color:#f1fbff;font-size:23px;font-weight:900;line-height:1;
  letter-spacing:.5px;font-variant-numeric:tabular-nums;
@@ -246,23 +246,32 @@ button:hover,button:focus{
 }
 .dialog-actions button{min-width:85px}
 
-/* 平板與電視盒：不使用 CSS Grid，維持標題/MAC 同列、統計三格橫列 */
+/* 平板與電視盒：標題、統計三格、MAC 全部同列，統計欄位自動縮小 */
 @media(max-width:1000px){
- header{gap:14px}
- header>div:first-child{min-width:220px}
- #macInfo{margin:0}
- header>.stats{flex-basis:100%;max-width:760px}
+ header{gap:8px}
+ header>div:first-child{flex:0 0 205px;min-width:0}
+ header>.stats{flex:1 1 0;max-width:none;min-width:0}
+ #macInfo{margin:0;padding:9px 10px;font-size:15px}
+ .stat{padding:7px 8px;gap:6px}
+ .stat-icon{width:25px;height:25px;flex-basis:25px;font-size:16px}
+ .stat-label{font-size:10px}
+ .stat-number{font-size:20px}
 }
 @media(max-width:700px){
- /* Android 7.0：保留 S__99000492 的三格統計與四欄大型卡片 */
- body{padding:24px 34px}
- header{display:flex;flex-wrap:wrap;gap:14px}
- header>div:first-child{order:1;flex:1 1 auto;min-width:0}
- #macInfo{order:2;flex:0 0 auto;margin:0}
- header>.stats{order:3;display:flex;flex-direction:row;flex-wrap:nowrap;flex-basis:100%;width:100%;max-width:760px}
- .stats>.stat{flex:1 1 0;min-width:0}
+ /* Android 7.0：標題、三格統計、MAC 同列及四欄卡片 */
+ body{padding:18px 20px}
+ header{display:flex;flex-wrap:nowrap;gap:6px;align-items:center}
+ header>div:first-child{order:1;flex:0 0 170px;min-width:0}
+ header>.stats{order:2;display:flex;flex:1 1 0;flex-direction:row;flex-wrap:nowrap;width:auto;max-width:none;min-width:0}
+ #macInfo{order:3;flex:0 0 auto;margin:0;padding:7px 8px;font-size:12px}
+ .stats>.stat{flex:1 1 0;min-width:0;padding:6px 5px;gap:4px}
+ .stat-icon{width:20px;height:20px;flex-basis:20px;font-size:13px}
+ .stat-label{font-size:9px}
+ .stat-number{font-size:17px}
+ h1{font-size:22px;letter-spacing:1px}
+ #versionDate,#marketVersion{font-size:11px}
  #apps{display:flex;flex-wrap:wrap;gap:24px}
- #apps>.app{flex:0 0 calc((100% - 72px)/4);width:calc((100% - 72px)/4);height:calc((100vw - 140px)/4)}
+ #apps>.app{flex:0 0 calc((100% - 72px)/4);width:calc((100% - 72px)/4);height:calc((100vw - 112px)/4)}
 }
 @media(prefers-reduced-motion:reduce){
  *,*:before,*:after{scroll-behavior:auto!important;transition:none!important}
