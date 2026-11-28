@@ -249,41 +249,14 @@ button:hover,button:focus{
  header>.stats{grid-column:1/-1;grid-row:2;max-width:760px}
 }
 @media(max-width:700px){
- body{padding:18px}
- header{grid-template-columns:minmax(0,1fr);gap:12px}
+ /* Android 7.0 電視盒：保留原始桌面版比例，只調整上方排列與四欄寬度 */
+ body{padding:24px 34px}
+ header{grid-template-columns:minmax(0,1fr) auto;gap:14px}
  header>div:first-child{grid-column:1;grid-row:1}
- #macInfo{grid-column:1;grid-row:2;justify-self:start;margin:0;font-size:15px}
- header>.stats{grid-column:1;grid-row:3;max-width:none}
- #apps{gap:14px}
- #apps>.app{flex-basis:calc((100% - 42px)/4);width:calc((100% - 42px)/4)}
- .app{padding:12px 12px 42px;gap:8px}
- .app-icon{width:42%;border-radius:11px}
- .app-name{font-size:16px}
- .app-detail{font-size:11px}
- .download-progress{left:12px;right:12px;bottom:8px}
- .stats{gap:8px}
- .stat{padding:8px 9px;gap:7px;min-height:64px}
- .stat-icon{width:29px;height:29px;flex-basis:29px;font-size:16px}
- .stat-number{font-size:20px}
-}
-@media(max-width:420px){
- body{padding:12px}
- header{grid-template-columns:minmax(0,1fr);align-items:start}
- header>div:first-child,#macInfo,header>.stats{grid-column:1}
- header>div:first-child{grid-row:1}
- #macInfo{grid-row:2;margin:0}
- header>.stats{grid-row:3}
- .stats{gap:6px}
- .stat{padding:7px 6px;gap:5px;min-height:60px}
- .stat-icon{width:25px;height:25px;flex-basis:25px;font-size:14px}
- .stat-label{font-size:10px}
- .stat-number{font-size:18px}
- .app{padding:9px 9px 38px;gap:6px}
- .app-icon{width:45%;border-radius:10px}
- .app-name{font-size:14px}
- .app-detail{font-size:10px}
- .installed,.not-installed{font-size:10px;padding:3px 6px}
- .download-progress{left:9px;right:9px;bottom:8px}
+ #macInfo{grid-column:2;grid-row:1;justify-self:end;margin:0}
+ header>.stats{grid-column:1/-1;grid-row:2;max-width:760px}
+ #apps{gap:18px}
+ #apps>.app{flex-basis:calc((100% - 54px)/4);width:calc((100% - 54px)/4)}
 }
 @media(prefers-reduced-motion:reduce){
  *,*:before,*:after{scroll-behavior:auto!important;transition:none!important}
