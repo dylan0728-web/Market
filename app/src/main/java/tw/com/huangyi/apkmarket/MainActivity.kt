@@ -954,11 +954,11 @@ class MainActivity : Activity() {
                         val mimeType = contentType?.let {
                             "${it.type}/${it.subtype}"
                         } ?: when {
-                            request.url.path.endsWith(".json", ignoreCase = true) -> "application/json"
-                            request.url.path.endsWith(".png", ignoreCase = true) -> "image/png"
-                            request.url.path.endsWith(".webp", ignoreCase = true) -> "image/webp"
-                            request.url.path.endsWith(".jpg", ignoreCase = true) ||
-                                request.url.path.endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+                            request.url.path.orEmpty().endsWith(".json", ignoreCase = true) -> "application/json"
+                            request.url.path.orEmpty().endsWith(".png", ignoreCase = true) -> "image/png"
+                            request.url.path.orEmpty().endsWith(".webp", ignoreCase = true) -> "image/webp"
+                            request.url.path.orEmpty().endsWith(".jpg", ignoreCase = true) ||
+                                request.url.path.orEmpty().endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
                             else -> "application/octet-stream"
                         }
                         val charset = contentType?.charset(StandardCharsets.UTF_8)?.name() ?: "UTF-8"
