@@ -1351,19 +1351,13 @@ class MainActivity : Activity() {
                                 ""
                             }
 
-                            // 快取套件必須再次符合目前 APK 的專屬名稱規則，
-                            // 避免舊版模糊比對留下的錯誤套件對應持續污染版本顯示。
+                            // 沿用中午已驗證的快取判斷：套件仍存在就視為已安裝。
+                            // 唯一排除：第一個紅果不可認領第二個紅果 TV 的套件。
                             val belongsToOtherMarketEntry =
                                 fileName.equals("H_S.apk", true) &&
                                     packageName == "com.hongguotv.nativeapp"
 
-                            if (
-                                !belongsToOtherMarketEntry &&
-                                (
-                                    (packageName == knownPackage && knownPackage.isNotBlank()) ||
-                                    isMatchingInstalledAppLabel(fileName, candidates, cachedLabel)
-                                )
-                            ) {
+                            if (!belongsToOtherMarketEntry) {
                                 installed = true
                                 installedVersion = info.versionName ?: installedVersion
                                 installedLabel = cachedLabel.ifBlank { appName }
