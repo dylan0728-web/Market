@@ -64,11 +64,12 @@ h1{
 
 /* 電競統計面板 */
 .stats{
- display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
- gap:12px;max-width:760px;width:100%;margin:0;
+ display:flex;align-items:stretch;
+ max-width:760px;width:100%;margin:0;
 }
 .stat{
- position:relative;min-height:70px;padding:10px 14px;
+ position:relative;flex:1 1 0;min-width:0;margin-right:12px;
+ min-height:70px;padding:10px 14px;
  display:flex;align-items:center;gap:11px;
  background:linear-gradient(135deg,rgba(19,48,78,.97),rgba(7,17,32,.98));
  border:1px solid var(--hy-line);border-radius:5px;
@@ -101,6 +102,7 @@ h1{
  letter-spacing:.5px;font-variant-numeric:tabular-nums;
  text-shadow:0 0 12px rgba(98,231,255,.38);
 }
+.stat:last-child{margin-right:0}
 .stat:hover{
  border-color:rgba(98,231,255,.75);
  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 22px rgba(45,174,255,.22);
@@ -256,8 +258,7 @@ button:hover,button:focus{
  .app-name{font-size:16px}
  .app-detail{font-size:11px}
  .download-progress{left:12px;right:12px;bottom:8px}
- .stats{gap:8px}
- .stat{padding:8px 9px;gap:7px;min-height:64px}
+ .stat{margin-right:8px;padding:8px 9px;gap:7px;min-height:64px}
  .stat-icon{width:29px;height:29px;flex-basis:29px;font-size:16px}
  .stat-number{font-size:20px}
 }
@@ -268,8 +269,7 @@ button:hover,button:focus{
  header>div:first-child{grid-row:1}
  #macInfo{grid-row:2;margin:0}
  header>.stats{grid-row:3}
- .stats{gap:6px}
- .stat{padding:7px 6px;gap:5px;min-height:60px}
+ .stat{margin-right:6px;padding:7px 6px;gap:5px;min-height:60px}
  .stat-icon{width:25px;height:25px;flex-basis:25px;font-size:14px}
  .stat-label{font-size:10px}
  .stat-number{font-size:18px}
