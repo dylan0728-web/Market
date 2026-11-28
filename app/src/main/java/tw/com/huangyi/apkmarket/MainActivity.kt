@@ -19,6 +19,11 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.SslErrorHandler
+import android.net.http.SslError
+import androidx.webkit.WebViewAssetLoader
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -29,6 +34,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -46,6 +52,7 @@ import javax.crypto.spec.SecretKeySpec
 class MainActivity : Activity() {
 
     private lateinit var webView: WebView
+    private lateinit var webViewAssetLoader: WebViewAssetLoader
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -81,7 +88,7 @@ class MainActivity : Activity() {
 
     companion object {
         private const val MARKET_URL =
-            "https://dylan0728-web.github.io/Market/"
+            "https://appassets.androidplatform.net/assets/index.html"
 
         private const val MEGA_AUTH_FOLDER_URL =
             "https://mega.nz/folder/0lFhiRBT#QKMgWwfILTnEDGAqgxG8IQ"
@@ -878,6 +885,10 @@ class MainActivity : Activity() {
             setBackgroundColor(0xFF101820.toInt())
         }
 
+        webViewAssetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+
         webView = WebView(this)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -885,7 +896,113 @@ class MainActivity : Activity() {
 
         webView.addJavascriptInterface(AndroidMarketBridge(), "AndroidMarket")
         webView.webChromeClient = WebChromeClient()
-        webView.webViewClient = WebViewClient()
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                val localResponse = webViewAssetLoader.shouldInterceptRequest(request.url)
+                if (localResponse != null) return localResponse
+
+                // Android 7.0 的 WebView 不套用 App Network Security Config。
+                // 因此 raw.githubusercontent.com 資料改由 OkHttp 取得，
+                // 使用 App 的系統憑證 + 官方 ISRG Root X1 信任設定。
+                if (
+                    request.url.scheme != "https" ||
+                    request.url.host != "raw.githubusercontent.com"
+                ) {
+                    return null
+                }
+
+                if (!request.method.equals("GET", ignoreCase = true)) {
+                    return WebResourceResponse(
+                        "text/plain",
+                        "UTF-8",
+                        405,
+                        "Method Not Allowed",
+                        mapOf("Access-Control-Allow-Origin" to "*"),
+                        ByteArrayInputStream(ByteArray(0))
+                    )
+                }
+
+                return try {
+                    val upstreamRequest = Request.Builder()
+                        .url(request.url.toString())
+                        .get()
+                        .header("User-Agent", "HY-App-Market")
+                        .header("Cache-Control", "no-cache")
+                        .build()
+
+                    httpClient.newCall(upstreamRequest).execute().use { response ->
+                        val responseBody = response.body
+                        val bytes = responseBody?.bytes() ?: ByteArray(0)
+                        val contentType = responseBody?.contentType()
+
+                        val responseHeaders = mutableMapOf<String, String>()
+                        response.headers.names().forEach { name ->
+                            if (
+                                !name.equals("Set-Cookie", ignoreCase = true) &&
+                                !name.equals("Access-Control-Allow-Origin", ignoreCase = true)
+                            ) {
+                                responseHeaders[name] = response.headers.values(name).joinToString(", ")
+                            }
+                        }
+                        responseHeaders["Access-Control-Allow-Origin"] = "*"
+                        responseHeaders["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+                        responseHeaders["Access-Control-Allow-Headers"] = "*"
+
+                        val mimeType = contentType?.let {
+                            "${it.type}/${it.subtype}"
+                        } ?: when {
+                            request.url.path.orEmpty().endsWith(".json", ignoreCase = true) -> "application/json"
+                            request.url.path.orEmpty().endsWith(".png", ignoreCase = true) -> "image/png"
+                            request.url.path.orEmpty().endsWith(".webp", ignoreCase = true) -> "image/webp"
+                            request.url.path.orEmpty().endsWith(".jpg", ignoreCase = true) ||
+                                request.url.path.orEmpty().endsWith(".jpeg", ignoreCase = true) -> "image/jpeg"
+                            else -> "application/octet-stream"
+                        }
+                        val charset = contentType?.charset(StandardCharsets.UTF_8)?.name() ?: "UTF-8"
+
+                        WebResourceResponse(
+                            mimeType,
+                            charset,
+                            response.code,
+                            response.message.ifBlank { "OK" },
+                            responseHeaders,
+                            ByteArrayInputStream(bytes)
+                        )
+                    }
+                } catch (e: Exception) {
+                    WebResourceResponse(
+                        "text/plain",
+                        "UTF-8",
+                        502,
+                        "Bad Gateway",
+                        mapOf("Access-Control-Allow-Origin" to "*"),
+                        ByteArrayInputStream(
+                            ("GitHub 資料讀取失敗：" + (e.message ?: "未知錯誤"))
+                                .toByteArray(StandardCharsets.UTF_8)
+                        )
+                    )
+                }
+            }
+
+            override fun onReceivedSslError(
+                view: WebView,
+                handler: SslErrorHandler,
+                error: SslError
+            ) {
+                // 一律拒絕無效憑證，不略過、不繞過 HTTPS 驗證。
+                handler.cancel()
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "安全連線失敗：${error.primaryError}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
 
         layout.addView(
             webView,
@@ -918,6 +1035,7 @@ class MainActivity : Activity() {
     }
 
     private fun checkMarketUpdate() {
+        if (BuildConfig.HY_TEST_BUILD) return
         if (!authorized || marketUpdateCheckStarted) return
 
         marketUpdateCheckStarted = true
@@ -1236,8 +1354,25 @@ class MainActivity : Activity() {
                         }
                     }
 
+                    // 已由其他市場 APK 項目記錄的套件，不可再靠相同顯示名稱分配給目前項目。
+                    // 避免 H_S.apk 的「紅果」別名把 HG_S.apk 誤判成同一個 APP。
+                    val packagesOwnedByOtherApks = mutableSetOf<String>()
+                    for (j in 0 until input.length()) {
+                        val other = input.optJSONObject(j) ?: continue
+                        val otherFileName = other.optString("fileName", "")
+                        if (otherFileName.isBlank() ||
+                            otherFileName.equals(fileName, ignoreCase = true)
+                        ) continue
+
+                        val otherPackage = prefs.getString("package_$otherFileName", "") ?: ""
+                        if (otherPackage.isNotBlank()) {
+                            packagesOwnedByOtherApks.add(otherPackage)
+                        }
+                    }
+
                     if (!installed) {
                         for (info in installedPackages) {
+                            if (packagesOwnedByOtherApks.contains(info.packageName)) continue
                             val label = try {
                                 packageManager.getApplicationLabel(
                                     info.applicationInfo!!
