@@ -532,64 +532,47 @@ appList=appList.filter(app=>!specialSet.has(app.fileName));
 appList.splice(firstIndex,0,...specialApps);
 }
 
-/* 雲端排序 */
-async function applyCloudSort(){
-try{
-const response=await fetch(SORT_URL,{method:"GET",cache:"no-store"});
-if(!response.ok)throw new Error("HTTP "+response.status);
-const data=await response.json();
+/* 雲端排序：Promise 寫法，支援舊版 WebView */
+function applyCloudSort(){
+return fetch(SORT_URL,{method:"GET",cache:"no-store"})
+.then(function(response){if(!response.ok)throw new Error("HTTP "+response.status);return response.json();})
+.then(function(data){
 if(!data||!Array.isArray(data.files))throw new Error("排序資料格式不正確");
 const rank=new Map();
-data.files.forEach(function(fileName,index){
-if(typeof fileName==="string"&&!rank.has(fileName))rank.set(fileName,index);
-});
-appList=appList.map(function(app,index){return {app:app,index:index}})
+data.files.forEach(function(fileName,index){if(typeof fileName==="string"&&!rank.has(fileName))rank.set(fileName,index);});
+appList=appList.map(function(app,index){return {app:app,index:index};})
 .sort(function(a,b){
 const rankA=rank.has(a.app.fileName)?rank.get(a.app.fileName):Number.MAX_SAFE_INTEGER;
 const rankB=rank.has(b.app.fileName)?rank.get(b.app.fileName):Number.MAX_SAFE_INTEGER;
 if(rankA!==rankB)return rankA-rankB;
 return a.index-b.index;
-}).map(function(item){return item.app});
+}).map(function(item){return item.app;});
 return true;
-}catch(e){
-arrangeSpecialApps();
-return false;
-}
+})
+.catch(function(){arrangeSpecialApps();return false;});
 }
 
 /* 雲端版本資料讀取 */
-async function loadCloudVersions(){
-try{
-const response=await fetch(CLOUD_VERSION_URL+"?t="+Date.now(),{
-method:"GET",
-cache:"no-store"
-});
-if(!response.ok)throw new Error("HTTP "+response.status);
-const data=await response.json();
-if(!data||!data.versions||typeof data.versions!=="object"||Array.isArray(data.versions)){
-throw new Error("版本資料格式不正確");
-}
+function loadCloudVersions(){
+return fetch(CLOUD_VERSION_URL+"?t="+Date.now(),{method:"GET",cache:"no-store"})
+.then(function(response){if(!response.ok)throw new Error("HTTP "+response.status);return response.json();})
+.then(function(data){
+if(!data||!data.versions||typeof data.versions!=="object"||Array.isArray(data.versions))throw new Error("版本資料格式不正確");
 const clean={};
 Object.keys(data.versions).forEach(function(fileName){
 const value=data.versions[fileName];
-if(typeof value==="string"&&value.trim()){
-clean[fileName]=value.trim();
-}else if(typeof value==="number"){
-clean[fileName]=String(value);
-}
+if(typeof value==="string"&&value.trim())clean[fileName]=value.trim();
+else if(typeof value==="number")clean[fileName]=String(value);
 });
-cloudVersions=clean;
-cloudVersionLoaded=true;
+cloudVersions=clean;cloudVersionLoaded=true;
 if(appList.length)renderApps();
 return true;
-}catch(e){
-console.warn("雲端版本清單讀取失敗：",e);
-cloudVersionLoaded=false;
-return false;
-}
+})
+.catch(function(e){console.warn("雲端版本清單讀取失敗：",e);cloudVersionLoaded=false;return false;});
 }
 
 /* 版本號比較 */
+
 function compareVersions(installed,cloud){
 function parse(value){
 return String(value||"").trim().replace(/^v/i,"").split(/[.+_-]/).map(function(part){
@@ -1007,83 +990,48 @@ setStatus("");
 
 window.refreshInstalledState=requestMetadata;
 
-/* 讀取 GitHub Releases */
-async function loadApps(){
+/* 讀取 GitHub Releases：Promise 寫法，支援舊版 WebView */
+function loadApps(){
 if(loading)return;
-loading=true;
-appList=[];
-updateStats();
-appsElement.innerHTML="";
-setStatus("");
-
-try{
-const response=await fetch(APPS_MANIFEST_URL+"?t="+Date.now(),{
-method:"GET",
-headers:{"Accept":"application/json"},
-cache:"no-store"
-});
-
+loading=true;appList=[];updateStats();appsElement.innerHTML="";setStatus("");
+fetch(APPS_MANIFEST_URL+"?t="+Date.now(),{method:"GET",headers:{"Accept":"application/json"},cache:"no-store"})
+.then(function(response){
 if(!response.ok)throw new Error("雲端 APK 清單讀取錯誤，HTTP "+response.status);
-
-const manifest=await response.json();
+return response.json();
+})
+.then(function(manifest){
 const assets=manifest&&Array.isArray(manifest.apps)?manifest.apps:null;
 if(!assets)throw new Error("apps.json 格式不正確，請先執行 GitHub Actions 更新清單。");
-
-const seenFiles=new Set();
-const specialLevel=getSpecialAccessLevel();
-
+const seenFiles=new Set(),specialLevel=getSpecialAccessLevel();
 assets.forEach(function(asset){
 if(!asset||typeof asset.name!=="string")return;
 if(!asset.name.toLowerCase().endsWith(".apk"))return;
 if(typeof asset.browser_download_url!=="string")return;
 if(asset.browser_download_url.indexOf(RELEASE_PREFIX)!==0)return;
-if(isMarketUpdateAsset(asset.name))return;
-if(!canShowSpecialApk(asset.name,specialLevel))return;
-if(asset.name==="File.Manager.+_3.2.8.apk")return;
-if(seenFiles.has(asset.name))return;
-
+if(isMarketUpdateAsset(asset.name)||!canShowSpecialApk(asset.name,specialLevel))return;
+if(asset.name==="File.Manager.+_3.2.8.apk"||seenFiles.has(asset.name))return;
 seenFiles.add(asset.name);
-
 appList.push({
-name:asset.name.replace(/\.apk$/i,""),
-appName:displayName(asset.name),
-fileName:asset.name,
-size:asset.size||0,
-version:asset.version||asset.release_tag||"未標示版本",
-versionName:"",
-url:asset.browser_download_url,
-icon:iconFor(asset.name),
-packageName:"",
-installed:false,
-downloadActive:false,
-downloadPercent:0,
-downloadState:""
+name:asset.name.replace(/\.apk$/i,""),appName:displayName(asset.name),fileName:asset.name,
+size:asset.size||0,version:asset.version||asset.release_tag||"未標示版本",versionName:"",
+url:asset.browser_download_url,icon:iconFor(asset.name),packageName:"",installed:false,
+downloadActive:false,downloadPercent:0,downloadState:""
 });
 });
-
-await applyCloudSort();
-
-if(!appList.length){
-renderApps();
-setStatus("");
-return;
-}
-
-renderApps();
-setStatus("");
-requestMetadata();
-
-}catch(e){
-appList=[];
-updateStats();
-renderEmpty("讀取失敗："+e.message);
-setStatus("");
-}finally{
-loading=false;
-}
+return applyCloudSort();
+})
+.then(function(){
+if(!appList.length){renderApps();setStatus("");return;}
+renderApps();setStatus("");requestMetadata();
+})
+.catch(function(e){
+appList=[];updateStats();renderEmpty("讀取失敗："+e.message);setStatus("");
+})
+.then(function(){loading=false;});
 }
 
 /* Android TV 遙控器 */
+
 function getGridColumnCount(){
 return window.innerWidth<=700?2:4;
 }
