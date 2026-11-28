@@ -1354,8 +1354,25 @@ class MainActivity : Activity() {
                         }
                     }
 
+                    // 已由其他市場 APK 項目記錄的套件，不可再靠相同顯示名稱分配給目前項目。
+                    // 避免 H_S.apk 的「紅果」別名把 HG_S.apk 誤判成同一個 APP。
+                    val packagesOwnedByOtherApks = mutableSetOf<String>()
+                    for (j in 0 until input.length()) {
+                        val other = input.optJSONObject(j) ?: continue
+                        val otherFileName = other.optString("fileName", "")
+                        if (otherFileName.isBlank() ||
+                            otherFileName.equals(fileName, ignoreCase = true)
+                        ) continue
+
+                        val otherPackage = prefs.getString("package_$otherFileName", "") ?: ""
+                        if (otherPackage.isNotBlank()) {
+                            packagesOwnedByOtherApks.add(otherPackage)
+                        }
+                    }
+
                     if (!installed) {
                         for (info in installedPackages) {
+                            if (packagesOwnedByOtherApks.contains(info.packageName)) continue
                             val label = try {
                                 packageManager.getApplicationLabel(
                                     info.applicationInfo!!
