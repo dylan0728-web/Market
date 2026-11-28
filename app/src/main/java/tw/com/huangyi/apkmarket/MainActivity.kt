@@ -1323,7 +1323,14 @@ class MainActivity : Activity() {
 
                     if (!canAccessApk(fileName)) continue
 
-                    var packageName = prefs.getString("package_$fileName", "") ?: ""
+                    // 已知 APK 使用固定套件名稱，避免不同系統語系或 APP 顯示名稱造成漏判。
+                    val knownPackage = when (fileName.uppercase(Locale.ROOT)) {
+                        "HG_S.APK" -> "com.hongguotv.nativeapp"
+                        else -> ""
+                    }
+                    var packageName = knownPackage.ifBlank {
+                        prefs.getString("package_$fileName", "") ?: ""
+                    }
                     var installed = false
                     var installedLabel = appName
                     var installedVersion = item.optString("versionName", "")
@@ -1336,15 +1343,27 @@ class MainActivity : Activity() {
                     if (packageName.isNotBlank()) {
                         try {
                             val info = packageManager.getPackageInfo(packageName, 0)
-                            installed = true
-                            installedVersion = info.versionName ?: installedVersion
-
-                            installedLabel = try {
+                            val cachedLabel = try {
                                 packageManager.getApplicationLabel(
                                     info.applicationInfo!!
                                 ).toString()
                             } catch (e: Exception) {
-                                appName
+                                ""
+                            }
+
+                            // 沿用中午已驗證的快取判斷：套件仍存在就視為已安裝。
+                            // 唯一排除：第一個紅果不可認領第二個紅果 TV 的套件。
+                            val belongsToOtherMarketEntry =
+                                fileName.equals("H_S.apk", true) &&
+                                    packageName == "com.hongguotv.nativeapp"
+
+                            if (!belongsToOtherMarketEntry) {
+                                installed = true
+                                installedVersion = info.versionName ?: installedVersion
+                                installedLabel = cachedLabel.ifBlank { appName }
+                            } else {
+                                prefs.edit().remove("package_$fileName").apply()
+                                packageName = ""
                             }
                         } catch (e: Exception) {
                             installed = false
@@ -1364,6 +1383,14 @@ class MainActivity : Activity() {
                             otherFileName.equals(fileName, ignoreCase = true)
                         ) continue
 
+                        val otherKnownPackage = when (otherFileName.uppercase(Locale.ROOT)) {
+                            "HG_S.APK" -> "com.hongguotv.nativeapp"
+                            else -> ""
+                        }
+                        if (otherKnownPackage.isNotBlank()) {
+                            packagesOwnedByOtherApks.add(otherKnownPackage)
+                        }
+
                         val otherPackage = prefs.getString("package_$otherFileName", "") ?: ""
                         if (otherPackage.isNotBlank()) {
                             packagesOwnedByOtherApks.add(otherPackage)
@@ -1373,6 +1400,10 @@ class MainActivity : Activity() {
                     if (!installed) {
                         for (info in installedPackages) {
                             if (packagesOwnedByOtherApks.contains(info.packageName)) continue
+                            if (
+                                fileName.equals("H_S.apk", true) &&
+                                info.packageName == "com.hongguotv.nativeapp"
+                            ) continue
                             val label = try {
                                 packageManager.getApplicationLabel(
                                     info.applicationInfo!!
