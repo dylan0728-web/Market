@@ -111,8 +111,12 @@ h1{
 
 /* APP 電競卡片 */
 #apps{
- display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+ display:flex;flex-wrap:wrap;align-items:stretch;
  gap:18px;padding-bottom:40px;
+}
+#apps>.app{
+ box-sizing:border-box;flex:0 0 calc((100% - 54px)/4);
+ width:calc((100% - 54px)/4);min-width:0;
 }
 .app{
  position:relative;width:100%;aspect-ratio:1/1;min-width:0;min-height:0;
@@ -250,7 +254,8 @@ button:hover,button:focus{
  header>div:first-child{grid-column:1;grid-row:1}
  #macInfo{grid-column:1;grid-row:2;justify-self:start;margin:0;font-size:15px}
  header>.stats{grid-column:1;grid-row:3;max-width:none}
- #apps{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+ #apps{gap:14px}
+ #apps>.app{flex-basis:calc((100% - 42px)/4);width:calc((100% - 42px)/4)}
  .app{padding:12px 12px 42px;gap:8px}
  .app-icon{width:42%;border-radius:11px}
  .app-name{font-size:16px}
@@ -1033,7 +1038,7 @@ appList=[];updateStats();renderEmpty("讀取失敗："+e.message);setStatus("");
 /* Android TV 遙控器 */
 
 function getGridColumnCount(){
-return window.innerWidth<=700?2:4;
+return 4;
 }
 
 document.addEventListener("keydown",function(event){
