@@ -1336,15 +1336,23 @@ class MainActivity : Activity() {
                     if (packageName.isNotBlank()) {
                         try {
                             val info = packageManager.getPackageInfo(packageName, 0)
-                            installed = true
-                            installedVersion = info.versionName ?: installedVersion
-
-                            installedLabel = try {
+                            val cachedLabel = try {
                                 packageManager.getApplicationLabel(
                                     info.applicationInfo!!
                                 ).toString()
                             } catch (e: Exception) {
-                                appName
+                                ""
+                            }
+
+                            // 快取套件必須再次符合目前 APK 的專屬名稱規則，
+                            // 避免舊版模糊比對留下的錯誤套件對應持續污染版本顯示。
+                            if (isMatchingInstalledAppLabel(fileName, candidates, cachedLabel)) {
+                                installed = true
+                                installedVersion = info.versionName ?: installedVersion
+                                installedLabel = cachedLabel.ifBlank { appName }
+                            } else {
+                                prefs.edit().remove("package_$fileName").apply()
+                                packageName = ""
                             }
                         } catch (e: Exception) {
                             installed = false
